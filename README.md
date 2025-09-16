@@ -8,3 +8,17 @@ https://docs.google.com/document/d/1bPDbMDzeHgcyTJU0ENFX7s9UR9npXHJ3vHZIvmdP6Yc/
 
 Brain Storming (Miro)
 https://miro.com/app/board/uXjVJIvb3LU=/
+
+
+
+##Facial recognition script
+
+
+###Requirements
+-python 3.10+
+
+###Installation
+run '''pip install --user numpy opencv-python insightface''' in your terminal or '''pip install numpy opencv-python insightface''' if you have admin perms.  
+Then, Put an image of your face (clear, not low light, facing forward) in the references folder and run the script.
+
+
