@@ -4,8 +4,7 @@
 
 [Research Document](https://docs.google.com/document/d/1bPDbMDzeHgcyTJU0ENFX7s9UR9npXHJ3vHZIvmdP6Yc/edit?tab=t.0)
 
-Brain Storming (Miro)
-https://miro.com/app/board/uXjVJIvb3LU=/
+[Brain Storming (Miro)](https://miro.com/app/board/uXjVJIvb3LU=/)
 
 
 
