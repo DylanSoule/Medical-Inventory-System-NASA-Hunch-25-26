@@ -6,6 +6,8 @@
 
 [Brain Storming (Miro)](https://miro.com/app/board/uXjVJIvb3LU=/)
 
+[Hunch PRD](https://docs.google.com/document/d/1xbYMEUOa4X8jCOhtI8mB1611vSFbLBnLVmrof_Y4Wvc/edit?usp=sharing)
+
 
 
 ## Facial recognition script
