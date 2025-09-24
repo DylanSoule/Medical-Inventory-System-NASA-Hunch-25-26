@@ -73,27 +73,6 @@ The Medical Inventory System is designed to help medical facilities (or mobile u
 
 
 
-## Project Status
-
-This is currently a **proof-of-concept / prototype**. Next steps could include:
-
-- Backend database integration (e.g. SQLite, PostgreSQL)  
-- REST API endpoints  Faceid
-- More robust user management (roles, permissions)  
-- Better UI/UX and responsive layout  
-- Security improvements (e.g. encryption, audit trails)  
-
-## Contributing
-
-We welcome contributions! If you’d like to help:
-
-1. Fork the repository  
-2. Create a feature branch (`git checkout -b feat‑name`)  
-3. Make your changes and commit with clear messages  
-4. Submit a pull request  
-
-Please ensure major new features come with tests or usage demos.
-
 ## Resources
 
 - Schedule & planning: [Trello](https://trello.com)  
