@@ -52,19 +52,21 @@ The Medical Inventory System is designed to help medical facilities (or mobile u
    ```
 
 2. Install Python dependencies  
-   ```bash
+   ```pip install --user --break-system-packages numpy opencv-python insightface onnxruntime```  
+   Do not use --break-system-packages if you have admin access
 
 
-3. Prepare reference images  
+
+4. Prepare reference images  
    - Create a folder named `references/`  
    - Add clear photos of each authorized user (frontal view, good lighting)  
 
 ### Usage
 
 - Run the facial recognition authentication  
-  ```bash
+  ```python3 facialrecognition.py```
 
-  ```
+  
   The script will compare a live image or test image to stored references; on match, it grants access.
 
 - Use the web frontend (`index.html`) to manage inventory: add/remove items, view stock, etc.
