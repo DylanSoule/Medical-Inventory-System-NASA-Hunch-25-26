@@ -35,11 +35,6 @@ The Medical Inventory System is designed to help medical facilities (or mobile u
 |---|---|
 | `index.html` / `style.css` | Frontend UI for interacting with the system |
 | `facialrecognition.py` | Python script to handle face detection, identification, and authentication |
-| `references/` folder (not shown in repo) | Contains reference images of authorized users for face matching |
-
-Languages used: **Python**, **HTML**, **CSS**
-
-## Getting Started
 
 ### Prerequisites
 
@@ -58,9 +53,7 @@ Languages used: **Python**, **HTML**, **CSS**
 
 2. Install Python dependencies  
    ```bash
-   pip install numpy opencv-python insightface
-   ```  
-   (Use `--user` if not installing system-wide.)
+
 
 3. Prepare reference images  
    - Create a folder named `references/`  
@@ -70,33 +63,20 @@ Languages used: **Python**, **HTML**, **CSS**
 
 - Run the facial recognition authentication  
   ```bash
-  python facialrecognition.py
+
   ```
   The script will compare a live image or test image to stored references; on match, it grants access.
 
 - Use the web frontend (`index.html`) to manage inventory: add/remove items, view stock, etc.
 
-## Facial Recognition Module
 
-The `facialrecognition.py` script handles:
-
-- Loading reference images  
-- Capturing an input image (or reading from file)  
-- Using **InsightFace** and **OpenCV** to detect and match faces  
-- Validating identity before granting access to the inventory interface  
-
-### Notes & Tips
-
-- Use high-quality, well-lit reference images  
-- Ensure the test image is similar in lighting and angle to reference images  
-- You may need to calibrate thresholds for face matching accuracy  
 
 ## Project Status
 
 This is currently a **proof-of-concept / prototype**. Next steps could include:
 
 - Backend database integration (e.g. SQLite, PostgreSQL)  
-- REST API endpoints  
+- REST API endpoints  Faceid
 - More robust user management (roles, permissions)  
 - Better UI/UX and responsive layout  
 - Security improvements (e.g. encryption, audit trails)  
