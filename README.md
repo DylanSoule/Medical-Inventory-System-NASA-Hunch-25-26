@@ -17,7 +17,8 @@
 -python 3.10+
 
 ### Installation
-run ```pip install --user --break-system-packages numpy opencv-python insightface``` in your terminal or ```pip install numpy opencv-python insightface``` if you have admin perms.  
+run ```pip install --user --break-system-packages numpy opencv-python insightface onnxruntime
+``` in your terminal or ```pip install numpy opencv-python insightface``` if you have admin perms.  
 Then, put an image of your face (clear, not low light, facing forward) in the references folder and run the script.
 
 
