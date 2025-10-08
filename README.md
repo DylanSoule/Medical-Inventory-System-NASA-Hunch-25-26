@@ -75,10 +75,9 @@ The Medical Inventory System is designed to help medical facilities (or mobile u
 
 ## Resources
 
-- Schedule & planning: [Trello](https://trello.com)  
-- Research: [Google Docs](https://docs.google.com)  
-- Brainstorming: [Miro](https://miro.com)  
-- PRD: [Google Docs](https://docs.google.com)  
+- Schedule & planning: [Trello](https://trello.com/b/H7cOixDG/medical-inventory-system-nasa-hunch)  
+- Research: [Google Doc](https://docs.google.com/document/d/1bPDbMDzeHgcyTJU0ENFX7s9UR9npXHJ3vHZIvmdP6Yc/edit?usp=sharing)  
+- Brainstorming: [Miro](https://miro.com/app/board/uXjVJIvb3LU=/)  
 
 ## License
 
