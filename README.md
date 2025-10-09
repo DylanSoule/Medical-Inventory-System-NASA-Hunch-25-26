@@ -52,8 +52,7 @@ The Medical Inventory System is designed to help medical facilities (or mobile u
    ```
 
 2. Install Python dependencies  
-   ```pip install --user --break-system-packages numpy opencv-python insightface onnxruntime```  
-   Do not use --break-system-packages if you have admin access
+   ```pip install numpy opencv-python insightface onnxruntime```  
 
 
 
