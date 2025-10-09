@@ -4,7 +4,7 @@ import csv
 import os
 
 LOG_FILE = "scans.csv"  # path to your file
-REFRESH_INTERVAL = 3000  # 3 seconds
+REFRESH_INTERVAL = 3000  # 3 sec
 
 class BarcodeViewer(tk.Tk):
     def __init__(self):
