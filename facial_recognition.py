@@ -41,7 +41,7 @@ def main():
             img = cv2.imread(path)
             if img is None:
                 print(f"Warning: Could not read {filename}")
-                continuep
+                continue
 
             faces = app.get(img)
             if len(faces) == 0:
