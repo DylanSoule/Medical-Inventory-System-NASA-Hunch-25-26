@@ -1,0 +1,3 @@
+tkinter
+insightface
+opencsv
