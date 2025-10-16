@@ -4,7 +4,7 @@
 
 # Medical Inventory System — NASA Hunch 25‑26
 
-A web-based and AI‑powered medical inventory system incorporating facial recognition for secure access. Built as part of the NASA Hunch 2025‑2026 program.
+An AI‑powered medical inventory system incorporating facial recognition for secure access. Built as part of the NASA Hunch 2025‑2026 program.
 
 ## Table of Contents
 
@@ -29,7 +29,7 @@ The Medical Inventory System is designed to help medical facilities (or mobile u
 
 - Inventory listing, addition, removal, and auditing  
 - Secure login via facial recognition  
-- Web UI with responsive design  
+- UI with responsive design  
 - Real‑time alerts for low stock  
 - Logging of user actions  
 
@@ -37,14 +37,15 @@ The Medical Inventory System is designed to help medical facilities (or mobile u
 
 | Component | Description |
 |---|---|
-| `index.html` / `style.css` | Frontend UI for interacting with the system |
-| `facialrecognition.py` | Python script to handle face detection, identification, and authentication |
+| `facial_recognition.py` | Python script to handle face detection, identification, and authentication |
+| `medical_inventory.py` | Frontend UI to hadle user input and logging of scans
 
-### Prerequisites
+
+### Prerequisites for facial recognition authentication
 
 - Python 3.10 or newer  
 - Pip (Python package manager)  
-- A webcam or camera for facial recognition (if testing live)  
+- A webcam or camera for facial recognition
 - Clear, forward-facing facial images for each authorized user  
 
 ### Installation & Setup
@@ -61,18 +62,18 @@ The Medical Inventory System is designed to help medical facilities (or mobile u
 
 
 4. Prepare reference images  
-   - Create a folder named `references/`  
-   - Add clear photos of each authorized user (frontal view, good lighting)  
+   - Create a folder named `references`  
+   - Add clear photos of each authorized user to the folder (frontal view, good lighting)  
 
 ### Usage
 
-- Run the facial recognition authentication  
-  ```python3 facialrecognition.py```
+- Run the medical inventory app   
+  ```python3 medical_inventory.py```
 
   
   The script will compare a live image or test image to stored references; on match, it grants access.
 
-- Use the web frontend (`index.html`) to manage inventory: add/remove items, view stock, etc.
+- Use the frontend (`medical_inventory.py`) to manage inventory: add/remove items, view stock, etc.
 
 
 
@@ -84,4 +85,4 @@ The Medical Inventory System is designed to help medical facilities (or mobile u
 
 ## License
 
-Specify your license here (e.g. MIT, Apache 2.0, etc.).  
+
