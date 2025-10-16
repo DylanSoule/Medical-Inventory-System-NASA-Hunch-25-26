@@ -1,25 +1,24 @@
-#NOT UP TO DATE
-
-
-
 # Medical Inventory System — NASA Hunch 25‑26
 
 An AI‑powered medical inventory system incorporating facial recognition for secure access. Built as part of the NASA Hunch 2025‑2026 program.
+An app based and AI‑powered medical inventory system incorporating facial recognition for more accurate logging. Built as part of the NASA Hunch 2025‑2026 program.
+
+The app and facial recognition software runs on a raspberry pi in order to allow for efficient and low energy running so it can be installed on space stations or long term space missions without major concern for energy pull.
+
+> **Note** This project is still under development
 
 ## Table of Contents
 
 - [About](#about)  
 - [Features](#features)  
 - [Architecture & Components](#architecture--components)  
-- [Getting Started](#getting-started)  
-  - [Prerequisites](#prerequisites)  
-  - [Installation & Setup](#installation--setup)  
-  - [Usage](#usage)  
+- [Prerequisites](#prerequisites)  
+- [Installation & Setup](#installation--setup)  
+- [Usage](#usage)  
 - [Facial Recognition Module](#facial-recognition-module)  
 - [Project Status](#project-status)  
 - [Contributing](#contributing)  
 - [Resources](#resources)  
-- [License](#license)  
 
 ## About
 
@@ -27,18 +26,21 @@ The Medical Inventory System is designed to help medical facilities (or mobile u
 
 ## Features
 
-- Inventory listing, addition, removal, and auditing  
-- Secure login via facial recognition  
-- UI with responsive design  
-- Real‑time alerts for low stock  
+### Current
+- In app barcode scanning to keep track of additions and subtractions to the inventory  
+- Facial recognition software to identify people accessing the system   
 - Logging of user actions  
+### To be added
+- Inventory listing and auditing  
+- Real‑time alerts for low stock 
+- Resupply requests
 
 ## Architecture & Components
 
 | Component | Description |
 |---|---|
-| `facial_recognition.py` | Python script to handle face detection, identification, and authentication |
-| `medical_inventory.py` | Frontend UI to hadle user input and logging of scans
+| `medical_inventory.py` | Frontend UI for interacting with the system that allows for barcode scanning and access to facial recognition software to identify interactions |
+| `facialrecognition.py` | Python script to handle face detection, identification, and authentication |
 
 
 ### Prerequisites for facial recognition authentication
@@ -82,7 +84,4 @@ The Medical Inventory System is designed to help medical facilities (or mobile u
 - Schedule & planning: [Trello](https://trello.com/b/H7cOixDG/medical-inventory-system-nasa-hunch)  
 - Research: [Google Doc](https://docs.google.com/document/d/1bPDbMDzeHgcyTJU0ENFX7s9UR9npXHJ3vHZIvmdP6Yc/edit?usp=sharing)  
 - Brainstorming: [Miro](https://miro.com/app/board/uXjVJIvb3LU=/)  
-
-## License
-
 
