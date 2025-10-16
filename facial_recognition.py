@@ -7,12 +7,14 @@ import time
 import threading
 import queue
 import insightface
+import gc  # 🧹 Added for garbage collection
+
 def main():
     # -----------------------------
     # LOAD INSIGHTFACE MODEL
     # -----------------------------
     app = insightface.app.FaceAnalysis(name="buffalo_l", providers=['CPUExecutionProvider'])
-    app.prepare(ctx_id=0, det_size=(640, 640))  # bigger = better accuracy
+    app.prepare(ctx_id=0, det_size=(640, 640))
 
     # -----------------------------
     # HELPER FUNCTIONS
@@ -51,8 +53,8 @@ def main():
             embedding = normalize(faces[0].embedding)
 
             label = os.path.splitext(filename)[0]
-            label = re.sub(r'\d+$', '', label)  # strip trailing digits
-            label = re.sub(r'[^A-Za-z0-9_\-]', '_', label)  # clean
+            label = re.sub(r'\d+$', '', label)
+            label = re.sub(r'[^A-Za-z0-9_\-]', '_', label)
             if label not in reference_embeddings:
                 reference_embeddings[label] = []
             reference_embeddings[label].append(embedding)
@@ -102,13 +104,13 @@ def main():
                 confidence = distance_to_confidence(dist)
                 box = face.bbox.astype(int)
                 results.append((box, name, confidence))
-            # replace previous result
             if not result_queue.empty():
                 try:
                     result_queue.get_nowait()
                 except:
                     pass
             result_queue.put(results)
+            time.sleep(0.02)  # 💤 Step 7: reduce CPU load
 
     # -----------------------------
     # START WEBCAM & THREAD
@@ -135,18 +137,18 @@ def main():
 
         frame_count += 1
 
-        # Send frame to recognition thread
-        if frame_queue.empty():
+        # 🕐 Step 2: Only process every 5th frame
+        if frame_count % 5 == 0 and frame_queue.empty():
             frame_queue.put(frame.copy())
 
-        # Get last recognition results if available
+        # Get last recognition results
         if not result_queue.empty():
             last_results = result_queue.get()
 
         # Draw faces
         for box, name, confidence in last_results:
             color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
-            text = f"{name} {'' if name != 'Unknown' else ''} ({confidence*100:.1f}%)"
+            text = f"{name} ({confidence*100:.1f}%)"
             cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), color, 2)
             cv2.putText(frame, text, (box[0], box[1]-10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
@@ -158,6 +160,11 @@ def main():
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
 
         cv2.imshow("Face Recognition", frame)
+
+        # 🧹 Step 3: Garbage collection every 200 frames
+        if frame_count % 200 == 0:
+            gc.collect()
+
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             stop_event.set()
@@ -166,3 +173,6 @@ def main():
     cap.release()
     cv2.destroyAllWindows()
     print("Webcam closed cleanly ✅")
+
+if __name__ == "__main__":
+    main()
