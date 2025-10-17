@@ -117,7 +117,7 @@ def main():
     # -----------------------------
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        print("Error: Could not open webcam")
+        print("Error: Could not open webcam (is it plugged in?)")
         sys.exit(1)
 
     thread = threading.Thread(target=recognition_worker, daemon=True)
