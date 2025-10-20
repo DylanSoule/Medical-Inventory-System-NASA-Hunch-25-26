@@ -9,6 +9,7 @@
 #7. add feature to export the csv file
 #8. add feature to convert barcode to text
 #9. add voice recognition placeholder
+#10. define error code 3
 #############################################
 
 
