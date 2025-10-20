@@ -1,6 +1,3 @@
-h2 {
-
-}
 # Medical Inventory System — NASA Hunch 2025-26
 
 A medical inventory system incorporating barcoding for tracking inventory as well as facial recognition for secure access. The project was built as part of the NASA Hunch 2025‑2026 program.  
