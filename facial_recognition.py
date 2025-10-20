@@ -168,7 +168,7 @@ def main():
             frame_count += 1
 
             # 🕐 Only process every 5th frame
-            if frame_count % 5 == 0 and frame_queue.empty():
+            if frame_count % 60 == 0 and frame_queue.empty():
                 frame_queue.put(frame.copy())
 
             # Get last recognition results
