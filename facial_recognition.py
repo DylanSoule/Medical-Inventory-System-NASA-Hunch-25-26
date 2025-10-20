@@ -65,7 +65,7 @@ def main():
     ref_dir = os.path.join(script_dir, "references")
 
     if not os.path.exists(ref_dir):
-        raise RuntimeError(f"Reference folder '{ref_dir}' not found!")
+        return 3
 
     reference_embeddings = {}
 
@@ -80,7 +80,7 @@ def main():
             faces = app.get(img)
             if len(faces) == 0:
                 print(f"Warning: No face detected in {filename}")
-                continue
+                return 3
 
             embedding = normalize(faces[0].embedding)
 
@@ -148,7 +148,7 @@ def main():
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         safe_exit(cap)
-        raise RuntimeError("Could not open webcam (is it plugged in?)")
+        return 4
 
     thread = threading.Thread(target=recognition_worker, daemon=True)
     thread.start()
@@ -168,7 +168,7 @@ def main():
             frame_count += 1
 
             # 🕐 Only process every 5th frame
-            if frame_count % 5 == 0 and frame_queue.empty():
+            if frame_count % 75 == 0 and frame_queue.empty():
                 frame_queue.put(frame.copy())
 
             # Get last recognition results
