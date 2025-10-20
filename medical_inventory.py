@@ -62,7 +62,15 @@ class BarcodeViewer(tk.Tk):
 
     def face_recognition(self):
         # open camera (test_cam.main is non-blocking if you pass a stop_event)
-        fr.main()
+        error = fr.main()
+        if error == 4:
+            messagebox.showerror("Camera Error", f"Couldnt find camera")
+        elif error == 3:
+            messagebox.showerror("Reference Folder Error", f"No reference folder found")
+        elif error == 2:
+            messagebox.showerror("No Faces Found", f"No faces found in reference images")
+
+
 
     def _prompt_for_barcode(self, prompt="Scan barcode and press Enter", title="Scan Barcode"):
         """

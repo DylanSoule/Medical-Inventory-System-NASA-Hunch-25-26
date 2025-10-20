@@ -152,7 +152,7 @@ def main():
 
     thread = threading.Thread(target=recognition_worker, daemon=True)
     thread.start()
-
+q
     print("Press 'q' to quit.")
 
     frame_count = 0
