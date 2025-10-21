@@ -1,15 +1,14 @@
 #############################################
 #to do list
 #1. integrate facial recognition with barcode scanner
-#2. fix bug where app crashes if you try to move the app with the camra open
-#3. add feature to delete a row from the csv file
 #4. add feature to edit a row from the csv file
 #5. add feature to search for a specific barcode
 #6. add feature to filter by date
 #7. add feature to export the csv file
 #8. add feature to convert barcode to text
 #9. add voice recognition placeholder
-#10. define error code 3
+#require auth before log
+#boot on start up
 #############################################
 
 
@@ -24,32 +23,54 @@ from datetime import datetime
 
 # ensure scans.csv lives next to this script
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scans.csv")
-REFRESH_INTERVAL = 3000  # 3 sec
+REFRESH_INTERVAL = 15000  # 3 sec
 
 class BarcodeViewer(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Medical Inventory System")
-        self.geometry("700x400")
+        # start fullscreen
+        try:
+            # prefer true fullscreen (hides window decorations)
+            self.attributes("-fullscreen", True)
+        except Exception:
+            # fallback to maximized state where available
+            try:
+                self.state("zoomed")
+            except Exception:
+                self.geometry("1200x800")
+
+        # larger default styling for readability on fullscreen
+        style = ttk.Style(self)
+        style.configure("TLabel", font=("Arial", 20))
+        style.configure("TButton", font=("Arial", 16), padding=10)
+        style.configure("Treeview", font=("Arial", 16), rowheight=36)
+        style.configure("Treeview.Heading", font=("Arial", 18, "bold"))
+
+        # allow toggling fullscreen with F11 and exit fullscreen with Escape
+        self.bind("<F11>", lambda e: self.attributes("-fullscreen", not self.attributes("-fullscreen")))
+        self.bind("<Escape>", lambda e: self.attributes("-fullscreen", False))
 
         # keep current log path on the instance
         self.log_file = LOG_FILE
 
         # Title
-        ttk.Label(self, text="Medical Inventory system" , font=("Arial", 16, "bold")).pack(pady=10)
+        ttk.Label(self, text="Medical Inventory system" , font=("Arial", 22, "bold")).pack(pady=12)
 
         # Button frame (webcam + log + quit)
         btn_frame = ttk.Frame(self)
         btn_frame.pack(pady=5)
         ttk.Button(btn_frame, text="Open Camera", command=self.face_recognition).grid(row=0, column=0, padx=5)
         ttk.Button(btn_frame, text="Log Scan", command=self.log_scan).grid(row=0, column=1, padx=5)
-        ttk.Button(btn_frame, text="Quit", command=self.destroy).grid(row=0, column=2, padx=5)
+        ttk.Button(btn_frame, text="Quit", command=self.destroy).grid(row=0, column=3, padx=5)
+        ttk.Button(btn_frame, text="Delete Selected", command=self.delete_selected).grid(row=0, column=2, padx=5)
 
-        # Create Treeview (table)
-        columns = ("timestamp", "barcode")
+        # Create Treeview (table) with user column
+        columns = ("timestamp", "barcode", "user")
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
         self.tree.heading("timestamp", text="Timestamp")
         self.tree.heading("barcode", text="Barcode")
+        self.tree.heading("user", text="User")
 
         # Add scrollbar
         scroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
@@ -62,16 +83,32 @@ class BarcodeViewer(tk.Tk):
         self.after(REFRESH_INTERVAL, self.refresh_data)
 
     def face_recognition(self):
-        # open camera (test_cam.main is non-blocking if you pass a stop_event)
-        error = fr.main()
-        if error == 4:
-            messagebox.showerror("Camera Error", f"Couldnt find camera")
-        elif error == 3:
-            messagebox.showerror("Reference Folder Error", f"No reference folder found")
-        elif error == 2:
-            messagebox.showerror("No Faces Found", f"No faces found in reference images")
+        # run face recognition and return a username (string) if available
+        result = fr.main()
 
+        # backward-compatible numeric error codes
+        if isinstance(result, int):
+            if result == 4:
+                messagebox.showerror("Camera Error", "Couldn't find camera")
+            elif result == 3:
+                messagebox.showerror("Reference Folder Error", "No reference folder found")
+            elif result == 2:
+                messagebox.showerror("No Faces Found", "No faces found in reference images")
+            return ""
 
+        # expected: list/tuple of detected names (or empty list)
+        if isinstance(result, (list, tuple)):
+            if not result:
+                messagebox.showinfo("Face Recognition", "No known faces detected.")
+                return ""
+            # use the first detected name as the user
+            detected_name = str(result[0])
+            messagebox.showinfo("Face Recognition", f"Detected: {detected_name}")
+            return detected_name
+
+        # unexpected return type
+        messagebox.showerror("Face Recognition", f"Unexpected result from recognizer: {result}")
+        return ""
 
     def _prompt_for_barcode(self, prompt="Scan barcode and press Enter", title="Scan Barcode"):
         """
@@ -131,6 +168,7 @@ class BarcodeViewer(tk.Tk):
 
     def log_scan(self):
         """Wait for a barcode to be scanned (or typed) and log current date/time + barcode."""
+        user = self.face_recognition()
         barcode = self._prompt_for_barcode()
         if barcode is None:
             # user cancelled or closed dialog
@@ -147,16 +185,16 @@ class BarcodeViewer(tk.Tk):
             with open(self.log_file, "a", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 if not file_exists:
-                    writer.writerow(["timestamp", "barcode"])
+                    writer.writerow(["timestamp", "barcode", "user"])
                 ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                writer.writerow([ts, barcode])
+                writer.writerow([ts, barcode, user])
         except Exception as e:
             messagebox.showerror("Error", f"Failed to write to CSV:\n{e}")
             return
 
         # reload view and notify user
         self.load_data()
-        messagebox.showinfo("Logged", f"Logged {barcode} at {ts}")
+        messagebox.showinfo("Logged", f"Logged {barcode} at {ts} by {user}")
 
     def load_data(self):
         """Read the CSV file and load rows into the table."""
@@ -170,8 +208,12 @@ class BarcodeViewer(tk.Tk):
                 reader = csv.reader(f)
                 header = next(reader, None)  # skip header
                 for row in reader:
+                    # support rows with or without the user column
                     if len(row) >= 2:
-                        self.tree.insert("", "end", values=row)
+                        ts = row[0]
+                        bc = row[1]
+                        user = row[2] if len(row) >= 3 else ""
+                        self.tree.insert("", "end", values=(ts, bc, user))
         except Exception as e:
             print("Error reading file:", e)
 
@@ -181,6 +223,56 @@ class BarcodeViewer(tk.Tk):
 
         # Check if file exists
    
+
+    def delete_selected(self):
+        """Delete selected rows from the treeview and the underlying CSV file."""
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Delete", "No row selected.")
+            return
+
+        if not messagebox.askyedfasno("Confirm Delete", f"Delete {len(sel)} selected row(s)?"):
+            return
+
+        # Gather selected values as tuples (timestamp, barcode)
+        selected_vals = [tuple(self.tree.item(i, "values")) for i in sel]
+
+        # Read existing CSV
+        try:
+            with open(self.log_file, newline="", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                rows = list(reader)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to read CSV:\n{e}")
+            return
+
+        if not rows:
+            messagebox.showinfo("Delete", "CSV is empty.")
+            return
+
+        header = rows[0]
+        data = rows[1:]
+
+        # For each selected value, remove the first matching row in data
+        for sv in selected_vals:
+            for idx, r in enumerate(data):
+                if len(r) >= len(sv) and tuple(r[:len(sv)]) == sv:
+                    data.pop(idx)
+                    break
+
+        # Write CSV back
+        try:
+            with open(self.log_file, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(header)
+                writer.writerows(data)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to update CSV:\n{e}")
+            return
+
+        # Refresh view and inform user
+        self.load_data()
+        messagebox.showinfo("Deleted", f"Deleted {len(selected_vals)} row(s).")
 
     def refresh_data(self):
         """Reload file periodically."""

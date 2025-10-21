@@ -1,5 +1,5 @@
 import logging
-import sys, os
+import os
 from contextlib import contextmanager
 import cv2
 import re
@@ -64,7 +64,7 @@ def main():
 
     if not os.path.exists(ref_dir):
         print("Reference folder not found!")
-        return []
+        return 3
 
     reference_embeddings = {}
 
@@ -74,12 +74,12 @@ def main():
             img = cv2.imread(path)
             if img is None:
                 print(f"Warning: Could not read {filename}")
-                continue
+                return 2
 
             faces = app.get(img)
             if len(faces) == 0:
                 print(f"Warning: No face detected in {filename}")
-                continue
+                return 2
 
             embedding = normalize(faces[0].embedding)
             label = os.path.splitext(filename)[0]
@@ -152,7 +152,7 @@ def main():
     if not cap.isOpened():
         safe_exit(cap)
         print("Webcam could not be opened.")
-        return []
+        return 4
 
     thread = threading.Thread(target=recognition_worker, daemon=True)
     thread.start()
