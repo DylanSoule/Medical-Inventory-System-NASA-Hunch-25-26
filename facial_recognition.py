@@ -1,11 +1,6 @@
 import logging
 import sys, os
-from contextlib import redirect_stdout, contextmanager
-import io
-
-logging.getLogger("insightface").setLevel(logging.ERROR)
-logging.getLogger("onnxruntime").setLevel(logging.ERROR)
-
+from contextlib import contextmanager
 import cv2
 import re
 import numpy as np
@@ -13,9 +8,12 @@ import time
 import threading
 import queue
 import insightface
-import gc  # 🧹 Added for garbage collection
+import gc  #  Added for garbage collection
 
-# 🧱 Context manager to silence native output (C/C++ level)
+logging.getLogger("insightface").setLevel(logging.ERROR)
+logging.getLogger("onnxruntime").setLevel(logging.ERROR)
+
+#  Context manager to silence native output (C/C++ level)
 @contextmanager
 def suppress_native_output():
     try:
@@ -38,7 +36,7 @@ def safe_exit(cap=None):
     if cap is not None and cap.isOpened():
         cap.release()
     cv2.destroyAllWindows()
-    print("Camera safely closed. ✅")
+    print("Camera safely closed.")
 
 
 def main():
@@ -65,7 +63,8 @@ def main():
     ref_dir = os.path.join(script_dir, "references")
 
     if not os.path.exists(ref_dir):
-        return 3
+        print("Reference folder not found!")
+        return []
 
     reference_embeddings = {}
 
@@ -80,13 +79,13 @@ def main():
             faces = app.get(img)
             if len(faces) == 0:
                 print(f"Warning: No face detected in {filename}")
-                return 3
+                continue
 
             embedding = normalize(faces[0].embedding)
-
             label = os.path.splitext(filename)[0]
             label = re.sub(r'\d+$', '', label)
             label = re.sub(r'[^A-Za-z0-9_\-]', '_', label)
+
             if label not in reference_embeddings:
                 reference_embeddings[label] = []
             reference_embeddings[label].append(embedding)
@@ -95,7 +94,8 @@ def main():
         reference_embeddings[label] = np.array(reference_embeddings[label])
 
     if not reference_embeddings:
-        raise RuntimeError("No valid reference faces loaded.")
+        print("No valid reference faces loaded.")
+        return []
 
     THRESHOLD = 1
 
@@ -120,6 +120,9 @@ def main():
     result_queue = queue.Queue(maxsize=1)
     stop_event = threading.Event()
 
+    detected_names = set()
+    known_face_detected = False  # 🔹 Only close after detecting known face
+
     def recognition_worker():
         while not stop_event.is_set():
             if frame_queue.empty():
@@ -140,7 +143,7 @@ def main():
                 except Exception:
                     pass
             result_queue.put(results)
-            time.sleep(0.02)  # 💤 reduce CPU load
+            time.sleep(0.02)
 
     # -----------------------------
     # START WEBCAM & THREAD
@@ -148,12 +151,11 @@ def main():
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         safe_exit(cap)
-        return 4
+        print("Webcam could not be opened.")
+        return []
 
     thread = threading.Thread(target=recognition_worker, daemon=True)
     thread.start()
-
-    print("Press 'q' to quit.")
 
     frame_count = 0
     start_time = time.time()
@@ -163,25 +165,31 @@ def main():
         while True:
             ret, frame = cap.read()
             if not ret:
-                raise RuntimeError("Failed to grab frame from webcam.")
+                print("Failed to grab frame from webcam.")
+                break
 
             frame_count += 1
 
-            # 🕐 Only process every 5th frame
-            if frame_count % 60 == 0 and frame_queue.empty():
+            # Only process every 5th frame to reduce CPU usage
+            if frame_count % 5 == 0 and frame_queue.empty():
                 frame_queue.put(frame.copy())
 
-            # Get last recognition results
             if not result_queue.empty():
                 last_results = result_queue.get()
 
-            # Draw faces
+            # Draw faces and handle first detections
             for box, name, confidence in last_results:
                 color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
                 text = f"{name} ({confidence*100:.1f}%)"
                 cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), color, 2)
                 cv2.putText(frame, text, (box[0], box[1]-10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+                # Print new known faces only once
+                if name != "Unknown" and name not in detected_names:
+                    detected_names.add(name)
+                    print(f"Person detected: {name}")
+                    known_face_detected = True
 
             # FPS display
             elapsed_time = time.time() - start_time
@@ -191,9 +199,14 @@ def main():
 
             cv2.imshow("Face Recognition", frame)
 
-            # 🧹 Garbage collection every 200 frames
+            # Garbage collection every 200 frames
             if frame_count % 200 == 0:
                 gc.collect()
+
+            # Exit loop if a known face was detected
+            if known_face_detected:
+                stop_event.set()
+                break
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
@@ -201,15 +214,15 @@ def main():
                 break
 
     except Exception as e:
-        safe_exit(cap)
-        raise  # re-raise for UI to catch
+        print(f"Error during webcam processing: {e}")
 
     safe_exit(cap)
-    print("Webcam closed cleanly ✅")
+    return list(detected_names)
 
 
 if __name__ == "__main__":
     try:
-        main()
+        detected = main()
+        print("Program finished. People seen:", detected)
     except Exception as e:
-        print(f"⚠️ Error in facial recognition: {e}")
+        print(f" Error in facial recognition: {e}")
