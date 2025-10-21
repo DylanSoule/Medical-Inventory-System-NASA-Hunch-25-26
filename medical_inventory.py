@@ -1,7 +1,7 @@
 #############################################
 #to do list
 #1. integrate facial recognition with barcode scanner
-#2. fix bug where app crashes if you try to move the app with the camra open
+#2. fix bug where app crashes if you try to move the app with the camera open
 #3. add feature to delete a row from the csv file
 #4. add feature to edit a row from the csv file
 #5. add feature to search for a specific barcode
