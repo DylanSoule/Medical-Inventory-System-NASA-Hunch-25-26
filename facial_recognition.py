@@ -1,5 +1,5 @@
 import logging
-import os
+import sys, os
 from contextlib import contextmanager
 import cv2
 import re
