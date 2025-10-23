@@ -171,7 +171,7 @@ class BarcodeViewer(tk.Tk):
         user = self.face_recognition()
         
         # Only proceed with barcode scanning if face recognition was successful
-        if not user or user == "":
+        if not user:
             messagebox.showerror("Authentication Required", "Face recognition must be successful before scanning barcodes.")
             return
         
