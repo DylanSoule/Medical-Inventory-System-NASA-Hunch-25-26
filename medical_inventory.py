@@ -169,6 +169,12 @@ class BarcodeViewer(tk.Tk):
     def log_scan(self):
         """Wait for a barcode to be scanned (or typed) and log current date/time + barcode."""
         user = self.face_recognition()
+        
+        # Only proceed with barcode scanning if face recognition was successful
+        if not user or user == "":
+            messagebox.showerror("Authentication Required", "Face recognition must be successful before scanning barcodes.")
+            return
+        
         barcode = self._prompt_for_barcode()
         if barcode is None:
             # user cancelled or closed dialog
@@ -222,7 +228,7 @@ class BarcodeViewer(tk.Tk):
         print ("Looking for CSV at:", os.path.abspath(self.log_file))
 
         # Check if file exists
-   
+
 
     def delete_selected(self):
         """Delete selected rows from the treeview and the underlying CSV file."""
