@@ -1,5 +1,6 @@
 #############################################
 #to do list
+#SWITCH TO DATABASE
 #1. integrate facial recognition with barcode scanner
 #4. add feature to edit a row from the csv file
 #5. add feature to search for a specific barcode
@@ -7,7 +8,6 @@
 #7. add feature to export the csv file
 #8. add feature to convert barcode to text
 #9. add voice recognition placeholder
-#require auth before log
 #boot on start up
 #############################################
 
