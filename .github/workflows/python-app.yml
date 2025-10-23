@@ -4,9 +4,9 @@ name: Python syntax check
 
 on:
   push:
-    branches: [ all ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ all ]
+    branches: [ "main" ]
 
 permissions:
   contents: read
