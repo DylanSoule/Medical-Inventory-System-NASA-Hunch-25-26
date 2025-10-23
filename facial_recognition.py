@@ -64,6 +64,7 @@ def main():
 
     if not os.path.exists(ref_dir):
         print("Reference folder not found!")
+       
         return 3
 
     reference_embeddings = {}
@@ -79,7 +80,7 @@ def main():
             faces = app.get(img)
             if len(faces) == 0:
                 print(f"Warning: No face detected in {filename}")
-                return 2
+                return 3
 
             embedding = normalize(faces[0].embedding)
             label = os.path.splitext(filename)[0]
@@ -156,6 +157,8 @@ def main():
 
     thread = threading.Thread(target=recognition_worker, daemon=True)
     thread.start()
+    
+    print("Press 'q' to quit.")
 
     frame_count = 0
     start_time = time.time()
@@ -170,8 +173,8 @@ def main():
 
             frame_count += 1
 
-            # Only process every 5th frame to reduce CPU usage
-            if frame_count % 5 == 0 and frame_queue.empty():
+            # 🕐 Only process every 5th frame
+            if frame_count % 75 == 0 and frame_queue.empty():
                 frame_queue.put(frame.copy())
 
             if not result_queue.empty():
