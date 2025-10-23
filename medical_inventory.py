@@ -237,7 +237,7 @@ class BarcodeViewer(tk.Tk):
             messagebox.showinfo("Delete", "No row selected.")
             return
 
-        if not messagebox.askyedfasno("Confirm Delete", f"Delete {len(sel)} selected row(s)?"):
+        if not messagebox.askyesno("Confirm Delete", f"Delete {len(sel)} selected row(s)?"):
             return
 
         # Gather selected values as tuples (timestamp, barcode)
