@@ -4,8 +4,8 @@ import os
 import sys
 from tkinter import simpledialog
 
-# Add src directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add parent directory to path for imports from Databases and src
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import facial_recognition as fr
 from facial_recognition import FaceRecognitionError
@@ -471,9 +471,9 @@ class BarcodeViewer(tk.Tk):
 
         try:
             admin_user = "ADMIN"
-            for item_id in sel:
-                values = self.tree.item(item_id)["values"]
-                self.db.delete_scan(*values, deleted_by=admin_user, reason=reason.strip())
+            for barcode in sel:
+                values = self.tree.item(barcode)["values"]
+                self.db.delete_entry(barcode=values[0])
         except Exception as e:
             messagebox.showerror("Error", f"Failed to delete from database:\n{e}")
             return
