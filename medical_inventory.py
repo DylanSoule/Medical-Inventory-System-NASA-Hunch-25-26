@@ -14,20 +14,21 @@
 
 
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
-import csv
+from tkinter import ttk, messagebox
 import os
+from tkinter import simpledialog
 import facial_recognition as fr
-from datetime import datetime
+from db_manager import DatabaseManager
 
-
-# ensure scans.csv lives next to this script
-LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scans.csv")
-REFRESH_INTERVAL = 15000  # 3 sec
-
+# Database file path
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inventory.db")
+REFRESH_INTERVAL = 300000  # milliseconds
 class BarcodeViewer(tk.Tk):
     def __init__(self):
         super().__init__()
+        # Initialize database
+        self.db = DatabaseManager(DB_FILE)
+
         self.title("Medical Inventory System")
         # start fullscreen
         try:
@@ -52,7 +53,7 @@ class BarcodeViewer(tk.Tk):
         self.bind("<Escape>", lambda e: self.attributes("-fullscreen", False))
 
         # keep current log path on the instance
-        self.log_file = LOG_FILE
+        # self.log_file = LOG_FILE
 
         # Title
         ttk.Label(self, text="Medical Inventory system" , font=("Arial", 22, "bold")).pack(pady=12)
@@ -62,8 +63,9 @@ class BarcodeViewer(tk.Tk):
         btn_frame.pack(pady=5)
         ttk.Button(btn_frame, text="Open Camera", command=self.face_recognition).grid(row=0, column=0, padx=5)
         ttk.Button(btn_frame, text="Log Scan", command=self.log_scan).grid(row=0, column=1, padx=5)
-        ttk.Button(btn_frame, text="Quit", command=self.destroy).grid(row=0, column=3, padx=5)
         ttk.Button(btn_frame, text="Delete Selected", command=self.delete_selected).grid(row=0, column=2, padx=5)
+        ttk.Button(btn_frame, text="View History", command=self.show_deletion_history).grid(row=0, column=3, padx=5)
+        ttk.Button(btn_frame, text="Quit", command=self.destroy).grid(row=0, column=4, padx=5)
 
         # Create Treeview (table) with user column
         columns = ("timestamp", "barcode", "user")
@@ -170,115 +172,112 @@ class BarcodeViewer(tk.Tk):
         """Wait for a barcode to be scanned (or typed) and log current date/time + barcode."""
         user = self.face_recognition()
         
-        # Only proceed with barcode scanning if face recognition was successful
         if not user:
             messagebox.showerror("Authentication Required", "Face recognition must be successful before scanning barcodes.")
             return
         
         barcode = self._prompt_for_barcode()
         if barcode is None:
-            # user cancelled or closed dialog
             return
 
-        # ensure directory exists (ignore if dirname is empty)
         try:
-            os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
-        except Exception:
-            pass
-
-        file_exists = os.path.exists(self.log_file)
-        try:
-            with open(self.log_file, "a", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                if not file_exists:
-                    writer.writerow(["timestamp", "barcode", "user"])
-                ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                writer.writerow([ts, barcode, user])
+            # Add scan to database
+            ts = self.db.add_scan(barcode, user)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to write to CSV:\n{e}")
+            messagebox.showerror("Error", f"Failed to write to database:\n{e}")
             return
 
-        # reload view and notify user
         self.load_data()
         messagebox.showinfo("Logged", f"Logged {barcode} at {ts} by {user}")
 
     def load_data(self):
-        """Read the CSV file and load rows into the table."""
-        self.tree.delete(*self.tree.get_children())  # clear old data
-        if not os.path.exists(self.log_file):
-            print(f"File not found: {self.log_file}")
-            return
-
+        """Read from database and load rows into the table."""
+        self.tree.delete(*self.tree.get_children())
+        
         try:
-            with open(self.log_file, newline="", encoding="utf-8") as f:
-                reader = csv.reader(f)
-                header = next(reader, None)  # skip header
-                for row in reader:
-                    # support rows with or without the user column
-                    if len(row) >= 2:
-                        ts = row[0]
-                        bc = row[1]
-                        user = row[2] if len(row) >= 3 else ""
-                        self.tree.insert("", "end", values=(ts, bc, user))
+            rows = self.db.get_all_scans()
+            for row in rows:
+                self.tree.insert("", "end", values=row)
         except Exception as e:
-            print("Error reading file:", e)
+            print("Error reading database:", e)
+    
+    def admin(self, prompt="Enter admin code to delete scans"):
+       code = 1234
+       if simpledialog.askstring("Admin Access", prompt, show="*") != str(code):
+            messagebox.showerror("Access Denied", "Incorrect admin code.")
+            return False
 
-    def file_path(self):
-        # show which file we're reading (useful for debugging)
-        print ("Looking for CSV at:", os.path.abspath(self.log_file))
-
-        # Check if file exists
-
-
+       return True
+    
     def delete_selected(self):
-        """Delete selected rows from the treeview and the underlying CSV file."""
+        if not self.admin("Enter admin code to delete scans"):
+            return
         sel = self.tree.selection()
         if not sel:
             messagebox.showinfo("Delete", "No row selected.")
             return
 
-        if not messagebox.askyedfasno("Confirm Delete", f"Delete {len(sel)} selected row(s)?"):
+        # Get deletion reason
+        reason = simpledialog.askstring("Delete", "Enter reason for deletion (required):")
+        if reason is None:  # User clicked Cancel
+            return
+        if not reason.strip():  # Empty or whitespace only
+            messagebox.showerror("Error", "A deletion reason is required.")
             return
 
-        # Gather selected values as tuples (timestamp, barcode)
-        selected_vals = [tuple(self.tree.item(i, "values")) for i in sel]
+        if not messagebox.askyesno("Confirm Delete", 
+                                 f"Delete {len(sel)} selected row(s)?\nReason: {reason}"):
+            return
 
-        # Read existing CSV
         try:
-            with open(self.log_file, newline="", encoding="utf-8") as f:
-                reader = csv.reader(f)
-                rows = list(reader)
+            admin_user = "ADMIN"
+            for item_id in sel:
+                values = self.tree.item(item_id)["values"]
+                self.db.delete_scan(*values, deleted_by=admin_user, reason=reason.strip())
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to read CSV:\n{e}")
+            messagebox.showerror("Error", f"Failed to delete from database:\n{e}")
             return
 
-        if not rows:
-            messagebox.showinfo("Delete", "CSV is empty.")
-            return
-
-        header = rows[0]
-        data = rows[1:]
-
-        # For each selected value, remove the first matching row in data
-        for sv in selected_vals:
-            for idx, r in enumerate(data):
-                if len(r) >= len(sv) and tuple(r[:len(sv)]) == sv:
-                    data.pop(idx)
-                    break
-
-        # Write CSV back
-        try:
-            with open(self.log_file, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(header)
-                writer.writerows(data)
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to update CSV:\n{e}")
-            return
-
-        # Refresh view and inform user
         self.load_data()
-        messagebox.showinfo("Deleted", f"Deleted {len(selected_vals)} row(s).")
+        messagebox.showinfo("Deleted", f"Deleted {len(sel)} row(s).")
+
+    def show_deletion_history(self):
+        """Show deletion history in a new window."""
+        if not self.admin("Enter admin code to view history"):
+            return
+
+        history = tk.Toplevel(self)
+        history.title("Deletion History")
+        history.geometry("800x600")
+
+        # Create treeview for history
+        columns = ("deleted_at", "deleted_by", "original_timestamp", 
+                  "original_barcode", "original_user", "reason")
+        tree = ttk.Treeview(history, columns=columns, show="headings")
+        
+        # Configure columns
+        tree.heading("deleted_at", text="Deleted At")
+        tree.heading("deleted_by", text="Deleted By")
+        tree.heading("original_timestamp", text="Original Time")
+        tree.heading("original_barcode", text="Barcode")
+        tree.heading("original_user", text="Original User")
+        tree.heading("reason", text="Reason")
+
+        # Add scrollbar
+        scroll = ttk.Scrollbar(history, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scroll.set)
+        
+        # Pack widgets
+        tree.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+
+        # Load history data
+        for row in self.db.get_deletion_history():
+            tree.insert("", "end", values=row)
+
+        # Close button
+        ttk.Button(history, text="Close", 
+                  command=history.destroy).pack(pady=10)
 
     def refresh_data(self):
         """Reload file periodically."""
