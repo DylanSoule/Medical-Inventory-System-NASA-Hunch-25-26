@@ -288,8 +288,6 @@ class BarcodeViewer(tk.Tk):
         """Display an error window with the given title and message."""
         messagebox.showerror(title, message)
 
-# Example usage:
-# self.show_error("File Error", "Could not open CSV file.")
 
 if __name__ == "__main__":
     app = BarcodeViewer()
