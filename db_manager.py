@@ -32,6 +32,10 @@ class DatabaseManager:
             ''')
             conn.commit()
 
+    def _get_connection(self):
+        """Helper method for tests to check database structure."""
+        return sqlite3.connect(self.db_path)
+
     def add_scan(self, barcode, user):
         """Add a new scan to the database."""
         timestamp = datetime.now().strftime(time_format)
