@@ -1,6 +1,6 @@
 pytest>=7.0
 pytest-cov
 pytest-mock
-tkinter
+python-tk
 opencv-python
 insightface
