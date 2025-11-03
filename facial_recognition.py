@@ -1,5 +1,5 @@
 import logging
-import sys, os
+import os
 from contextlib import contextmanager
 import cv2
 import re
@@ -173,7 +173,7 @@ def main():
 
             frame_count += 1
 
-            # 🕐 Only process every 5th frame
+            # Only process every 5th frame
             if frame_count % 75 == 0 and frame_queue.empty():
                 frame_queue.put(frame.copy())
 
