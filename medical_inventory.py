@@ -1,18 +1,3 @@
-#############################################
-#to do list
-#SWITCH TO DATABASE
-#1. integrate facial recognition with barcode scanner
-#4. add feature to edit a row from the csv file
-#5. add feature to search for a specific barcode
-#6. add feature to filter by date
-#7. add feature to export the csv file
-#8. add feature to convert barcode to text
-#9. add voice recognition placeholder
-#boot on start up
-#############################################
-
-
-
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os
@@ -56,15 +41,14 @@ class BarcodeViewer(tk.Tk):
         # self.log_file = LOG_FILE
 
         # Title
-        ttk.Label(self, text="Medical Inventory system" , font=("Arial", 22, "bold")).pack(pady=12)
+        ttk.Label(self, text="Medical Inventory System" , font=("Arial", 22, "bold")).pack(pady=12)
 
         # Button frame (webcam + log + quit)
         btn_frame = ttk.Frame(self)
         btn_frame.pack(pady=5)
-        ttk.Button(btn_frame, text="Open Camera", command=self.face_recognition).grid(row=0, column=0, padx=5)
         ttk.Button(btn_frame, text="Log Scan", command=self.log_scan).grid(row=0, column=1, padx=5)
         ttk.Button(btn_frame, text="Delete Selected", command=self.delete_selected).grid(row=0, column=2, padx=5)
-        ttk.Button(btn_frame, text="View History", command=self.show_deletion_history).grid(row=0, column=3, padx=5)
+        ttk.Button(btn_frame, text="View Deletion History", command=self.show_deletion_history).grid(row=0, column=3, padx=5)
         ttk.Button(btn_frame, text="Quit", command=self.destroy).grid(row=0, column=4, padx=5)
 
         # Create Treeview (table) with user column
