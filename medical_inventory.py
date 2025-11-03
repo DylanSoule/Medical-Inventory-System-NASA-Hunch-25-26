@@ -8,6 +8,7 @@ from db_manager import DatabaseManager
 # Database file path
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inventory.db")
 REFRESH_INTERVAL = 300000  # milliseconds
+
 class BarcodeViewer(tk.Tk):
     def __init__(self):
         super().__init__()
