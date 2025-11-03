@@ -4,4 +4,4 @@ pytest-mock
 tk
 opencv-python
 insightface
-onyxruntime
+onnxruntime
