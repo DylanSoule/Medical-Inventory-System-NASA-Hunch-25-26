@@ -16,7 +16,7 @@ def run_pytests():
     print("\n=== Running Tests ===\n")
     result = subprocess.run(["pytest", "-v"], check=False)
     if result.returncode == 0:
-        print("\n✅ All tests passed successfully!")
+        print("\n All tests passed successfully!")
     else:
-        print("\n❌ Some tests failed. Check above for details.")
+        print("\n Some tests failed. Check above for details.")
     sys.exit(result.returncode)
