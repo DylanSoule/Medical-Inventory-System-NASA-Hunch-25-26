@@ -103,7 +103,7 @@ echo ""
 # Test 7: Check .gitignore
 echo "Test 7: Checking .gitignore..."
 if [ -f ".gitignore" ]; then
-    if grep -qF "*.log" .gitignore && grep -q "venv/" .gitignore; then
+    if grep -q '^\*\.log' .gitignore && grep -q "venv/" .gitignore; then
         echo "  ✓ .gitignore exists and contains expected patterns"
     else
         echo "  ✗ .gitignore missing expected patterns"

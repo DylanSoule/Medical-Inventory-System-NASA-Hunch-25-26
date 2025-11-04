@@ -18,13 +18,21 @@ fi
 
 # Wait for X server to be ready (important for auto-start)
 echo "Waiting for X server..."
+X_READY=false
 for i in {1..30}; do
     if xset q &>/dev/null; then
         echo "X server is ready"
+        X_READY=true
         break
     fi
     sleep 1
 done
+
+if [ "$X_READY" = false ]; then
+    echo "ERROR: X server did not become available after 30 seconds" >&2
+    echo "Check if graphical environment is running" >&2
+    exit 1
+fi
 
 # Launch the application
 echo "Starting Medical Inventory System..."

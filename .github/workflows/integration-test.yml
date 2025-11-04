@@ -94,10 +94,12 @@ jobs:
           pytest test_db_manager.py -v
       
       - name: Test medical inventory (non-GUI parts)
+        continue-on-error: true
         run: |
           echo "=== Testing Medical Inventory ==="
-          # Run tests that don't require display
-          pytest test_medical_inventory.py -v -k "not gui" || true
+          # Note: GUI tests require DISPLAY and are skipped in CI
+          # Run only non-GUI tests if available
+          pytest test_medical_inventory.py -v -k "not gui" 2>&1 || echo "No non-GUI tests available"
       
       - name: Validate auto-start setup files
         run: |

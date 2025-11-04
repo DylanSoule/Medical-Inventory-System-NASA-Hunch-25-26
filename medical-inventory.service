@@ -1,3 +1,12 @@
+# TEMPLATE FILE - FOR REFERENCE ONLY
+# This file is not used directly. The install_autostart.sh script
+# dynamically generates the actual service file with correct paths.
+# 
+# To install: Run sudo ./install_autostart.sh
+#
+# This template shows the structure of the systemd service file
+# that will be created at /etc/systemd/system/medical-inventory@.service
+
 [Unit]
 Description=Medical Inventory System for NASA Hunch
 After=graphical.target
@@ -9,7 +18,7 @@ User=%i
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/%i/.Xauthority
 WorkingDirectory=/home/%i/Medical-Inventory-System-NASA-Hunch-25-26
-ExecStart=/usr/bin/python3 /home/%i/Medical-Inventory-System-NASA-Hunch-25-26/medical_inventory.py
+ExecStart=/home/%i/Medical-Inventory-System-NASA-Hunch-25-26/start_medical_inventory.sh
 Restart=on-failure
 RestartSec=5
 

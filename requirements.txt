@@ -1,5 +1,7 @@
 # Core GUI and Application
-tk
+# Note: tkinter (tk) is part of Python standard library, install via system package manager:
+# Ubuntu/Debian: sudo apt-get install python3-tk
+# Fedora/RHEL: sudo dnf install python3-tkinter
 
 # Computer Vision and Image Processing
 opencv-python>=4.8.0
