@@ -3,8 +3,6 @@ Tests for ASCII Penguin Module
 """
 import pytest
 from ascii_penguin import get_penguin, display_penguin
-from io import StringIO
-import sys
 
 def test_get_penguin_returns_string():
     """Test that get_penguin returns a string."""
