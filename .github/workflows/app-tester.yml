@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ -f requirements ]; then
+          if [ -f requirements.txt ]; then
             pip install -r requirements
           fi
           pip install pytest
