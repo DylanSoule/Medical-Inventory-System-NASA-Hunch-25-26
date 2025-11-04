@@ -35,7 +35,7 @@ jobs:
             python3-pip \
             libopencv-dev \
             libgl1 \
-            libegl1-mesa \
+            libegl1 \
             libglib2.0-0 \
             libsm6 \
             libxext6 \
