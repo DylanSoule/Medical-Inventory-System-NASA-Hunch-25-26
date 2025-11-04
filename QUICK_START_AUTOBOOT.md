@@ -1,6 +1,6 @@
 # Quick Start: Auto-Boot Configuration
 
-This is a quick reference for setting up the Medical Inventory System to start automatically on boot.
+This is a quick reference for setting up the Medical Inventory System to start automatically on boot on **Raspberry Pi 4**.
 
 ## Installation (3 Steps)
 
@@ -33,9 +33,9 @@ That's it! The system will now start automatically on boot.
 | `sudo journalctl -u medical-inventory@$USER.service -f` | View live logs |
 | `sudo ./uninstall_autostart.sh` | Remove auto-start |
 
-## Raspberry Pi Kiosk Setup
+## Raspberry Pi 4 Kiosk Setup
 
-For a dedicated kiosk system:
+For a dedicated Raspberry Pi 4 kiosk system:
 
 1. **Enable auto-login:**
    ```bash
@@ -75,4 +75,5 @@ cat ~/Medical-Inventory-System-NASA-Hunch-25-26/startup.log
 
 ## Full Documentation
 
-For detailed instructions, see [AUTOSTART_SETUP.md](AUTOSTART_SETUP.md)
+- **Auto-Start Details**: [AUTOSTART_SETUP.md](AUTOSTART_SETUP.md)
+- **Complete Raspberry Pi 4 Setup**: [RASPBERRY_PI_SETUP.md](RASPBERRY_PI_SETUP.md)

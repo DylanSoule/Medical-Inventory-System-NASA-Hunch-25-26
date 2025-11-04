@@ -1,7 +1,7 @@
 # Medical Inventory System — NASA Hunch 2025-26
 
 A medical inventory system incorporating barcoding for tracking inventory as well as facial recognition for secure access. The project was built as part of the NASA Hunch 2025‑2026 program.  
-The app and AI-powered facial recognition software runs on a raspberry pi in order to allow for efficient and low energy running so it can be installed on space stations or long term space missions without major concern for energy pull.
+The app and AI-powered facial recognition software **runs on a Raspberry Pi 4** in order to allow for efficient and low energy running so it can be installed on space stations or long term space missions without major concern for energy pull.
 
 **Note** This project is still under development
 
@@ -15,6 +15,7 @@ The app and AI-powered facial recognition software runs on a raspberry pi in ord
 - [Installation & Setup](#installation--setup)
    - [Usage](#usage)
    - [Auto-Start Configuration](#auto-start-configuration)
+   - [Raspberry Pi 4 Deployment](#raspberry-pi-4-deployment)
 - [Facial Recognition Module](#facial-recognition-module)
 - [Project Status](#project-status)
 - [License](#license)
@@ -24,7 +25,7 @@ The app and AI-powered facial recognition software runs on a raspberry pi in ord
 
 ## About
 The **Medical Inventory System** is designed to help medical facilities, specifically ones on space stations on aboard space mission, track supplies, manage stock levels, and control access securely using facial recognition.  
-Developed for the **NASA Hunch 2025-26** program, the system runs efficiently on a **Raspberry Pi** or similar embedded device — suitable for low-power, remote, or space environments.
+Developed for the **NASA Hunch 2025-26** program, the system runs efficiently on a **Raspberry Pi 4** or similar embedded device — suitable for low-power, remote, or space environments. The system can be configured to start automatically on boot, creating a dedicated kiosk-style medical inventory station.
 
 
 ## Features
@@ -53,7 +54,7 @@ Developed for the **NASA Hunch 2025-26** program, the system runs efficiently on
 | `references/` | Directory containing facial reference images for authorized users. |
 | `install_autostart.sh` | Script to configure the system to start automatically on boot. |
 | `start_medical_inventory.sh` | Startup script that launches the application with proper environment. |
-| Hardware | Raspberry Pi (or PC), USB barcode scanner, and camera module. |
+| Hardware | **Raspberry Pi 4** (2GB+ RAM), USB barcode scanner, and camera module. |
 
 
 ## System Flowchart
@@ -80,11 +81,21 @@ flowchart TD
 
 
 ## Prerequisites
-- Python 3.10 +  
-- Pip package manager  
-- Camera (USB or Pi Camera)  
-- Barcode scanner  
-- `insightface`, `onnxruntime`, `opencv-python`, `numpy`
+
+### Hardware (Raspberry Pi 4)
+- **Raspberry Pi 4** (Model B, 2GB RAM minimum, 4GB or 8GB recommended)
+- **MicroSD Card** (16GB minimum, 32GB+ recommended, Class 10 or UHS-I)
+- **Power Supply** (Official Raspberry Pi 5V 3A USB-C adapter)
+- **Camera** (USB Webcam or Raspberry Pi Camera Module v2/v3)
+- **Barcode Scanner** (USB, configured as HID keyboard device)
+- **Display** (HDMI monitor or touchscreen)
+- Optional: Heatsinks or cooling fan for sustained operation
+
+### Software
+- **Raspberry Pi OS** (64-bit with Desktop recommended)
+- **Python 3.10+** (included with Raspberry Pi OS)
+- **Pip package manager**
+- **Python packages**: `insightface`, `onnxruntime`, `opencv-python`, `numpy`, `tk`
 
 ### Prerequisites for facial recognition authentication
   
@@ -160,6 +171,45 @@ sudo ./uninstall_autostart.sh
 ```
 
 For detailed setup instructions, including Raspberry Pi kiosk configuration, see [AUTOSTART_SETUP.md](AUTOSTART_SETUP.md).
+
+### Raspberry Pi 4 Deployment
+
+The Medical Inventory System is **optimized for Raspberry Pi 4** and can be deployed as a dedicated kiosk system.
+
+**Quick Start for Raspberry Pi 4:**
+
+1. **Prepare SD Card** with Raspberry Pi OS (64-bit with Desktop)
+2. **Update system:**
+   ```bash
+   sudo apt update && sudo apt upgrade -y
+   sudo apt install -y git python3-pip python3-tk python3-opencv
+   ```
+
+3. **Clone and install:**
+   ```bash
+   cd ~
+   git clone https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26.git
+   cd Medical-Inventory-System-NASA-Hunch-25-26
+   pip install -r requirements.txt
+   ```
+
+4. **Configure auto-start:**
+   ```bash
+   sudo ./install_autostart.sh
+   sudo raspi-config  # Enable auto-login
+   ```
+
+5. **Reboot** - System will start automatically!
+
+**Hardware Requirements:**
+- Raspberry Pi 4 (2GB RAM minimum, 4GB+ recommended)
+- MicroSD card (16GB+ Class 10)
+- USB Webcam or Pi Camera Module
+- USB Barcode Scanner
+- HDMI Display
+- Official Pi 4 Power Supply (5V 3A)
+
+For complete Raspberry Pi 4 setup instructions, including performance optimization, troubleshooting, and kiosk configuration, see **[RASPBERRY_PI_SETUP.md](RASPBERRY_PI_SETUP.md)**.
 
 ## Facial Recognition Module
 This module uses **InsightFace** with **ONNX Runtime** for lightweight, on-device face matching.
