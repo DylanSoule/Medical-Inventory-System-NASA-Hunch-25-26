@@ -4,22 +4,37 @@ def create_inventory():
     conn = sqlite3.connect('inventory.db')
     c = conn.cursor()
     c.execute('''
-        CREATE TABLE IF NOT EXISTS drugs (
-            FIND INTEGER PRIMARY KEY NOT NULL,
-            FNAME TEXT NOT NULL,
-            AMOUNT INTEGER NOT NULL
+        CREATE TABLE IF NOT EXISTS drugs_in_inventory (
+            barcode TEXT PRIMARY KEY NOT NULL,
+            dname TEXT NOT NULL,
+            estimated_amount INTEGER NOT NULL,
+            expiration_date DATE NOT NULL
         )
     ''')
 
-    c.execute("INSERT INTO drugs (FIND, FNAME, AMOUNT) VALUES (1, 'Tylenol', 800)")
-    c.execute("INSERT INTO drugs (FIND, FNAME, AMOUNT) VALUES (2, 'Advil', 100)")
-    c.execute("INSERT INTO drugs (FIND, FNAME, AMOUNT) VALUES (3, 'random_drug', 1000)")
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS drugs(
+            barcode TEXT PRIMARY KEY NOT NULL,
+            dname TEXT NOT NULL,
+            amount INTEGER NOT NULL,
+            expiration_date DATE NOT NULL      
+        )
+    ''')
+
+    c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date) VALUES ('124N3XY', 'Tylenol', 200, '2025-12-25')")
+    c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date) VALUES ('1NP3XY', 'Drug', 200, '2025-11-25')")
+    c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date) VALUES ('98Z64N3XY', 'Coke', 200, '2025-11-22')")
 
     conn.commit()
-    print("yass queen")
     conn.close()
 
-def pull_from_location(database, table):
+def add_new_entry_to_inventory(barcode):
+    conn = sqlite3.connect('inventory.db')
+    c= conn.cursor()
+    c.execute(f'''INSERT INTO drugs [(barcode, dname, amount, expiration_date)]
+                SELECT''')
+
+def pull_from_inventory(database, table):
     conn = sqlite3.connect(f'{database}.db')
     c = conn.cursor()
     c.execute(f"SELECT * FROM {table}")
@@ -28,45 +43,43 @@ def pull_from_location(database, table):
 
     print("Table below\n")
     for row in rows:
-        print(f"{row[0]}: {row[1]} {row[2]}")
+        print(f"Barcode: {row[0]} | Name: {row[1]} | Amount: {row[2]} | Expiration Date: {row[3]}")
 
     c.close()
 
-def create_people():
-    conn = sqlite3.connect('dave.db')
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS recommended (
-            HOUR TEXT NOT NULL,
-            NUMBER_TAKEN INTEGER NOT NULL,
-            DRUG TEXT NOT NULL
-        )
-    ''')
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS taken (
-            HOUR TEXT NOT NULL,
-            NUMBER_TAKEN INTEGER NOT NULL,
-            DRUG TEXT NOT NULL
-            )
-    ''')
 
-    # c.execute("INSERT INTO recommended (HOUR, NUMBER_TAKEN, DRUG) VALUES ('06:00', 2, 'advil')")
-    # c.execute("INSERT INTO recommended (HOUR, NUMBER_TAKEN, DRUG) VALUES ('08:00', 1, 'placeholder')")
-    # c.execute("INSERT INTO recommended (HOUR, NUMBER_TAKEN, DRUG) VALUES ('18:00', 0, 'placeholder2')")
-    # c.execute("INSERT INTO recommended (HOUR, NUMBER_TAKEN, DRUG) VALUES ('22:00', 0, 'placeholder3')")
 
-    conn.commit()
-    print("yass queen")
-    conn.close()
+"""
+Stuff below this is for people, and will be worked on in the future
+Not right now
+"""
+# def create_people():
+#     conn = sqlite3.connect('dave.db')
+#     c = conn.cursor()
+#     c.execute('''
+#         CREATE TABLE IF NOT EXISTS recommended (
+#             HOUR TEXT NOT NULL,
+#             NUMBER_TAKEN INTEGER NOT NULL,
+#             DRUG TEXT NOT NULL
+#         )
+#     ''')
+#     c.execute('''
+#         CREATE TABLE IF NOT EXISTS taken (
+#             HOUR TEXT NOT NULL,
+#             NUMBER_TAKEN INTEGER NOT NULL,
+#             DRUG TEXT NOT NULL
+#             )
+#     ''')
 
-def add_access(person, hour, drug, number):
-    conn = sqlite3.connect(f'{person}.db')
-    c = conn.cursor()
+#     conn.commit()
+#     print("yass queen")
+#     conn.close()
+
+# def add_access(person, hour, drug, number):
+#     conn = sqlite3.connect(f'{person}.db')
+#     c = conn.cursor()
     
-    c.execute(f"INSERT INTO taken (HOUR, NUMBER_TAKEN, DRUG) VALUES ({hour}, {number}, {drug})")
-    conn.commit()
-    conn.close()
+#     c.execute(f"INSERT INTO taken (HOUR, NUMBER_TAKEN, DRUG) VALUES ({hour}, {number}, {drug})")
+#     conn.commit()
+#     conn.close()
 
-add_access('dave','00:00','tylenol',1209843102943)
-pull_from_location('dave','recommended')
-pull_from_location('dave','taken')
