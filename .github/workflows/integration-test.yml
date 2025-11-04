@@ -33,10 +33,11 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get install -y --no-install-recommends \
             python3-tk \
             libopencv-dev \
             libgl1 \
+            libegl1-mesa \
             libglib2.0-0 \
             libsm6 \
             libxext6 \

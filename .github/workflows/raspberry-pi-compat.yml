@@ -28,13 +28,14 @@ jobs:
         run: |
           echo "=== Installing packages similar to Raspberry Pi OS ==="
           sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get install -y --no-install-recommends \
             python3-tk \
             python3-opencv \
             python3-numpy \
             python3-pip \
             libopencv-dev \
             libgl1 \
+            libegl1-mesa \
             libglib2.0-0 \
             libsm6 \
             libxext6 \
