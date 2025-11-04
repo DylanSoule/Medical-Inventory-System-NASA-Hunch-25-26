@@ -1,0 +1,17 @@
+[Unit]
+Description=Medical Inventory System for NASA Hunch
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+Type=simple
+User=%i
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/%i/.Xauthority
+WorkingDirectory=/home/%i/Medical-Inventory-System-NASA-Hunch-25-26
+ExecStart=/usr/bin/python3 /home/%i/Medical-Inventory-System-NASA-Hunch-25-26/medical_inventory.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target

@@ -14,6 +14,7 @@ The app and AI-powered facial recognition software runs on a raspberry pi in ord
 - [Prerequisites](#prerequisites)
 - [Installation & Setup](#installation--setup)
    - [Usage](#usage)
+   - [Auto-Start Configuration](#auto-start-configuration)
 - [Facial Recognition Module](#facial-recognition-module)
 - [Project Status](#project-status)
 - [License](#license)
@@ -32,6 +33,7 @@ Developed for the **NASA Hunch 2025-26** program, the system runs efficiently on
 - Facial recognition to authenticate users.
 - Automatic CSV logging of all inventory actions.
 - Real-time display of current inventory in a GUI.
+- **Auto-start on boot** — Configure the system to launch automatically, creating a dedicated kiosk system.
 
 ### Planned / Future
 - Search and filter inventory records.
@@ -46,8 +48,11 @@ Developed for the **NASA Hunch 2025-26** program, the system runs efficiently on
 |---|---|
 | `medical_inventory.py` | Main GUI and logic for barcode + inventory management. |
 | `facial_recognition.py` | Handles user authentication via camera and InsightFace. |
-| `scans.csv` | Local data file that stores all inventory transactions. |
+| `db_manager.py` | Database manager for SQLite inventory and deletion tracking. |
+| `inventory.db` | SQLite database storing all inventory transactions. |
 | `references/` | Directory containing facial reference images for authorized users. |
+| `install_autostart.sh` | Script to configure the system to start automatically on boot. |
+| `start_medical_inventory.sh` | Startup script that launches the application with proper environment. |
 | Hardware | Raspberry Pi (or PC), USB barcode scanner, and camera module. |
 
 
@@ -120,6 +125,41 @@ Run facial recognition independently:
 ```bash
 python3 facial_recognition.py
 ```
+
+### Auto-Start Configuration
+
+To configure the Medical Inventory System to start automatically on boot (ideal for dedicated kiosk systems):
+
+```bash
+sudo ./install_autostart.sh
+```
+
+This will:
+- Create a systemd service that starts the application on boot
+- Configure proper environment variables for GUI display
+- Set up automatic restart on failure
+
+**Management commands:**
+```bash
+# Start the service now
+sudo systemctl start medical-inventory@$USER.service
+
+# Check service status
+sudo systemctl status medical-inventory@$USER.service
+
+# View logs
+sudo journalctl -u medical-inventory@$USER.service -f
+
+# Disable auto-start
+sudo systemctl disable medical-inventory@$USER.service
+```
+
+To uninstall auto-start:
+```bash
+sudo ./uninstall_autostart.sh
+```
+
+For detailed setup instructions, including Raspberry Pi kiosk configuration, see [AUTOSTART_SETUP.md](AUTOSTART_SETUP.md).
 
 ## Facial Recognition Module
 This module uses **InsightFace** with **ONNX Runtime** for lightweight, on-device face matching.
