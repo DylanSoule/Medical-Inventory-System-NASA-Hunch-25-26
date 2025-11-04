@@ -83,20 +83,14 @@ The Medical Inventory System has been configured to run automatically on startup
 
 ### Architecture
 
-```
-Raspberry Pi 4 Boot
-       ↓
-Raspberry Pi OS (Debian-based)
-       ↓
-systemd (medical-inventory@user.service)
-       ↓
-start_medical_inventory.sh
-       ↓
-Python 3 + Virtual Environment
-       ↓
-medical_inventory.py (Main Application)
-       ↓
-Fullscreen GUI Ready
+```mermaid
+flowchart TD
+    A[Raspberry Pi 4 Boot] --> B[Raspberry Pi OS<br/>Debian-based]
+    B --> C[systemd<br/>medical-inventory@user.service]
+    C --> D[start_medical_inventory.sh]
+    D --> E[Python 3 + Virtual Environment]
+    E --> F[medical_inventory.py<br/>Main Application]
+    F --> G[Fullscreen GUI Ready]
 ```
 
 ## Installation Quick Steps

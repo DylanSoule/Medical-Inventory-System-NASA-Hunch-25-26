@@ -194,41 +194,18 @@ python -c "import tkinter; print('✓ Tkinter')"
 
 ## Continuous Integration Workflow
 
-```
-┌─────────────────────┐
-│   Code Push/PR      │
-└──────────┬──────────┘
-           │
-           ├─────────────────────────────────────┐
-           │                                     │
-           ▼                                     ▼
-┌──────────────────────┐              ┌──────────────────────┐
-│  Integration Tests   │              │   Raspberry Pi       │
-│                      │              │   Compatibility      │
-│ • Syntax Check       │              │                      │
-│ • Database Tests     │              │ • Package Compat    │
-│ • Module Imports     │              │ • ARM Environment   │
-│ • Auto-Start Valid   │              │ • Path Checks       │
-│ • Documentation      │              │ • Memory Checks     │
-└──────────┬───────────┘              └──────────┬───────────┘
-           │                                     │
-           ├─────────────────────────────────────┤
-           │                                     │
-           ▼                                     ▼
-┌──────────────────────┐              ┌──────────────────────┐
-│   Python Tests       │              │   Syntax Check       │
-│                      │              │                      │
-│ • run_all_tests.py   │              │ • flake8             │
-└──────────┬───────────┘              └──────────┬───────────┘
-           │                                     │
-           └─────────────────┬───────────────────┘
-                             │
-                             ▼
-                   ┌──────────────────┐
-                   │  Test Summary    │
-                   │                  │
-                   │  ✓ All Passed    │
-                   └──────────────────┘
+```mermaid
+flowchart TD
+    A[Code Push/PR] --> B[Integration Tests]
+    A --> C[Raspberry Pi Compatibility]
+    
+    B --> |• Syntax Check<br/>• Database Tests<br/>• Module Imports<br/>• Auto-Start Valid<br/>• Documentation| D[Python Tests]
+    C --> |• Package Compat<br/>• ARM Environment<br/>• Path Checks<br/>• Memory Checks| E[Syntax Check]
+    
+    D --> |• run_all_tests.py| F[Test Summary]
+    E --> |• flake8| F
+    
+    F --> |✓ All Passed| G[Success]
 ```
 
 ## Test Results & Badges
