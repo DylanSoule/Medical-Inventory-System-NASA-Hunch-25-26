@@ -20,6 +20,3 @@ def run_pytests():
     else:
         print("\n❌ Some tests failed. Check above for details.")
     sys.exit(result.returncode)
-
-if __name__ == "__main__":
-   
