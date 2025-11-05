@@ -84,6 +84,8 @@ jobs:
         run: |
           echo "=== Testing Database Operations ==="
           python -c "
+          import sys
+          sys.path.insert(0, 'src')
           from db_manager import DatabaseManager
           import os
           import tempfile
@@ -105,19 +107,19 @@ jobs:
           echo "=== Validating Scripts for Raspberry Pi ==="
           
           # Check scripts are executable
-          test -x install_autostart.sh && echo "✓ install_autostart.sh is executable"
-          test -x uninstall_autostart.sh && echo "✓ uninstall_autostart.sh is executable"
-          test -x start_medical_inventory.sh && echo "✓ start_medical_inventory.sh is executable"
+          test -x scripts/install_autostart.sh && echo "✓ install_autostart.sh is executable"
+          test -x scripts/uninstall_autostart.sh && echo "✓ uninstall_autostart.sh is executable"
+          test -x scripts/start_medical_inventory.sh && echo "✓ start_medical_inventory.sh is executable"
           
           # Check scripts use correct paths
-          grep -q "/usr/bin/python3" install_autostart.sh || \
-          grep -q "python3" install_autostart.sh && \
+          grep -q "/usr/bin/python3" scripts/install_autostart.sh || \
+          grep -q "python3" scripts/install_autostart.sh && \
             echo "✓ Scripts use python3 (Raspberry Pi compatible)"
           
           # Check for Raspberry Pi specific commands
-          grep -q "raspi-config" RASPBERRY_PI_SETUP.md && \
+          grep -q "raspi-config" docs/RASPBERRY_PI_SETUP.md && \
             echo "✓ Documentation includes raspi-config"
-          grep -q "Raspberry Pi 4" RASPBERRY_PI_SETUP.md && \
+          grep -q "Raspberry Pi 4" docs/RASPBERRY_PI_SETUP.md && \
             echo "✓ Documentation specifies Raspberry Pi 4"
       
       - name: Test systemd service compatibility
@@ -125,16 +127,16 @@ jobs:
           echo "=== Testing Systemd Service ==="
           
           # Check service file has required sections
-          grep -q "\[Unit\]" medical-inventory.service && echo "✓ Unit section present"
-          grep -q "\[Service\]" medical-inventory.service && echo "✓ Service section present"
-          grep -q "\[Install\]" medical-inventory.service && echo "✓ Install section present"
+          grep -q "\[Unit\]" scripts/medical-inventory.service && echo "✓ Unit section present"
+          grep -q "\[Service\]" scripts/medical-inventory.service && echo "✓ Service section present"
+          grep -q "\[Install\]" scripts/medical-inventory.service && echo "✓ Install section present"
           
           # Check for graphical.target (required for GUI)
-          grep -q "graphical.target" medical-inventory.service && \
+          grep -q "graphical.target" scripts/medical-inventory.service && \
             echo "✓ Service depends on graphical.target"
           
           # Check DISPLAY variable is set
-          grep -q "DISPLAY=" medical-inventory.service && \
+          grep -q "DISPLAY=" scripts/medical-inventory.service && \
             echo "✓ DISPLAY environment variable configured"
       
       - name: Verify ARM compatibility notes
@@ -142,14 +144,14 @@ jobs:
           echo "=== Checking ARM/Raspberry Pi Documentation ==="
           
           # Check if documentation mentions ARM or Raspberry Pi
-          if grep -qi "raspberry pi\|arm" README.md RASPBERRY_PI_SETUP.md; then
+          if grep -qi "raspberry pi\|arm" README.md docs/RASPBERRY_PI_SETUP.md; then
             echo "✓ Documentation includes Raspberry Pi/ARM information"
           else
             echo "⚠ Warning: Limited Raspberry Pi specific documentation"
           fi
           
           # Check for memory requirements
-          if grep -qi "2gb\|4gb\|8gb" RASPBERRY_PI_SETUP.md; then
+          if grep -qi "2gb\|4gb\|8gb" docs/RASPBERRY_PI_SETUP.md; then
             echo "✓ RAM requirements documented"
           fi
       
@@ -187,7 +189,7 @@ jobs:
           fi
           
           # Check scripts use relative or dynamic paths
-          grep -q "SCRIPT_DIR=" start_medical_inventory.sh && \
+          grep -q "SCRIPT_DIR=" scripts/start_medical_inventory.sh && \
             echo "✓ Scripts use dynamic path detection"
       
       - name: Raspberry Pi compatibility summary
