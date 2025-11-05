@@ -1,5 +1,10 @@
 # Medical Inventory System — NASA Hunch 2025-26
 
+![Integration Tests](https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26/actions/workflows/integration-test.yml/badge.svg)
+![Raspberry Pi Compat](https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26/actions/workflows/raspberry-pi-compat.yml/badge.svg)
+![Python Tests](https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26/actions/workflows/app-tester.yml/badge.svg)
+![Syntax Check](https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26/actions/workflows/syntax-check.yml/badge.svg)
+
 A medical inventory system incorporating barcoding for tracking inventory as well as facial recognition for secure access. The project was built as part of the NASA Hunch 2025‑2026 program.  
 The app and AI-powered facial recognition software **runs on a Raspberry Pi 4** in order to allow for efficient and low energy running so it can be installed on space stations or long term space missions without major concern for energy pull.
 

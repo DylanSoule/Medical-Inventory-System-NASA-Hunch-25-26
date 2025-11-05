@@ -199,8 +199,15 @@ flowchart TD
     A[Code Push/PR] --> B[Integration Tests]
     A --> C[Raspberry Pi Compatibility]
     
-    B --> |• Syntax Check<br/>• Database Tests<br/>• Module Imports<br/>• Auto-Start Valid<br/>• Documentation| D[Python Tests]
-    C --> |• Package Compat<br/>• ARM Environment<br/>• Path Checks<br/>• Memory Checks| E[Syntax Check]
+    B --> |"• Syntax Check
+    • Database Tests
+    • Module Imports
+    • Auto-Start Valid
+    • Documentation"| D[Python Tests]
+    C --> |"• Package Compat
+    • ARM Environment
+    • Path Checks
+    • Memory Checks"| E[Syntax Check]
     
     D --> |• run_all_tests.py| F[Test Summary]
     E --> |• flake8| F
