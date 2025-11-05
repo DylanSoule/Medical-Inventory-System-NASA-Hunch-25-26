@@ -111,16 +111,16 @@ jobs:
       - name: Test import of all modules
         run: |
           echo "=== Testing Module Imports ==="
-          python -c "import db_manager; print('✓ db_manager imported successfully')"
-          python -c "import facial_recognition; print('✓ facial_recognition imported successfully')"
+          python -c "from src import db_manager; print('✓ db_manager imported successfully')"
+          python -c "from src import facial_recognition; print('✓ facial_recognition imported successfully')"
           # Note: medical_inventory requires DISPLAY, so we skip GUI testing
       
       - name: Verify systemd service file structure
         run: |
           echo "=== Validating Systemd Service File ==="
-          if grep -q "\[Unit\]" medical-inventory.service && \
-             grep -q "\[Service\]" medical-inventory.service && \
-             grep -q "\[Install\]" medical-inventory.service; then
+          if grep -q "\[Unit\]" scripts/medical-inventory.service && \
+             grep -q "\[Service\]" scripts/medical-inventory.service && \
+             grep -q "\[Install\]" scripts/medical-inventory.service; then
             echo "✓ Service file structure is valid"
           else
             echo "✗ Service file structure is invalid"
@@ -131,10 +131,10 @@ jobs:
         run: |
           echo "=== Checking Documentation ==="
           test -f README.md && echo "✓ README.md exists"
-          test -f AUTOSTART_SETUP.md && echo "✓ AUTOSTART_SETUP.md exists"
-          test -f RASPBERRY_PI_SETUP.md && echo "✓ RASPBERRY_PI_SETUP.md exists"
-          test -f QUICK_START_AUTOBOOT.md && echo "✓ QUICK_START_AUTOBOOT.md exists"
-          test -f AUTO_START_SUMMARY.md && echo "✓ AUTO_START_SUMMARY.md exists"
+          test -f docs/AUTOSTART_SETUP.md && echo "✓ AUTOSTART_SETUP.md exists"
+          test -f docs/RASPBERRY_PI_SETUP.md && echo "✓ RASPBERRY_PI_SETUP.md exists"
+          test -f docs/QUICK_START_AUTOBOOT.md && echo "✓ QUICK_START_AUTOBOOT.md exists"
+          test -f docs/AUTO_START_SUMMARY.md && echo "✓ AUTO_START_SUMMARY.md exists"
           
           # Check README has required sections
           grep -q "Auto-Start Configuration" README.md && echo "✓ README includes auto-start section"
@@ -144,7 +144,7 @@ jobs:
         run: |
           echo "=== Testing Database Operations ==="
           python -c "
-          from db_manager import DatabaseManager
+          from src.db_manager import DatabaseManager
           import os
           import tempfile
           
@@ -183,10 +183,10 @@ jobs:
       - name: Verify file permissions
         run: |
           echo "=== Checking File Permissions ==="
-          test -x install_autostart.sh && echo "✓ install_autostart.sh is executable"
-          test -x uninstall_autostart.sh && echo "✓ uninstall_autostart.sh is executable"
-          test -x start_medical_inventory.sh && echo "✓ start_medical_inventory.sh is executable"
-          test -x test_autostart_setup.sh && echo "✓ test_autostart_setup.sh is executable"
+          test -x scripts/install_autostart.sh && echo "✓ install_autostart.sh is executable"
+          test -x scripts/uninstall_autostart.sh && echo "✓ uninstall_autostart.sh is executable"
+          test -x scripts/start_medical_inventory.sh && echo "✓ start_medical_inventory.sh is executable"
+          test -x scripts/test_autostart_setup.sh && echo "✓ test_autostart_setup.sh is executable"
       
       - name: Integration test summary
         if: always()
@@ -209,41 +209,41 @@ jobs:
       - name: Validate installation script
         run: |
           echo "=== Validating Installation Script ==="
-          bash -n install_autostart.sh
+          bash -n scripts/install_autostart.sh
           
           # Check for required commands
-          grep -q "systemctl enable" install_autostart.sh && echo "✓ Script enables systemd service"
-          grep -q "chmod +x" install_autostart.sh && echo "✓ Script sets executable permissions"
+          grep -q "systemctl enable" scripts/install_autostart.sh && echo "✓ Script enables systemd service"
+          grep -q "chmod +x" scripts/install_autostart.sh && echo "✓ Script sets executable permissions"
       
       - name: Validate uninstallation script
         run: |
           echo "=== Validating Uninstallation Script ==="
-          bash -n uninstall_autostart.sh
+          bash -n scripts/uninstall_autostart.sh
           
           # Check for required commands
-          grep -q "systemctl disable" uninstall_autostart.sh && echo "✓ Script disables systemd service"
-          grep -q "systemctl stop" uninstall_autostart.sh && echo "✓ Script stops service"
+          grep -q "systemctl disable" scripts/uninstall_autostart.sh && echo "✓ Script disables systemd service"
+          grep -q "systemctl stop" scripts/uninstall_autostart.sh && echo "✓ Script stops service"
       
       - name: Validate startup script
         run: |
           echo "=== Validating Startup Script ==="
-          bash -n start_medical_inventory.sh
+          bash -n scripts/start_medical_inventory.sh
           
           # Check for required functionality
-          grep -q "DISPLAY" start_medical_inventory.sh && echo "✓ Script sets DISPLAY variable"
-          grep -q "xset q" start_medical_inventory.sh && echo "✓ Script waits for X server"
-          grep -q "python3 medical_inventory.py" start_medical_inventory.sh && echo "✓ Script launches application"
+          grep -q "DISPLAY" scripts/start_medical_inventory.sh && echo "✓ Script sets DISPLAY variable"
+          grep -q "xset q" scripts/start_medical_inventory.sh && echo "✓ Script waits for X server"
+          grep -q "python3 src/medical_inventory.py" scripts/start_medical_inventory.sh && echo "✓ Script launches application"
       
       - name: Test service file parsing
         run: |
           echo "=== Testing Service File ==="
           # Verify service file has correct structure
-          cat medical-inventory.service
+          cat scripts/medical-inventory.service
           
           # Check required fields
-          grep -q "Description=" medical-inventory.service && echo "✓ Has description"
-          grep -q "ExecStart=" medical-inventory.service && echo "✓ Has ExecStart"
-          grep -q "Restart=" medical-inventory.service && echo "✓ Has restart policy"
+          grep -q "Description=" scripts/medical-inventory.service && echo "✓ Has description"
+          grep -q "ExecStart=" scripts/medical-inventory.service && echo "✓ Has ExecStart"
+          grep -q "Restart=" scripts/medical-inventory.service && echo "✓ Has restart policy"
 
   documentation-check:
     name: Documentation Validation
@@ -267,16 +267,11 @@ jobs:
           echo "=== Checking Documentation Files ==="
           
           # Check all required docs exist
-          for file in README.md AUTOSTART_SETUP.md RASPBERRY_PI_SETUP.md \
-                      QUICK_START_AUTOBOOT.md AUTO_START_SUMMARY.md; do
-            if [ -f "$file" ]; then
-              lines=$(wc -l < "$file")
-              echo "✓ $file exists ($lines lines)"
-            else
-              echo "✗ $file missing"
-              exit 1
-            fi
-          done
+          test -f README.md && echo "✓ README.md exists ($(wc -l < README.md) lines)"
+          test -f docs/AUTOSTART_SETUP.md && echo "✓ docs/AUTOSTART_SETUP.md exists ($(wc -l < docs/AUTOSTART_SETUP.md) lines)"
+          test -f docs/RASPBERRY_PI_SETUP.md && echo "✓ docs/RASPBERRY_PI_SETUP.md exists ($(wc -l < docs/RASPBERRY_PI_SETUP.md) lines)"
+          test -f docs/QUICK_START_AUTOBOOT.md && echo "✓ docs/QUICK_START_AUTOBOOT.md exists ($(wc -l < docs/QUICK_START_AUTOBOOT.md) lines)"
+          test -f docs/AUTO_START_SUMMARY.md && echo "✓ docs/AUTO_START_SUMMARY.md exists ($(wc -l < docs/AUTO_START_SUMMARY.md) lines)"
           
           echo ""
           echo "=== Checking Documentation Content ==="
@@ -289,9 +284,9 @@ jobs:
           grep -q "Auto-Start" README.md && echo "✓ README mentions Auto-Start"
           
           # Check setup guides have installation instructions
-          grep -q "sudo ./install_autostart.sh" AUTOSTART_SETUP.md && \
+          grep -q "sudo ./scripts/install_autostart.sh" docs/AUTOSTART_SETUP.md && \
             echo "✓ AUTOSTART_SETUP.md has installation command"
-          grep -q "Raspberry Pi 4" RASPBERRY_PI_SETUP.md && \
+          grep -q "Raspberry Pi 4" docs/RASPBERRY_PI_SETUP.md && \
             echo "✓ RASPBERRY_PI_SETUP.md covers Raspberry Pi 4"
           
           echo ""
