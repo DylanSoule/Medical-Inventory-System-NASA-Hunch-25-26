@@ -36,7 +36,7 @@ fi
 
 # Launch the application
 echo "Starting Medical Inventory System..."
-python3 medical_inventory.py
+cd "$SCRIPT_DIR/.." && python3 src/medical_inventory.py
 
 # If the application exits, log it
 echo "Medical Inventory System stopped at $(date)" >> "$SCRIPT_DIR/startup.log"

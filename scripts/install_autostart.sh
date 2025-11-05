@@ -39,7 +39,7 @@ Type=simple
 User=%i
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/%i/.Xauthority
-WorkingDirectory=$SCRIPT_DIR
+WorkingDirectory=$(dirname "$SCRIPT_DIR")
 ExecStart=$SCRIPT_DIR/start_medical_inventory.sh
 Restart=on-failure
 RestartSec=5

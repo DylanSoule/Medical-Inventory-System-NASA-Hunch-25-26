@@ -52,13 +52,15 @@ Developed for the **NASA Hunch 2025-26** program, the system runs efficiently on
 ## Architecture & Components
 | Component | Description |
 |---|---|
-| `medical_inventory.py` | Main GUI and logic for barcode + inventory management. |
-| `facial_recognition.py` | Handles user authentication via camera and InsightFace. |
-| `db_manager.py` | Database manager for SQLite inventory and deletion tracking. |
+| `src/medical_inventory.py` | Main GUI and logic for barcode + inventory management. |
+| `src/facial_recognition.py` | Handles user authentication via camera and InsightFace. |
+| `src/db_manager.py` | Database manager for SQLite inventory and deletion tracking. |
 | `inventory.db` | SQLite database storing all inventory transactions. |
-| `references/` | Directory containing facial reference images for authorized users. |
-| `install_autostart.sh` | Script to configure the system to start automatically on boot. |
-| `start_medical_inventory.sh` | Startup script that launches the application with proper environment. |
+| `assets/references/` | Directory containing facial reference images for authorized users. |
+| `scripts/install_autostart.sh` | Script to configure the system to start automatically on boot. |
+| `scripts/start_medical_inventory.sh` | Startup script that launches the application with proper environment. |
+| `docs/` | Comprehensive documentation for setup, deployment, and troubleshooting. |
+| `tests/` | Test suite for database, application, and auto-start functionality. |
 | Hardware | **Raspberry Pi 4** (2GB+ RAM), USB barcode scanner, and camera module. |
 
 
@@ -130,7 +132,7 @@ flowchart TD
 ### Usage
 Run the main system:
 ```bash
-python3 medical_inventory.py
+python3 src/medical_inventory.py
 ```
 
 - The app will start the camera and prompt for facial authentication.
@@ -139,7 +141,7 @@ python3 medical_inventory.py
 
 Run facial recognition independently:
 ```bash
-python3 facial_recognition.py
+python3 src/facial_recognition.py
 ```
 
 ### Auto-Start Configuration
@@ -147,7 +149,7 @@ python3 facial_recognition.py
 To configure the Medical Inventory System to start automatically on boot (ideal for dedicated kiosk systems):
 
 ```bash
-sudo ./install_autostart.sh
+sudo ./scripts/install_autostart.sh
 ```
 
 This will:
@@ -172,10 +174,10 @@ sudo systemctl disable medical-inventory@$USER.service
 
 To uninstall auto-start:
 ```bash
-sudo ./uninstall_autostart.sh
+sudo ./scripts/uninstall_autostart.sh
 ```
 
-For detailed setup instructions, including Raspberry Pi kiosk configuration, see [AUTOSTART_SETUP.md](AUTOSTART_SETUP.md).
+For detailed setup instructions, including Raspberry Pi kiosk configuration, see [docs/AUTOSTART_SETUP.md](docs/AUTOSTART_SETUP.md).
 
 ### Raspberry Pi 4 Deployment
 
@@ -200,7 +202,7 @@ The Medical Inventory System is **optimized for Raspberry Pi 4** and can be depl
 
 4. **Configure auto-start:**
    ```bash
-   sudo ./install_autostart.sh
+   sudo ./scripts/install_autostart.sh
    sudo raspi-config  # Enable auto-login
    ```
 

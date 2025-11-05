@@ -5,7 +5,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$ROOT_DIR"
 
 echo "=== Testing Auto-Start Setup Files ==="
 echo ""
@@ -13,12 +14,12 @@ echo ""
 # Test 1: Check all required files exist
 echo "Test 1: Checking required files exist..."
 REQUIRED_FILES=(
-    "start_medical_inventory.sh"
-    "install_autostart.sh"
-    "uninstall_autostart.sh"
-    "medical-inventory.service"
-    "AUTOSTART_SETUP.md"
-    "QUICK_START_AUTOBOOT.md"
+    "scripts/start_medical_inventory.sh"
+    "scripts/install_autostart.sh"
+    "scripts/uninstall_autostart.sh"
+    "scripts/medical-inventory.service"
+    "docs/AUTOSTART_SETUP.md"
+    "docs/QUICK_START_AUTOBOOT.md"
 )
 
 for file in "${REQUIRED_FILES[@]}"; do
@@ -34,9 +35,9 @@ echo ""
 # Test 2: Check scripts are executable
 echo "Test 2: Checking scripts are executable..."
 EXEC_FILES=(
-    "start_medical_inventory.sh"
-    "install_autostart.sh"
-    "uninstall_autostart.sh"
+    "scripts/start_medical_inventory.sh"
+    "scripts/install_autostart.sh"
+    "scripts/uninstall_autostart.sh"
 )
 
 for file in "${EXEC_FILES[@]}"; do
@@ -63,9 +64,9 @@ echo ""
 
 # Test 4: Check systemd service file format
 echo "Test 4: Checking systemd service file format..."
-if grep -q "\[Unit\]" medical-inventory.service && \
-   grep -q "\[Service\]" medical-inventory.service && \
-   grep -q "\[Install\]" medical-inventory.service; then
+if grep -q "\[Unit\]" scripts/medical-inventory.service && \
+   grep -q "\[Service\]" scripts/medical-inventory.service && \
+   grep -q "\[Install\]" scripts/medical-inventory.service; then
     echo "  ✓ Service file has correct sections"
 else
     echo "  ✗ Service file is missing required sections"
@@ -75,10 +76,10 @@ echo ""
 
 # Test 5: Check if main application exists
 echo "Test 5: Checking main application file..."
-if [ -f "medical_inventory.py" ]; then
-    echo "  ✓ medical_inventory.py exists"
+if [ -f "src/medical_inventory.py" ]; then
+    echo "  ✓ src/medical_inventory.py exists"
 else
-    echo "  ✗ medical_inventory.py missing"
+    echo "  ✗ src/medical_inventory.py missing"
     exit 1
 fi
 echo ""
@@ -92,7 +93,7 @@ else
     exit 1
 fi
 
-if grep -q "sudo ./install_autostart.sh" AUTOSTART_SETUP.md; then
+if grep -q "sudo ./scripts/install_autostart.sh\|sudo ./install_autostart.sh" docs/AUTOSTART_SETUP.md; then
     echo "  ✓ AUTOSTART_SETUP.md includes installation instructions"
 else
     echo "  ✗ AUTOSTART_SETUP.md missing installation instructions"
@@ -118,4 +119,4 @@ echo ""
 echo "=== All Tests Passed ==="
 echo ""
 echo "Auto-start setup files are valid and ready for use."
-echo "To install auto-start, run: sudo ./install_autostart.sh"
+echo "To install auto-start, run: sudo ./scripts/install_autostart.sh"

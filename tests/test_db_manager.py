@@ -1,7 +1,11 @@
 import os
+import sys
 import pytest
 from datetime import datetime
-from db_manager import DatabaseManager
+
+# Add parent directory to path to import from src
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from src.db_manager import DatabaseManager
 
 @pytest.fixture
 def db():

@@ -84,15 +84,15 @@ jobs:
       - name: Validate shell scripts
         run: |
           echo "=== Validating Shell Scripts ==="
-          bash -n install_autostart.sh
-          bash -n uninstall_autostart.sh
-          bash -n start_medical_inventory.sh
+          bash -n scripts/install_autostart.sh
+          bash -n scripts/uninstall_autostart.sh
+          bash -n scripts/start_medical_inventory.sh
           echo "All shell scripts are syntactically valid"
       
       - name: Test database manager
         run: |
           echo "=== Testing Database Manager ==="
-          pytest test_db_manager.py -v
+          pytest tests/test_db_manager.py -v
       
       - name: Test medical inventory (non-GUI parts)
         continue-on-error: true
@@ -100,13 +100,13 @@ jobs:
           echo "=== Testing Medical Inventory ==="
           # Note: GUI tests require DISPLAY and are skipped in CI
           # Run only non-GUI tests if available
-          pytest test_medical_inventory.py -v -k "not gui" 2>&1 || echo "No non-GUI tests available"
+          pytest tests/test_medical_inventory.py -v -k "not gui" 2>&1 || echo "No non-GUI tests available"
       
       - name: Validate auto-start setup files
         run: |
           echo "=== Running Auto-Start Validation ==="
-          chmod +x test_autostart_setup.sh
-          ./test_autostart_setup.sh
+          chmod +x scripts/test_autostart_setup.sh
+          ./scripts/test_autostart_setup.sh
       
       - name: Test import of all modules
         run: |
