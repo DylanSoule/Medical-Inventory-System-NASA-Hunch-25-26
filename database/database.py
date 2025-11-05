@@ -1,6 +1,15 @@
 import sqlite3
 
+"""
+Python file to access databases for project, functions can access different databases, such as the inventory database and the personal databases for all people 
+"""
+
 def create_inventory():
+    """
+    This function just creates the inventory database, realistically it doesn't ever need to be used if the database is already created
+
+    It initializes the two tables for what we have and what drugs are possible, so you can pull based on barcodes.
+    """
     conn = sqlite3.connect('inventory.db')
     c = conn.cursor()
     c.execute('''
@@ -28,13 +37,39 @@ def create_inventory():
     conn.commit()
     conn.close()
 
-def add_new_entry_to_inventory(barcode):
-    conn = sqlite3.connect('inventory.db')
-    c= conn.cursor()
-    c.execute(f'''INSERT INTO drugs [(barcode, dname, amount, expiration_date)]
-                SELECT''')
 
-def pull_from_inventory(database, table):
+def add_to_inventory_via_barcode(barcode):
+    conn = sqlite3.connect('inventory.db')
+    c = conn.cursor()
+
+    c.execute("SELECT * FROM drugs WHERE barcode = ?", (barcode,))
+    drug = c.fetchone()
+
+    if not drug:
+        print("No drug found with that barcode in database")
+        conn.close()
+        return
+
+    try:
+        c.execute('''
+            INSERT INTO drugs_in_inventory (barcode, dname, estimated_amount, expiration_date)
+            VALUES (?, ?, ?, ?)
+        ''', (drug[0], drug[1], drug[2], drug[3]))
+    except (sqlite3.IntegrityError):
+        print("Already drug in inventory with that barcode")
+
+    conn.commit()
+    conn.close()
+
+
+def add_to_database(barcode, dname, amount, expiration_date):
+    conn = sqlite3.connect('inventory.db')
+    c = conn.cursor()
+    
+    c.execute("INSERT INTO drugs_in_inventory ")
+
+
+def pull_from_drug_inventory(database, table):
     conn = sqlite3.connect(f'{database}.db')
     c = conn.cursor()
     c.execute(f"SELECT * FROM {table}")
@@ -49,9 +84,11 @@ def pull_from_inventory(database, table):
 
 
 
+
+
 """
-Stuff below this is for people, and will be worked on in the future
-Not right now
+Stuff below this is for people databases, and will be worked on in the future
+Not right now, doing the drug databases at this point
 """
 # def create_people():
 #     conn = sqlite3.connect('dave.db')
