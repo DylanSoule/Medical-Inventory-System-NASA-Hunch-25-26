@@ -59,11 +59,12 @@ def main():
     # -----------------------------
     # LOAD REFERENCES
     # -----------------------------
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    ref_dir = os.path.join(script_dir, "references")
+    # Get current user's home directory and build path to assets/references
+    current_user = os.path.expanduser("~").split("/")[-1]
+    ref_dir = f"/home/{current_user}/Medical-Invintory-System-NASA-Hunch-25-26-/assets/references"
 
     if not os.path.exists(ref_dir):
-        print("Reference folder not found!")
+        print(f"Reference folder not found at: {ref_dir}")
        
         return 3
 
