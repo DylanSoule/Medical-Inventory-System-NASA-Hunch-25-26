@@ -23,7 +23,7 @@ Before setting up auto-start, ensure:
 From the project directory, run:
 
 ```bash
-sudo ./install_autostart.sh
+sudo ./scripts/install_autostart.sh
 ```
 
 This script will:
@@ -102,7 +102,7 @@ sudo systemctl enable medical-inventory@$USER.service
 To completely remove the auto-start configuration:
 
 ```bash
-sudo ./uninstall_autostart.sh
+sudo ./scripts/uninstall_autostart.sh
 ```
 
 This will:

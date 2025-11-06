@@ -127,7 +127,7 @@ mkdir -p references
 ### 5. Test the Application
 
 ```bash
-python3 medical_inventory.py
+python3 src/medical_inventory.py
 ```
 
 - Press **F11** to toggle fullscreen
@@ -142,7 +142,7 @@ If the application works correctly, proceed to auto-start configuration.
 
 ```bash
 cd ~/Medical-Inventory-System-NASA-Hunch-25-26
-sudo ./install_autostart.sh
+sudo ./scripts/install_autostart.sh
 ```
 
 ### 2. Configure Auto-Login

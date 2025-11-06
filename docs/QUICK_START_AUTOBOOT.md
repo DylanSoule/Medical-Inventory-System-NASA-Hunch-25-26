@@ -12,13 +12,13 @@ pip install -r requirements.txt
 
 ### 2. Test the Application
 ```bash
-python3 medical_inventory.py
+python3 src/medical_inventory.py
 ```
 Press F11 to toggle fullscreen, Escape to exit fullscreen.
 
 ### 3. Enable Auto-Start
 ```bash
-sudo ./install_autostart.sh
+sudo ./scripts/install_autostart.sh
 ```
 
 That's it! The system will now start automatically on boot.
@@ -31,7 +31,7 @@ That's it! The system will now start automatically on boot.
 | `sudo systemctl stop medical-inventory@$USER.service` | Stop service |
 | `sudo systemctl status medical-inventory@$USER.service` | Check status |
 | `sudo journalctl -u medical-inventory@$USER.service -f` | View live logs |
-| `sudo ./uninstall_autostart.sh` | Remove auto-start |
+| `sudo ./scripts/uninstall_autostart.sh` | Remove auto-start |
 
 ## Raspberry Pi 4 Kiosk Setup
 
