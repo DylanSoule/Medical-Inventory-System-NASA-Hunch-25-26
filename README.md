@@ -120,7 +120,7 @@ flowchart TD
 
 2. Install dependencies:
    ```bash
-   pip install numpy opencv-python insightface onnxruntime python3-tk
+   pip install -r requirements.txt
    ```
 ### Setting up facial recognition
 3. Prepare facial recognition data:
