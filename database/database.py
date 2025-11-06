@@ -1,12 +1,13 @@
 import sqlite3
+import datetime
 
 """
 Python file to access databases for project, functions can access different databases, such as the inventory database and the personal databases for all people 
 """
 
-def create_inventory():
+def create_explicit_inventory():
     """
-    This function just creates the inventory database, realistically it doesn't ever need to be used if the database is already created
+    This function just creates the inventory database, realistically it doesn't ever need to be used if the database is already created, will likely be deleted eventually, but keeping just in case for now
 
     It initializes the two tables for what we have and what drugs are possible, so you can pull based on barcodes.
     """
@@ -38,6 +39,25 @@ def create_inventory():
     conn.close()
 
 
+def create_changes_database():
+    """
+    This function just creates the changes database, realistically it doesn't ever need to be used if the database is already created, will likely be deleted eventually, but keeping just in case for now
+    """
+    conn = sqlite3.connect('changes.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS drug_changes (
+            barcode TEXT PRIMARY KEY NOT NULL,
+            dname TEXT NOT NULL,
+            change INTEGER NOT NULL,
+            time DATETIME NOT NULL,
+            )
+    ''')
+
+    conn.commit()
+    conn.close()
+
+
 def add_to_inventory_via_barcode(barcode):
     conn = sqlite3.connect('inventory.db')
     c = conn.cursor()
@@ -62,11 +82,14 @@ def add_to_inventory_via_barcode(barcode):
     conn.close()
 
 
-def add_to_database(barcode, dname, amount, expiration_date):
+def add_to_drugs_database(barcode, dname, amount, expiration_date):
     conn = sqlite3.connect('inventory.db')
     c = conn.cursor()
     
-    c.execute("INSERT INTO drugs_in_inventory ")
+    c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date) VALUES (?,?,?,?)", (barcode, dname, amount, expiration_date))
+
+    conn.commit()
+    conn.close()
 
 
 def pull_from_drug_inventory(database, table):
