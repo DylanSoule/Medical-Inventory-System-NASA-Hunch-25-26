@@ -117,10 +117,10 @@ Log out and back in for this to take effect.
 
 ```bash
 # Create references directory
-mkdir -p references
+mkdir -p assets/references
 
 # Add reference images (replace with your actual images)
-# Copy facial reference images to the references/ directory
+# Copy facial reference images to the assets/references/ directory
 # Use clear, forward-facing photos with consistent lighting
 ```
 
