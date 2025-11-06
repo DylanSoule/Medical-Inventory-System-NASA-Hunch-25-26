@@ -5,6 +5,10 @@ import datetime
 Python file to access databases for project, functions can access different databases, such as the inventory database and the personal databases for all people 
 """
 
+def adapt_datetime_iso(val):
+    """Adapt datetime.datetime to timezone-naive ISO 8601 date."""
+    return val.replace(tzinfo=None).isoformat()
+
 def create_explicit_inventory():
     """
     This function just creates the inventory database, realistically it doesn't ever need to be used if the database is already created, will likely be deleted eventually, but keeping just in case for now
@@ -47,10 +51,10 @@ def create_changes_database():
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS drug_changes (
-            barcode TEXT PRIMARY KEY NOT NULL,
+            barcode TEXT NOT NULL,
             dname TEXT NOT NULL,
             change INTEGER NOT NULL,
-            time DATETIME NOT NULL,
+            time DATETIME NOT NULL
             )
     ''')
 
@@ -77,6 +81,8 @@ def add_to_inventory_via_barcode(barcode):
         ''', (drug[0], drug[1], drug[2], drug[3]))
     except (sqlite3.IntegrityError):
         print("Already drug in inventory with that barcode")
+    except:
+        print("Unknown failure")
 
     conn.commit()
     conn.close()
@@ -92,6 +98,34 @@ def add_to_drugs_database(barcode, dname, amount, expiration_date):
     conn.close()
 
 
+def log_access_to_inventory(barcode, change):
+    conn = sqlite3.connect('inventory.db')
+    c = conn.cursor()
+
+    change_conn = sqlite3.connect('changes.db')
+    change_c = change_conn.cursor()
+
+    c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+    drug_info = c.fetchone()
+
+    if not drug_info:
+        print("No drug found with that barcode in database")
+        conn.close()
+        change_conn.close()
+        return
+    
+    try:
+        c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
+        change_c.execute("INSERT INTO drug_changes (barcode, dname, change, time) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], change, adapt_datetime_iso(datetime.datetime.now())))
+    except Exception as e:
+        print("Error:",e)
+    
+    conn.commit()
+    change_conn.commit()
+    conn.close()
+    change_conn.close()
+
+
 def pull_from_drug_inventory(database, table):
     conn = sqlite3.connect(f'{database}.db')
     c = conn.cursor()
@@ -105,7 +139,15 @@ def pull_from_drug_inventory(database, table):
 
     c.close()
 
+def pull_table_from_database(database, table):
+    conn = sqlite3.connect(f"{database}.db")
+    c = conn.cursor()
 
+    c.execute(f"SELECT * FROM {table}")
+    table = c.fetchall()
+
+    for row in table:
+        print(row)
 
 
 
