@@ -7,6 +7,8 @@
 A facial‑authenticated medical inventory scan logging system built for the NASA HUNCH 2025‑2026 program.  
 Runs on a Raspberry Pi 4 for low power, embedded deployment suitable for constrained or remote environments (e.g. space habitation modules).
 
+Note: This project is still under development
+
 
 ---
 
@@ -16,7 +18,6 @@ Runs on a Raspberry Pi 4 for low power, embedded deployment suitable for constra
 - [Implemented Features](#implemented-features)
 - [Planned / Roadmap](#planned--roadmap)
 - [Architecture & Components](#architecture--components)
-- [Security & Authentication](#security--authentication)
 - [Prerequisites](#prerequisites)
 - [Installation & Setup](#installation--setup)
   - [Facial Reference Preparation](#facial-reference-preparation)
