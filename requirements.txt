@@ -1,3 +1,19 @@
-tk
-opencv-python
-insightface
+# Core GUI and Application
+# Note: tkinter (tk) is part of Python standard library, install via system package manager:
+# Ubuntu/Debian: sudo apt-get install python3-tk
+# Fedora/RHEL: sudo dnf install python3-tkinter
+
+# Computer Vision and Image Processing
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# Facial Recognition
+insightface>=0.7.3
+onnxruntime>=1.16.0
+
+# Testing
+pytest>=7.4.0
+
+# Additional dependencies for InsightFace
+scikit-learn>=1.3.0
+scikit-image>=0.21.0

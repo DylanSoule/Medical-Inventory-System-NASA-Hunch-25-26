@@ -8,12 +8,15 @@ import time
 import threading
 import queue
 import insightface
-import gc  #  Added for garbage collection
+import gc  # Garbage collection
 
 logging.getLogger("insightface").setLevel(logging.ERROR)
 logging.getLogger("onnxruntime").setLevel(logging.ERROR)
 
-#  Context manager to silence native output (C/C++ level)
+# Global model and app cache
+app = None  
+
+# Context manager to silence native output
 @contextmanager
 def suppress_native_output():
     try:
@@ -40,12 +43,15 @@ def safe_exit(cap=None):
 
 
 def main():
+    global app
+
     # -----------------------------
-    # LOAD INSIGHTFACE MODEL (quiet)
+    # LOAD INSIGHTFACE MODEL (lazy load)
     # -----------------------------
-    with suppress_native_output():
-        app = insightface.app.FaceAnalysis(name="buffalo_s", providers=['CPUExecutionProvider'])
-        app.prepare(ctx_id=0, det_size=(640, 640))
+    if app is None:
+        with suppress_native_output():
+            app = insightface.app.FaceAnalysis(name="buffalo_sc", providers=['CPUExecutionProvider'])
+            app.prepare(ctx_id=0, det_size=(320, 320))  #  smaller detection window
 
     # -----------------------------
     # HELPER FUNCTIONS
@@ -60,11 +66,11 @@ def main():
     # LOAD REFERENCES
     # -----------------------------
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    ref_dir = os.path.join(script_dir, "references")
+    project_root = os.path.dirname(script_dir)
+    ref_dir = os.path.join(project_root, "assets", "references")
 
     if not os.path.exists(ref_dir):
-        print("Reference folder not found!")
-       
+        print(f"Reference folder not found at: {ref_dir}")
         return 3
 
     reference_embeddings = {}
@@ -122,7 +128,7 @@ def main():
     stop_event = threading.Event()
 
     detected_names = set()
-    known_face_detected = False  # 🔹 Only close after detecting known face
+    known_face_detected = False
 
     def recognition_worker():
         while not stop_event.is_set():
@@ -173,14 +179,12 @@ def main():
 
             frame_count += 1
 
-            # Only process every 5th frame
             if frame_count % 75 == 0 and frame_queue.empty():
                 frame_queue.put(frame.copy())
 
             if not result_queue.empty():
                 last_results = result_queue.get()
 
-            # Draw faces and handle first detections
             for box, name, confidence in last_results:
                 color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
                 text = f"{name} ({confidence*100:.1f}%)"
@@ -188,13 +192,11 @@ def main():
                 cv2.putText(frame, text, (box[0], box[1]-10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
-                # Print new known faces only once
                 if name != "Unknown" and name not in detected_names:
                     detected_names.add(name)
                     print(f"Person detected: {name}")
                     known_face_detected = True
 
-            # FPS display
             elapsed_time = time.time() - start_time
             fps = frame_count / elapsed_time
             cv2.putText(frame, f"FPS: {fps:.2f}", (10, 30),
@@ -202,11 +204,9 @@ def main():
 
             cv2.imshow("Face Recognition", frame)
 
-            # Garbage collection every 200 frames
             if frame_count % 200 == 0:
                 gc.collect()
 
-            # Exit loop if a known face was detected
             if known_face_detected:
                 stop_event.set()
                 break
@@ -228,4 +228,4 @@ if __name__ == "__main__":
         detected = main()
         print("Program finished. People seen:", detected)
     except Exception as e:
-        print(f" Error in facial recognition: {e}")
+        print(f"Error in facial recognition: {e}")

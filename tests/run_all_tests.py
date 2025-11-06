@@ -4,7 +4,8 @@ import os
 
 def install_requirements():
     """Install all dependencies listed in requirements file."""
-    req_file = "requirements"
+    # Look for requirements.txt in parent directory
+    req_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "requirements.txt")
     if os.path.exists(req_file):
         print(f"Installing dependencies from {req_file}...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", req_file])

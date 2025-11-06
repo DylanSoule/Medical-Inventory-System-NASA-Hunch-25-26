@@ -1,12 +1,17 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os
+import sys
 from tkinter import simpledialog
+
+# Add src directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import facial_recognition as fr
 from db_manager import DatabaseManager
 
-# Database file path
-DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inventory.db")
+# Database file path - store in parent directory
+DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "inventory.db")
 REFRESH_INTERVAL = 300000  # milliseconds
 class BarcodeViewer(tk.Tk):
     def __init__(self):
