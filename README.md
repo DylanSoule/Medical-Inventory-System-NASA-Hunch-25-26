@@ -82,7 +82,7 @@ Developed for the NASA Hunch 2025-26 program, the system runs efficiently on a R
 | `assets/references/` | Authorized user facial reference images (filenames map to user IDs) |
 | `scripts/install_autostart.sh` | Creates systemd service for kiosk auto-launch |
 | `scripts/uninstall_autostart.sh` | Removes the systemd service |
-| `scripts/start_medical_inventory.sh` | (If present/planned) Launch wrapper for GUI app |
+| `scripts/start_medical_inventory.sh` | Launch wrapper for GUI app |
 | `tests/` | Test suite scaffolding (database & functional tests) |
 | `docs/` | Supplemental deployment & setup documentation |
 | `STRUCTURE.md` | Extended repository layout explanation |
