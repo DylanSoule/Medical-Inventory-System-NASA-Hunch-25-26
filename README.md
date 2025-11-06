@@ -36,7 +36,7 @@ Note: This project is still under development
 
 ## About
 
-The Medical Inventory System is designed to help medical facilities, specifically ones on space stations on aboard space mission, track supplies, manage stock levels, and control access securely using facial recognition.
+The Medical Inventory System is designed to help medical facilities, specifically ones on space stations or aboard space missions, track supplies, manage stock levels, and control access securely using facial recognition.
 Developed for the NASA Hunch 2025-26 program, the system runs efficiently on a Raspberry Pi 4 or similar embedded device — suitable for low-power, remote, or space environments. The system can be configured to start automatically on boot, creating a dedicated kiosk-style medical inventory station.
 
 ---
