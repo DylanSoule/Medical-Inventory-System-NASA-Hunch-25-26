@@ -179,7 +179,7 @@ def main():
 
             frame_count += 1
 
-            if frame_count % 75 == 0 and frame_queue.empty():
+            if frame_count % 1 == 0 and frame_queue.empty():
                 frame_queue.put(frame.copy())
 
             if not result_queue.empty():
