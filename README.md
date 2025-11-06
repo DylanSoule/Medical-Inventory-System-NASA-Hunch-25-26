@@ -1,6 +1,6 @@
 # Medical Inventory System — NASA Hunch 2025-26
 
-![Integration Tests](https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26/actions/workflows/integration-test.yml/badge.svg)
+
 ![Raspberry Pi Compat](https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26/actions/workflows/raspberry-pi-compat.yml/badge.svg)
 ![Python Tests](https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26/actions/workflows/app-tester.yml/badge.svg)
 ![Syntax Check](https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26/actions/workflows/syntax-check.yml/badge.svg)
