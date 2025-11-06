@@ -241,7 +241,7 @@ Return values:
 | Blank GUI table | No scans yet / DB corruption | Check `inventory.db` permissions |
 | Deletion denied | Wrong admin PIN | Currently hard-coded: `1234` |
 | High recognition delay | Model load first run | Subsequent sessions faster; consider caching |
-| False “Unknown” | Threshold too strict | Future config: adjust THRESHOLD |
+| False recognition (marked as Unknown) | Threshold too strict | Future config: adjust THRESHOLD |
 
 Log verbose debugging (future): implement optional debug flag.
 
