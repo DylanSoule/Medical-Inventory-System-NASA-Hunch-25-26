@@ -118,7 +118,7 @@ Developed for the NASA Hunch 2025-26 program, the system runs efficiently on a R
   - scikit-image
   - pytest (for tests)
 
-> tkinter is a system package; do NOT `pip install tk`. Use OS package manager.
+> Tkinter is a system package; do NOT `pip install tk`. Use OS package manager.
 
 ---
 
