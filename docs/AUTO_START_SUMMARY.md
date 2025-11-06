@@ -8,24 +8,24 @@ The Medical Inventory System has been configured to run automatically on startup
 
 ### Core Auto-Start Files
 
-1. **`install_autostart.sh`** - Installation script
+1. **`scripts/install_autostart.sh`** - Installation script
    - Creates systemd service
    - Enables auto-start on boot
    - Sets proper permissions
-   - Run with: `sudo ./install_autostart.sh`
+   - Run with: `sudo ./scripts/install_autostart.sh`
 
-2. **`uninstall_autostart.sh`** - Uninstallation script
+2. **`scripts/uninstall_autostart.sh`** - Uninstallation script
    - Removes auto-start configuration
    - Stops running service
-   - Run with: `sudo ./uninstall_autostart.sh`
+   - Run with: `sudo ./scripts/uninstall_autostart.sh`
 
-3. **`start_medical_inventory.sh`** - Startup script
+3. **`scripts/start_medical_inventory.sh`** - Startup script
    - Waits for X server to be ready
    - Activates Python virtual environment (if exists)
    - Launches the application
    - Logs startup events
 
-4. **`medical-inventory.service`** - Systemd service template
+4. **`scripts/medical-inventory.service`** - Systemd service template
    - Defines service behavior
    - Sets environment variables
    - Configures auto-restart on failure
@@ -59,11 +59,11 @@ The Medical Inventory System has been configured to run automatically on startup
 
 ### Testing & Validation
 
-1. **`test_autostart_setup.sh`** - Validation script
+1. **`scripts/test_autostart_setup.sh`** - Validation script
    - Tests all setup files
    - Validates script syntax
    - Checks documentation
-   - Run with: `./test_autostart_setup.sh`
+   - Run with: `./scripts/test_autostart_setup.sh`
 
 2. **`.gitignore`** - Git ignore rules
    - Excludes logs
@@ -117,7 +117,7 @@ flowchart TD
    ```
 5. **Install auto-start**:
    ```bash
-   sudo ./install_autostart.sh
+   sudo ./scripts/install_autostart.sh
    ```
 6. **Enable auto-login**:
    ```bash
@@ -171,7 +171,7 @@ sudo journalctl -u medical-inventory@$USER.service -f
 sudo systemctl disable medical-inventory@$USER.service
 
 # Uninstall completely
-sudo ./uninstall_autostart.sh
+sudo ./scripts/uninstall_autostart.sh
 ```
 
 ## Hardware Requirements (Raspberry Pi 4)
@@ -198,11 +198,11 @@ sudo ./uninstall_autostart.sh
 ## Files Created/Modified
 
 ### New Files (12):
-- `install_autostart.sh` (executable)
-- `uninstall_autostart.sh` (executable)
-- `start_medical_inventory.sh` (executable)
-- `medical-inventory.service` (systemd template)
-- `test_autostart_setup.sh` (executable)
+- `scripts/install_autostart.sh` (executable)
+- `scripts/uninstall_autostart.sh` (executable)
+- `scripts/start_medical_inventory.sh` (executable)
+- `scripts/medical-inventory.service` (systemd template)
+- `scripts/test_autostart_setup.sh` (executable)
 - `RASPBERRY_PI_SETUP.md` (documentation)
 - `AUTOSTART_SETUP.md` (documentation)
 - `QUICK_START_AUTOBOOT.md` (documentation)
@@ -265,7 +265,7 @@ sudo systemctl edit medical-inventory@.service --full
 
 Run the validation script:
 ```bash
-./test_autostart_setup.sh
+./scripts/test_autostart_setup.sh
 ```
 
 All tests should pass before deployment.
@@ -278,7 +278,7 @@ All tests should pass before deployment.
 - [ ] Camera and barcode scanner tested
 - [ ] Facial recognition references configured
 - [ ] Application tested manually
-- [ ] Auto-start installed (`sudo ./install_autostart.sh`)
+- [ ] Auto-start installed (`sudo ./scripts/install_autostart.sh`)
 - [ ] Auto-login configured (`sudo raspi-config`)
 - [ ] Screen blanking disabled
 - [ ] System tested with reboot

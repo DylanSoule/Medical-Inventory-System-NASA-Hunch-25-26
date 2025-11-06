@@ -114,17 +114,17 @@ flowchart TD
 ## Installation & Setup
 1. Clone the repository:
    ```bash
-   git clone https://github.com/ltl902/Medical-Inventory-System-NASA-Hunch-25-26-
-   cd Medical-Inventory-System-NASA-Hunch-25-26-
+   git clone https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26.git
+   cd Medical-Inventory-System-NASA-Hunch-25-26
    ```
 
 2. Install dependencies:
    ```bash
-   pip install numpy opencv-python insightface onnxruntime python3-tk
+   pip install -r requirements.txt
    ```
 ### Setting up facial recognition
 3. Prepare facial recognition data:
-   - Add authorized user photos in a folder named `references/`.
+   - Add authorized user photos in a folder named `assets/references/`.
    - Use clear, frontal images with consistent lighting.
 
 4. Connect your camera and barcode scanner before running.
@@ -216,7 +216,7 @@ The Medical Inventory System is **optimized for Raspberry Pi 4** and can be depl
 - HDMI Display
 - Official Pi 4 Power Supply (5V 3A)
 
-For complete Raspberry Pi 4 setup instructions, including performance optimization, troubleshooting, and kiosk configuration, see **[RASPBERRY_PI_SETUP.md](RASPBERRY_PI_SETUP.md)**.
+For complete Raspberry Pi 4 setup instructions, including performance optimization, troubleshooting, and kiosk configuration, see **[RASPBERRY_PI_SETUP.md](docs/RASPBERRY_PI_SETUP.md)**.
 
 ## Facial Recognition Module
 This module uses **InsightFace** with **ONNX Runtime** for lightweight, on-device face matching.
@@ -242,5 +242,5 @@ See [LICENSE](LICENSE) for details.
 **NASA Hunch 2025-26 Medical Inventory Team**  
 - Maintainers: `Dylan Soule, Brody Barnes, Lucca Townsend, Zach Stelman`  
 - Email: `dylan.soule@icloud.com`  
-- GitHub: [ltl902](https://github.com/ltl902)
+- GitHub: [DylanSoule](https://github.com/DylanSoule)
 - Brainstorming: [Miro](https://miro.com/app/board/uXjVJIvb3LU=/)  

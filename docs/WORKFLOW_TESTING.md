@@ -148,16 +148,16 @@ pytest test_db_manager.py -v
 pytest test_medical_inventory.py -v
 
 # Run auto-start validation
-./test_autostart_setup.sh
+./scripts/test_autostart_setup.sh
 
 # Check Python syntax
 flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics \
   --exclude=venv,env,.git,__pycache__,.pytest_cache
 
 # Validate shell scripts
-bash -n install_autostart.sh
-bash -n uninstall_autostart.sh
-bash -n start_medical_inventory.sh
+bash -n scripts/install_autostart.sh
+bash -n scripts/uninstall_autostart.sh
+bash -n scripts/start_medical_inventory.sh
 ```
 
 ### Run Database Tests

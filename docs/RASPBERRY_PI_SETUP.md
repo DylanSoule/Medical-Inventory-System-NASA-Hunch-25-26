@@ -117,17 +117,17 @@ Log out and back in for this to take effect.
 
 ```bash
 # Create references directory
-mkdir -p references
+mkdir -p assets/references
 
 # Add reference images (replace with your actual images)
-# Copy facial reference images to the references/ directory
+# Copy facial reference images to the assets/references/ directory
 # Use clear, forward-facing photos with consistent lighting
 ```
 
 ### 5. Test the Application
 
 ```bash
-python3 medical_inventory.py
+python3 src/medical_inventory.py
 ```
 
 - Press **F11** to toggle fullscreen
@@ -142,7 +142,7 @@ If the application works correctly, proceed to auto-start configuration.
 
 ```bash
 cd ~/Medical-Inventory-System-NASA-Hunch-25-26
-sudo ./install_autostart.sh
+sudo ./scripts/install_autostart.sh
 ```
 
 ### 2. Configure Auto-Login
