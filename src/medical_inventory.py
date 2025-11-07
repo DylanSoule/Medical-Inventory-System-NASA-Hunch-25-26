@@ -194,6 +194,8 @@ class BarcodeViewer(tk.Tk):
        code = 1234
        if simpledialog.askstring("Admin Access", prompt, show="*") != str(code):
             messagebox.showerror("Access Denied", "Incorrect admin code.")
+            sel = self.tree.selection()
+            self.tree.selection_remove(*sel)
             return False
 
        return True
@@ -202,6 +204,7 @@ class BarcodeViewer(tk.Tk):
         if not self.admin("Enter admin code to delete scans"):
             return
         sel = self.tree.selection()
+        
         if not sel:
             messagebox.showinfo("Delete", "No row selected.")
             return
@@ -215,7 +218,7 @@ class BarcodeViewer(tk.Tk):
             return
 
         if not messagebox.askyesno("Confirm Delete", 
-                                 f"Delete {len(sel)} selected row(s)?\nReason: {reason}"):
+            f"Delete {len(sel)} selected row(s)?\nReason: {reason}"):
             return
 
         try:
