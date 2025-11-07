@@ -8,7 +8,7 @@ from tkinter import simpledialog
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import facial_recognition as fr
-from db_manager import DatabaseManager
+from database import DatabaseManager
 
 # Database file path - store in parent directory
 DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "inventory.db")
