@@ -4,8 +4,8 @@ import os
 import sys
 from tkinter import simpledialog
 
-# Add src directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add parent directory to path for imports from Databases and src
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import facial_recognition as fr
 from Databases.database import DatabaseManager
