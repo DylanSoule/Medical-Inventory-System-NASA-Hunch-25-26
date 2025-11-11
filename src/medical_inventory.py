@@ -17,7 +17,7 @@ class BarcodeViewer(tk.Tk):
     def __init__(self):
         super().__init__()
         # Initialize database
-        self.db = DatabaseManager(DB_FILE)
+        self.db = DatabaseManager
 
         self.title("Medical Inventory System")
         # start fullscreen
@@ -57,11 +57,12 @@ class BarcodeViewer(tk.Tk):
         ttk.Button(btn_frame, text="Quit", command=self.destroy).grid(row=0, column=4, padx=5)
 
         # Create Treeview (table) with user column
-        columns = ("timestamp", "barcode", "user")
+        columns = ("barcode", "drug", "est_amount", "exp_date")
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
-        self.tree.heading("timestamp", text="Timestamp")
         self.tree.heading("barcode", text="Barcode")
-        self.tree.heading("user", text="User")
+        self.tree.heading("drug", text="Drug")
+        self.tree.heading("est_amount", text="Estimated Amount")
+        self.tree.heading("exp_date", text="Expiration")
 
         # Add scrollbar
         scroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
