@@ -5,19 +5,26 @@ import datetime
 Python file to access databases for project, functions can access different databases, such as the inventory database and the personal databases for all people 
 """
 
+time_format = "%Y-%m-%d %H:%M:%S"
+
 class DatabaseManager:
     @staticmethod
     def adapt_datetime_iso(val):
         """Adapt datetime.datetime to timezone-naive ISO 8601 date."""
         return val.replace(tzinfo=None).isoformat()
+    
+    def __init__(self, path_to_db):
+        self.db_path = path_to_db
+        self.create_inventory()
 
-    def create_explicit_inventory():
+
+    def create_inventory(self):
         """
         This function just creates the inventory database, realistically it doesn't ever need to be used if the database is already created, will likely be deleted eventually, but keeping just in case for now
 
         It initializes the two tables for what we have and what drugs are possible, so you can pull based on barcodes.
         """
-        conn = sqlite3.connect('inventory.db')
+        conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS drugs_in_inventory (
@@ -37,25 +44,12 @@ class DatabaseManager:
             )
         ''')
 
-        c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date) VALUES ('124N3XY', 'Tylenol', 200, '2025-12-25')")
-        c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date) VALUES ('1NP3XY', 'Drug', 200, '2025-11-25')")
-        c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date) VALUES ('98Z64N3XY', 'Coke', 200, '2025-11-22')")
-
-        conn.commit()
-        conn.close()
-
-
-    def create_changes_database():
-        """
-        This function just creates the changes database, realistically it doesn't ever need to be used if the database is already created, will likely be deleted eventually, but keeping just in case for now
-        """
-        conn = sqlite3.connect('changes.db')
-        c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS drug_changes (
                 barcode TEXT NOT NULL,
                 dname TEXT NOT NULL,
                 change INTEGER NOT NULL,
+                user TEXT NOT NULL,
                 time DATETIME NOT NULL
                 )
         ''')
@@ -64,8 +58,8 @@ class DatabaseManager:
         conn.close()
 
 
-    def add_to_inventory_via_barcode(barcode):
-        conn = sqlite3.connect('inventory.db')
+    def add_to_inventory_via_barcode(self, barcode):
+        conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
         c.execute("SELECT * FROM drugs WHERE barcode = ?", (barcode,))
@@ -90,8 +84,8 @@ class DatabaseManager:
         conn.close()
 
 
-    def add_to_drugs_database(barcode, dname, amount, expiration_date):
-        conn = sqlite3.connect('inventory.db')
+    def add_to_drugs_database(self, barcode, dname, amount, expiration_date):
+        conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         
         c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date) VALUES (?,?,?,?)", (barcode, dname, amount, expiration_date))
@@ -100,53 +94,88 @@ class DatabaseManager:
         conn.close()
 
 
-    def log_access_to_inventory(barcode, change):
-        conn = sqlite3.connect('inventory.db')
+    def log_access_to_inventory(self, barcode, change, user):
+        conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
-
-        change_conn = sqlite3.connect('changes.db')
-        change_c = change_conn.cursor()
 
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
         drug_info = c.fetchone()
 
         if not drug_info:
-            print("No drug found with that barcode in database")
             conn.close()
-            change_conn.close()
-            return
+            return("No drug found with that barcode in database")
         
         try:
             c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            change_c.execute("INSERT INTO drug_changes (barcode, dname, change, time) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], change, DatabaseManager.adapt_datetime_iso(datetime.datetime.now())))
+            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, time) VALUES (?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, self.adapt_datetime_iso(datetime.datetime.now())))
         except Exception as e:
             print("Error:",e)
         
         conn.commit()
-        change_conn.commit()
         conn.close()
-        change_conn.close()
 
 
-    def pull_from_drug_inventory(database, table):
-        conn = sqlite3.connect(f'{database}.db')
+    """
+    Used to pull from inventory and print the output, might not need but keeping for now
+
+    Func one: Pulls from just drug inventory
+    
+    Func Two: Prints the table from any database given
+    """
+    # def pull_from_drug_inventory(self, table):
+    #     conn = sqlite3.connect(self.db_path)
+    #     c = conn.cursor()
+    #     c.execute(f"SELECT * FROM {table}")
+
+    #     rows = c.fetchall()
+
+    #     print("Table below\n")
+    #     for row in rows:
+    #         print(f"Barcode: {row[0]} | Name: {row[1]} | Amount: {row[2]} | Expiration Date: {row[3]}")
+
+    #     c.close()
+
+    # def pull_table_from_database(self, table):
+    #     conn = sqlite3.connect(self.db_path)
+    #     c = conn.cursor()
+
+    #     c.execute(f"SELECT * FROM {table}")
+    #     table = c.fetchall()
+
+    #     for row in table:
+    #         print(row)
+
+
+class PersonalDatabaseManager:
+    def __init__(self, path_to_database):
+        self.db_path = path_to_database
+        self.create_personal_database()
+
+    def create_personal_database(self):
+        """
+        This function just creates the changes database, realistically it doesn't ever need to be used if the database is already created, will likely be deleted eventually, but keeping just in case for now
+        """
+        conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
-        c.execute(f"SELECT * FROM {table}")
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS prescription(
+                time TIME PRIMARY KEY NOT NULL,
+                barcode TEXT NOT NULL,
+                dname TEXT NOT NULL,
+                number TEXT NOT NULL
+                )
+        ''')
 
-        rows = c.fetchall()
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS history(
+                time TIME PRIMARY KEY NOT NULL,
+                barcode TEXT NOT NULL,
+                dname TEXT NOT NULL,
+                number TEXT NOT NULL)
+        ''')
 
-        print("Table below\n")
-        for row in rows:
-            print(f"Barcode: {row[0]} | Name: {row[1]} | Amount: {row[2]} | Expiration Date: {row[3]}")
-
-        c.close()
-
-    def pull_table_from_database(database, table):
-        conn = sqlite3.connect(f"{database}.db")
-        c = conn.cursor()
-
-        c.execute(f"SELECT * FROM {table}")
-        table = c.fetchall()
-
-        for row in table:
-            print(row)
+        conn.commit()
+        conn.close()
+    
+    def add_prescription_med(self, time, barcode, number):
+        pass
