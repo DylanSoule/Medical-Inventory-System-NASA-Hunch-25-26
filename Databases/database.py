@@ -77,9 +77,9 @@ class DatabaseManager:
                 VALUES (?, ?, ?, ?)
             ''', (drug[0], drug[1], drug[2], drug[3]))
         except (sqlite3.IntegrityError):
-            print("Already drug in inventory with that barcode")
+            return IndexError
         except:
-            print("Unknown failure")
+            return 'Unknown Error'
 
         conn.commit()
         conn.close()
