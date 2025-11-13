@@ -230,7 +230,7 @@ class BarcodeViewer(tk.Tk):
             admin_user = "ADMIN"
             for barcode in sel:
                 values = self.tree.item(barcode)["values"]
-                self.db.delete_entry(*values, deleted_by=admin_user, reason=reason.strip())
+                self.db.delete_entry(barcode=values[0])
         except Exception as e:
             messagebox.showerror("Error", f"Failed to delete from database:\n{e}")
             return
