@@ -114,7 +114,7 @@ class DatabaseManager:
         conn.close()
 
 
-    def delete_entry(self, barcode, user):
+    def delete_entry(self, barcode, user = 'admin'):
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
