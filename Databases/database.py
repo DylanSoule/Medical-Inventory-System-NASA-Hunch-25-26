@@ -116,6 +116,15 @@ class DatabaseManager:
         conn.close()
 
 
+    def delete_entry(self, barcode):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        c.execute("DELETE FROM drugs_in_inventory WHERE barcode = ?", (barcode))
+
+        conn.commit()
+        conn.close()
+
     """
     Used to pull from inventory and print the output, might not need but keeping for now
 
@@ -142,13 +151,7 @@ class DatabaseManager:
 
         c.execute(f"SELECT * FROM {table}")
         table = c.fetchall()
-
-        for row in table:
-            print(row)
         
-        conn.close()
-        return table
-
         conn.close()
         return table
 
