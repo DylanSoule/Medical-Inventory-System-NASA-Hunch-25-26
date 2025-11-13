@@ -11,13 +11,13 @@ import facial_recognition as fr
 from Databases.database import DatabaseManager
 
 # Database file path - store in parent directory
-DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "inventory.db")
+DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Databases/inventory.db")
 REFRESH_INTERVAL = 300000  # milliseconds
 class BarcodeViewer(tk.Tk):
     def __init__(self):
         super().__init__()
         # Initialize database
-        self.db = DatabaseManager
+        self.db = DatabaseManager(DB_FILE)
 
         self.title("Medical Inventory System")
         # start fullscreen
@@ -185,7 +185,7 @@ class BarcodeViewer(tk.Tk):
         self.tree.delete(*self.tree.get_children())
         
         try:
-            rows = self.db.get_all_scans()
+            rows = self.db.pull_data(self, "drugs_in_inventory")
             for row in rows:
                 self.tree.insert("", "end", values=row)
         except Exception as e:
