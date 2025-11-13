@@ -59,7 +59,7 @@ class DatabaseManager:
         conn.close()
 
 
-    def add_to_inventory(self, barcode):
+    def add_to_inventory(self, barcode, user):
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
@@ -81,6 +81,8 @@ class DatabaseManager:
         except Exception as e:
             return e
 
+        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug[1], drug[2], user, 'New Entry', self.adapt_datetime_iso(datetime.datetime.now())))
+
         conn.commit()
         conn.close()
 
@@ -101,10 +103,6 @@ class DatabaseManager:
 
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
         drug_info = c.fetchone()
-
-        if not drug_info:
-            conn.close()
-            return("No drug found with that barcode in database")
         
         try:
             c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
