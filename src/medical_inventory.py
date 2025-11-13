@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 import os
 import sys
 from tkinter import simpledialog
-
+import datetime
 # Add parent directory to path for imports from Databases and src
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -159,6 +159,7 @@ class BarcodeViewer(tk.Tk):
         return result["value"]
 
     def log_scan(self):
+        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         """Wait for a barcode to be scanned (or typed) and log current date/time + barcode."""
         user = self.face_recognition()
         
@@ -172,11 +173,11 @@ class BarcodeViewer(tk.Tk):
 
         try:
             # Add scan to database
-            ts = self.db.add_to_inventory(barcode)
-            if ts == LookupError:
+            log = self.db.add_to_inventory(barcode, user)
+            if log == LookupError:
                 messagebox.showerror("Error", f"No drug found with barcode: {barcode}")
                 return
-            elif ts == IndexError:
+            elif log == IndexError:
                 messagebox.showerror("Error", f"Drug with barcode {barcode} is already in inventory.")
                 return
 
@@ -185,7 +186,7 @@ class BarcodeViewer(tk.Tk):
             return
 
         self.load_data()
-        messagebox.showinfo("Logged", f"Logged {barcode} at {ts} by {user}")
+        messagebox.showinfo("Logged", f"Logged {barcode} at {time} by {user}")
 
     def load_data(self):
         """Read from database and load rows into the table."""
@@ -244,7 +245,14 @@ class BarcodeViewer(tk.Tk):
 
         history = tk.Toplevel(self)
         history.title("Deletion History")
-        history.geometry("800x600")
+        history.attributes("-fullscreen", True)
+        history.geometry("1024x600")
+
+        # NEW: top bar with close button
+        top_bar = ttk.Frame(history)
+        top_bar.pack(fill="x")
+        ttk.Button(top_bar, text="Close", command=history.destroy).pack(side="right", padx=6, pady=6)
+        history.bind("<Escape>", lambda e: history.destroy())
 
         # Create treeview for history
         columns = ("deleted_at", "deleted_by", "original_timestamp", 
