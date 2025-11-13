@@ -50,6 +50,7 @@ class DatabaseManager:
                 dname TEXT NOT NULL,
                 change INTEGER NOT NULL,
                 user TEXT NOT NULL,
+                type TEXT NOT NULL,
                 time DATETIME NOT NULL
                 )
         ''')
@@ -58,7 +59,7 @@ class DatabaseManager:
         conn.close()
 
 
-    def add_to_inventory_via_barcode(self, barcode):
+    def add_to_inventory(self, barcode):
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
@@ -68,7 +69,7 @@ class DatabaseManager:
         if not drug:
             print("No drug found with that barcode in database")
             conn.close()
-            return
+            return LookupError
 
         try:
             c.execute('''
@@ -145,6 +146,9 @@ class DatabaseManager:
         for row in table:
             print(row)
 
+        conn.close()
+        return table
+
 
 class PersonalDatabaseManager:
     def __init__(self, path_to_database):
@@ -181,3 +185,5 @@ class PersonalDatabaseManager:
         pass
 
 
+read = DatabaseManager('Databases/inventory.db')
+read.pull_data('drugs_in_inventory')
