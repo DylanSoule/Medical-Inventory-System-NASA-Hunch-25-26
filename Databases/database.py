@@ -145,6 +145,9 @@ class DatabaseManager:
 
         for row in table:
             print(row)
+        
+        conn.close()
+        return table
 
         conn.close()
         return table

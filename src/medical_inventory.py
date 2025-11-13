@@ -172,7 +172,8 @@ class BarcodeViewer(tk.Tk):
 
         try:
             # Add scan to database
-            ts = self.db.add_scan(barcode, user)
+            ts = self.db.add_to_inventory_via_barcode(barcode)
+            
         except Exception as e:
             messagebox.showerror("Error", f"Failed to write to database:\n{e}")
             return
@@ -185,7 +186,7 @@ class BarcodeViewer(tk.Tk):
         self.tree.delete(*self.tree.get_children())
         
         try:
-            rows = self.db.pull_data(self, "drugs_in_inventory")
+            rows = self.db.pull_data("drugs_in_inventory")
             for row in rows:
                 self.tree.insert("", "end", values=row)
         except Exception as e:
@@ -215,8 +216,7 @@ class BarcodeViewer(tk.Tk):
             messagebox.showerror("Error", "A deletion reason is required.")
             return
 
-        if not messagebox.askyesno("Confirm Delete", 
-                                 f"Delete {len(sel)} selected row(s)?\nReason: {reason}"):
+        if not messagebox.askyesno("Confirm Delete", f"Delete {len(sel)} selected row(s)?\nReason: {reason}"):
             return
 
         try:
