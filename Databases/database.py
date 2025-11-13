@@ -135,15 +135,15 @@ class DatabaseManager:
 
     #     c.close()
 
-    # def pull_table_from_database(self, table):
-    #     conn = sqlite3.connect(self.db_path)
-    #     c = conn.cursor()
+    def pull_data(self, table):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
 
-    #     c.execute(f"SELECT * FROM {table}")
-    #     table = c.fetchall()
+        c.execute(f"SELECT * FROM {table}")
+        table = c.fetchall()
 
-    #     for row in table:
-    #         print(row)
+        for row in table:
+            print(row)
 
 
 class PersonalDatabaseManager:
@@ -179,3 +179,5 @@ class PersonalDatabaseManager:
     
     def add_prescription_med(self, time, barcode, number):
         pass
+
+
