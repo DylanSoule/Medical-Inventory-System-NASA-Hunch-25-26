@@ -78,8 +78,8 @@ class DatabaseManager:
             ''', (drug[0], drug[1], drug[2], drug[3]))
         except (sqlite3.IntegrityError):
             return IndexError
-        except:
-            return 'Unknown Error'
+        except Exception as e:
+            return e
 
         conn.commit()
         conn.close()
