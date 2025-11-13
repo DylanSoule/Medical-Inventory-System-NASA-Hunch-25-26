@@ -172,8 +172,14 @@ class BarcodeViewer(tk.Tk):
 
         try:
             # Add scan to database
-            ts = self.db.add_to_inventory_via_barcode(barcode)
-            
+            ts = self.db.add_to_inventory(barcode)
+            if ts == LookupError:
+                messagebox.showerror("Error", f"No drug found with barcode: {barcode}")
+                return
+            elif ts == IndexError:
+                messagebox.showerror("Error", f"Drug with barcode {barcode} is already in inventory.")
+                return
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to write to database:\n{e}")
             return
