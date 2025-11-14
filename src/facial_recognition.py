@@ -212,7 +212,7 @@ def safe_exit(cap=None):
 
 def quick_detect():
     """Ultra-fast detection using preloaded model and camera"""
-    global app, reference_embeddings, preloading_complete, camera_ready, global_camera
+    global app, reference_embeddings, preloading_complete, camera_ready, global_camera  # pylint: disable=global-variable-not-assigned
     
     if not preloading_complete:
         print("System not ready, please wait...")
@@ -235,7 +235,7 @@ def quick_detect():
 
 
 def main():
-    global app, reference_embeddings, preloading_complete
+    global app, reference_embeddings, preloading_complete  # pylint: disable=global-variable-not-assigned
 
     # If not preloaded, do it now (slower)
     if not preloading_complete:
@@ -248,7 +248,7 @@ def main():
 
 def _run_detection_with_preloaded_camera():
     """Ultra-fast detection using preloaded camera"""
-    global app, reference_embeddings, global_camera
+    global app, reference_embeddings, global_camera  # pylint: disable=global-variable-not-assigned
     
     def normalize(emb):
         return emb / np.linalg.norm(emb)
@@ -371,7 +371,7 @@ def _run_detection_with_preloaded_camera():
 
 def _run_detection():
     """Core detection logic using preloaded data"""
-    global app, reference_embeddings
+    global app, reference_embeddings  # pylint: disable=global-variable-not-assigned
     
     # -----------------------------
     # HELPER FUNCTIONS
