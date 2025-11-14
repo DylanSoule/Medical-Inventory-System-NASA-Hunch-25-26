@@ -195,5 +195,5 @@ class PersonalDatabaseManager:
         pass
 
 
-read = DatabaseManager('Databases/inventory.db')
+read = DatabaseManager('Database/inventory.db')
 read.pull_data('drugs_in_inventory')
