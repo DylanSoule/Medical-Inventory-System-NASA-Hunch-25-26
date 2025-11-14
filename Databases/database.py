@@ -114,7 +114,7 @@ class DatabaseManager:
         conn.close()
 
 
-    def delete_entry(self, barcode, user = 'admin'):
+    def delete_entry(self, barcode):
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
@@ -123,7 +123,7 @@ class DatabaseManager:
 
         c.execute("DELETE FROM drugs_in_inventory WHERE barcode = ?", (barcode))
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], user, 'Delete Entry', self.adapt_datetime_iso(datetime.datetime.now())))
+        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'admin', 'Delete Entry', self.adapt_datetime_iso(datetime.datetime.now())))
 
         conn.commit()
         conn.close()
