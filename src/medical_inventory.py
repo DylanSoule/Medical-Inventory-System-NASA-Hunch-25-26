@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import customtkinter as ctk
 import os
 import sys
 from tkinter import simpledialog
@@ -13,7 +14,11 @@ from Database.database import DatabaseManager
 # Database file path - store in parent directory
 DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Database/inventory.db")
 REFRESH_INTERVAL = 300000  # milliseconds
-class BarcodeViewer(tk.Tk):
+# Use CustomTkinter main window for modern look
+ctk.set_appearance_mode("System")         # "Dark", "Light", or "System"
+ctk.set_default_color_theme("dark-blue") # built-in themes: "blue", "green", "dark-blue"
+
+class BarcodeViewer(ctk.CTk):
     def __init__(self):
         super().__init__()
         # Initialize database
@@ -32,11 +37,11 @@ class BarcodeViewer(tk.Tk):
                 self.geometry("1200x800")
 
         # larger default styling for readability on fullscreen
-        style = ttk.Style(self)
+        style = ttk.Style()
         style.configure("TLabel", font=("Arial", 20))
         style.configure("TButton", font=("Arial", 16), padding=10)
-        style.configure("Treeview", font=("Arial", 16), rowheight=36)
-        style.configure("Treeview.Heading", font=("Arial", 18, "bold"))
+        style.configure("Treeview", font=("Arial", 15), rowheight=36)
+        style.configure("Treeview.Heading", font=("Arial", 17, "bold"))
 
         # allow toggling fullscreen with F11 and exit fullscreen with Escape
         self.bind("<F11>", lambda e: self.attributes("-fullscreen", not self.attributes("-fullscreen")))
@@ -45,30 +50,59 @@ class BarcodeViewer(tk.Tk):
         # keep current log path on the instance
         # self.log_file = LOG_FILE
 
-        # Title
-        ttk.Label(self, text="Medical Inventory System" , font=("Arial", 22, "bold")).pack(pady=12)
+        # Title (use CTkLabel for modern appearance)
+        ctk.CTkLabel(self, text="Medical Inventory System", font=("Arial", 22, "bold")).pack(pady=12)
 
-        # Button frame (webcam + log + quit)
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(pady=5)
-        ttk.Button(btn_frame, text="Log Scan", command=self.log_scan).grid(row=0, column=1, padx=5)
-        ttk.Button(btn_frame, text="Delete Selected", command=self.delete_selected).grid(row=0, column=2, padx=5)
-        ttk.Button(btn_frame, text="View Deletion History", command=self.show_deletion_history).grid(row=0, column=3, padx=5)
-        ttk.Button(btn_frame, text="Quit", command=self.destroy).grid(row=0, column=4, padx=5)
+        # Main frame containing sidebar (left) and content (right)
+        main_frame = ctk.CTkFrame(self, corner_radius=0)
+        main_frame.pack(fill="both", expand=True, padx=8, pady=(4,12))
 
-        # Create Treeview (table) with user column
-        columns = ("barcode", "drug", "est_amount", "exp_date")
-        self.tree = ttk.Treeview(self, columns=columns, show="headings")
-        self.tree.heading("barcode", text="Barcode")
+        # Sidebar on the left with buttons, search and filters
+        sidebar = ctk.CTkFrame(main_frame, width=260, corner_radius=8)
+        sidebar.pack(side="left", fill="y", padx=(8,12), pady=8)
+
+        # Search placeholder
+        ctk.CTkLabel(sidebar, text="Search", anchor="w").pack(padx=12, pady=(12,4), fill="x")
+        self.search_var = tk.StringVar()
+        search_entry = ctk.CTkEntry(sidebar, textvariable=self.search_var, placeholder_text="Search by barcode or drug...", width=220)
+        search_entry.pack(padx=12, pady=(0,8))
+        search_entry.bind("<KeyRelease>", self.apply_search_filter)
+
+        # Filter placeholder
+        ctk.CTkLabel(sidebar, text="Filters", anchor="w").pack(padx=12, pady=(8,4), fill="x")
+        self.filter_var = tk.StringVar(value="All")
+        filter_opts = ["All", "Expiring Soon", "Expired"]
+        ctk.CTkOptionMenu(sidebar, values=filter_opts, variable=self.filter_var, width=220, command=lambda v: self.apply_search_filter()).pack(padx=12, pady=(0,8))
+
+        # Example checkbox placeholder (e.g., show only low stock)
+        self.low_stock_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(sidebar, text="Show low stock only", variable=self.low_stock_var, command=self.apply_search_filter).pack(padx=12, pady=(4,8))
+
+        # Vertical button group in sidebar
+        btns_frame = ctk.CTkFrame(sidebar, corner_radius=6)
+        btns_frame.pack(padx=12, pady=(12,12), fill="x")
+        ctk.CTkButton(btns_frame, text="Log Scan", command=self.log_scan, width=200).pack(pady=6)
+        ctk.CTkButton(btns_frame, text="Delete Selected", command=self.delete_selected, width=200).pack(pady=6)
+        ctk.CTkButton(btns_frame, text="View Deletion History", command=self.show_deletion_history, width=200).pack(pady=6)
+        ctk.CTkButton(btns_frame, text="Quit", command=self.destroy, width=200, fg_color="#b22222").pack(pady=6)
+
+        # Content frame (right) for the treeview / main table
+        content_frame = ctk.CTkFrame(main_frame, corner_radius=6)
+        content_frame.pack(side="left", fill="both", expand=True, padx=(0,8), pady=8)
+
+        # Create Treeview (table) with user column inside content frame
+        columns = ("drug", "barcode", "est_amount", "exp_date")
+        self.tree = ttk.Treeview(content_frame, columns=columns, show="headings")
         self.tree.heading("drug", text="Drug")
+        self.tree.heading("barcode", text="Barcode")
         self.tree.heading("est_amount", text="Estimated Amount")
         self.tree.heading("exp_date", text="Expiration")
 
-        # Add scrollbar
-        scroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
+        # Add scrollbar (ttk scrollbar looks fine beside CTk styled widgets)
+        scroll = ttk.Scrollbar(content_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scroll.set)
-        self.tree.pack(fill="both", expand=True, side="left", padx=(10, 0))
-        scroll.pack(fill="y", side="right", padx=(0, 10))
+        self.tree.pack(fill="both", expand=True, side="left", padx=(10, 0), pady=(8,12))
+        scroll.pack(fill="y", side="right", padx=(0, 10), pady=(8,12))
 
         # Load data and start auto-refresh
         self.load_data()
@@ -108,17 +142,18 @@ class BarcodeViewer(tk.Tk):
         (str) when Enter is pressed, or None if canceled/closed.
         Works with barcode scanners that act as keyboard input (they send Enter).
         """
-        dlg = tk.Toplevel(self)
+        # Use CTkToplevel for a consistent modern dialog
+        dlg = ctk.CTkToplevel(self)
         dlg.title(title)
         dlg.transient(self)
         dlg.grab_set()
         dlg.resizable(False, False)
 
-        ttk.Label(dlg, text=prompt).pack(padx=12, pady=(8, 4))
+        ctk.CTkLabel(dlg, text=prompt, anchor="w").pack(padx=12, pady=(10, 6))
 
         entry_var = tk.StringVar()
-        entry = ttk.Entry(dlg, textvariable=entry_var, width=40)
-        entry.pack(padx=12, pady=(0, 8))
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=420, height=30)
+        entry.pack(padx=12, pady=(0, 10))
         entry.focus_set()
 
         result = {"value": None}
@@ -137,12 +172,12 @@ class BarcodeViewer(tk.Tk):
             dlg.destroy()
 
         # Buttons
-        btn_frame = ttk.Frame(dlg)
-        btn_frame.pack(pady=(0, 8))
-        ok_btn = ttk.Button(btn_frame, text="OK", command=on_ok)
-        ok_btn.pack(side="left", padx=6)
-        cancel_btn = ttk.Button(btn_frame, text="Cancel", command=on_cancel)
-        cancel_btn.pack(side="left", padx=6)
+        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
+        btn_frame.pack(pady=(0, 10), padx=8, fill="x")
+        ok_btn = ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=100)
+        ok_btn.pack(side="left", padx=6, pady=6)
+        cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=100, fg_color="gray30")
+        cancel_btn.pack(side="left", padx=6, pady=6)
 
         # Bind Enter to OK and Escape to cancel
         entry.bind("<Return>", on_ok)
@@ -195,10 +230,27 @@ class BarcodeViewer(tk.Tk):
         try:
             rows = self.db.pull_data("drugs_in_inventory")
             for row in rows:
-                self.tree.insert("", "end", values=row)
+                # DB rows are typically (barcode, drug, est_amount, exp_date).
+                # The Treeview column order is (drug, barcode, est_amount, exp_date),
+                # so reorder the tuple for display. Fall back to the raw row if shape is unexpected.
+                try:
+                    display_row = (row[1], row[0], row[2], row[3])-+
+                except Exception:
+                    display_row = row
+                self.tree.insert("", "end", values=display_row)
         except Exception as e:
             print("Error reading database:", e)
     
+    def apply_search_filter(self, event=None):
+        """
+        Placeholder handler for search/filter UI in the sidebar.
+        Currently simply reloads data. Replace the body with actual filtering logic.
+        """
+        # Example: you can access self.search_var.get(), self.filter_var.get(), self.low_stock_var.get()
+        # Implement filtering of the rows returned by self.db.pull_data(...) and then repopulate self.tree
+        # For now, just reload all rows
+        self.load_data()
+
     def admin(self, prompt="Enter admin code to delete scans"):
        code = 1234
        if simpledialog.askstring("Admin Access", prompt, show="*") != str(code):
@@ -228,9 +280,11 @@ class BarcodeViewer(tk.Tk):
 
         try:
             admin_user = "ADMIN"
-            for barcode in sel:
-                values = self.tree.item(barcode)["values"]
-                self.db.delete_entry(barcode=values[0])
+            for item_id in sel:
+                values = self.tree.item(item_id)["values"]
+                # Barcode is now the second column in the Treeview (index 1)
+                barcode_value = values[1] if len(values) > 1 else values[0]
+                self.db.delete_entry(barcode=barcode_value)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to delete from database:\n{e}")
             return
@@ -243,15 +297,17 @@ class BarcodeViewer(tk.Tk):
         if not self.admin("Enter admin code to view history"):
             return
 
-        history = tk.Toplevel(self)
+        history = ctk.CTkToplevel(self)
         history.title("Deletion History")
-        history.attributes("-fullscreen", True)
-        history.geometry("1024x600")
+        try:
+            history.attributes("-fullscreen", True)
+        except Exception:
+            history.geometry("1024x600")
 
         # NEW: top bar with close button
-        top_bar = ttk.Frame(history)
-        top_bar.pack(fill="x")
-        ttk.Button(top_bar, text="Close", command=history.destroy).pack(side="right", padx=6, pady=6)
+        top_bar = ctk.CTkFrame(history, corner_radius=6)
+        top_bar.pack(fill="x", padx=8, pady=(8,0))
+        ctk.CTkButton(top_bar, text="Close", command=history.destroy, width=90).pack(side="right", padx=8, pady=8)
         history.bind("<Escape>", lambda e: history.destroy())
 
         # Create treeview for history
@@ -272,16 +328,15 @@ class BarcodeViewer(tk.Tk):
         tree.configure(yscrollcommand=scroll.set)
         
         # Pack widgets
-        tree.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
+        tree.pack(side="left", fill="both", expand=True, padx=(8,0), pady=8)
+        scroll.pack(side="right", fill="y", padx=(0,8), pady=8)
 
         # Load history data
         for row in self.db.get_deletion_history():
             tree.insert("", "end", values=row)
 
         # Close button
-        ttk.Button(history, text="Close", 
-                  command=history.destroy).pack(pady=10)
+        ctk.CTkButton(history, text="Close", command=history.destroy, width=120).pack(pady=12)
 
     def refresh_data(self):
         """Reload file periodically."""
