@@ -8,10 +8,10 @@ Python file to access databases for project, functions can access different data
 time_format = "%Y-%m-%d %H:%M:%S"
 
 class DatabaseManager:
-    @staticmethod
-    def adapt_datetime_iso(val):
-        """Adapt datetime.datetime to timezone-naive ISO 8601 date."""
-        return val.replace(tzinfo=None).isoformat()
+    # @staticmethod
+    # def adapt_datetime_iso(val):
+    #     """Adapt datetime.datetime to timezone-naive ISO 8601 date."""
+    #     return val.replace(tzinfo=None).isoformat()
     
     def __init__(self, path_to_db):
         self.db_path = path_to_db
@@ -81,7 +81,7 @@ class DatabaseManager:
         except Exception as e:
             return e
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug[1], drug[2], user, 'New Entry', self.adapt_datetime_iso(datetime.datetime.now())))
+        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug[1], drug[2], user, 'New Entry', datetime.datetime.now().strftime(time_format)))
 
         conn.commit()
         conn.close()
@@ -106,7 +106,7 @@ class DatabaseManager:
         
         try:
             c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, time) VALUES (?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, self.adapt_datetime_iso(datetime.datetime.now())))
+            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, time) VALUES (?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, datetime.datetime.now().strftime(time_format)))
         except Exception as e:
             print("Error:",e)
         
@@ -121,33 +121,13 @@ class DatabaseManager:
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
         drug_info = c.fetchone()
 
-        c.execute("DELETE FROM drugs_in_inventory WHERE barcode = ?", (barcode))
+        c.execute("DELETE FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'admin', 'Delete Entry', self.adapt_datetime_iso(datetime.datetime.now())))
+        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.datetime.now().strftime(time_format)))
 
         conn.commit()
         conn.close()
-
-
-    """
-    Used to pull from inventory and print the output, might not need but keeping for now
-
-    Func one: Pulls from just drug inventory
-    
-    Func Two: Prints the table from any database given
-    """
-    # def pull_from_drug_inventory(self, table):
-    #     conn = sqlite3.connect(self.db_path)
-    #     c = conn.cursor()
-    #     c.execute(f"SELECT * FROM {table}")
-
-    #     rows = c.fetchall()
-
-    #     print("Table below\n")
-    #     for row in rows:
-    #         print(f"Barcode: {row[0]} | Name: {row[1]} | Amount: {row[2]} | Expiration Date: {row[3]}")
-
-    #     c.close()
+        
 
     def pull_data(self, table):
         conn = sqlite3.connect(self.db_path)
@@ -195,5 +175,5 @@ class PersonalDatabaseManager:
         pass
 
 
-read = DatabaseManager('Database/inventory.db')
+read = DatabaseManager('Databases/inventory.db')
 read.pull_data('drugs_in_inventory')
