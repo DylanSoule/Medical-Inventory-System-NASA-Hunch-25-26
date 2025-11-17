@@ -174,6 +174,3 @@ class PersonalDatabaseManager:
     def add_prescription_med(self, time, barcode, number):
         pass
 
-
-read = DatabaseManager('Databases/inventory.db')
-read.pull_data('drugs_in_inventory')
