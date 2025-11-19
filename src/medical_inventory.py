@@ -70,6 +70,12 @@ class BarcodeViewer(ctk.CTk):
 
         # Filter placeholder
         ctk.CTkLabel(sidebar, text="Filters", anchor="w").pack(padx=12, pady=(8,4), fill="x")
+        # Built-in warning bitmap next to a short note.
+        # Tk provides built-in bitmaps: "error", "info", "questhead", "question", "warning".
+        # This is a monochrome bitmap; use PhotoImage for colored/custom icons.
+        warn_icon = tk.Label(sidebar, bitmap="warning")
+        warn_icon.pack(padx=12, pady=(0,2), anchor="w")
+        ctk.CTkLabel(sidebar, text="Note: 'Expiring Soon' = within 30 days", text_color="orange", anchor="w").pack(padx=36, pady=(0,6), fill="x")
         self.filter_var = tk.StringVar(value="All")
         filter_opts = ["All", "Expiring Soon", "Expired"]
         ctk.CTkOptionMenu(sidebar, values=filter_opts, variable=self.filter_var, width=220, command=lambda v: self.apply_search_filter()).pack(padx=12, pady=(0,8))
@@ -92,11 +98,16 @@ class BarcodeViewer(ctk.CTk):
 
         # Create Treeview (table) with user column inside content frame
         columns = ("drug", "barcode", "est_amount", "exp_date")
-        self.tree = ttk.Treeview(content_frame, columns=columns, show="headings")
+        # keep extended selectmode but we intercept clicks to allow toggle-without-ctrl
+        self.tree = ttk.Treeview(content_frame, columns=columns, show="headings", selectmode="extended")
         self.tree.heading("drug", text="Drug")
         self.tree.heading("barcode", text="Barcode")
         self.tree.heading("est_amount", text="Estimated Amount")
         self.tree.heading("exp_date", text="Expiration")
+
+        # Bind left-click to toggle selection on rows without requiring Ctrl/Shift
+        # Clicking on a row toggles it in the selection set; clicking empty area clears selection.
+        self.tree.bind("<Button-1>", self._on_tree_click)
 
         # Add scrollbar (ttk scrollbar looks fine beside CTk styled widgets)
         scroll = ttk.Scrollbar(content_frame, orient="vertical", command=self.tree.yview)
@@ -225,31 +236,102 @@ class BarcodeViewer(ctk.CTk):
 
     def load_data(self):
         """Read from database and load rows into the table."""
-        self.tree.delete(*self.tree.get_children())
-        
+        # Cache rows and populate via the filter function so UI filters/search work.
         try:
-            rows = self.db.pull_data("drugs_in_inventory")
-            for row in rows:
-                # DB rows are typically (barcode, drug, est_amount, exp_date).
-                # The Treeview column order is (drug, barcode, est_amount, exp_date),
-                # so reorder the tuple for display. Fall back to the raw row if shape is unexpected.
-                try:
-                    display_row = (row[1], row[0], row[2], row[3])-+
-                except Exception:
-                    display_row = row
-                self.tree.insert("", "end", values=display_row)
+            rows = list(self.db.pull_data("drugs_in_inventory"))
         except Exception as e:
             print("Error reading database:", e)
+            rows = []
+
+        # Store raw DB rows for filtering; typical shape: (barcode, drug, est_amount, exp_date)
+        self._all_rows = rows
+        # Populate the tree according to current filters/search
+        self.apply_search_filter()
     
     def apply_search_filter(self, event=None):
         """
-        Placeholder handler for search/filter UI in the sidebar.
-        Currently simply reloads data. Replace the body with actual filtering logic.
+        Apply search and filter UI to the cached DB rows and populate the treeview.
+        Filters available:
+         - search text (matches drug or barcode)
+         - filter_var: "All", "Expiring Soon", "Expired"
+         - low_stock_var checkbox (threshold)
         """
-        # Example: you can access self.search_var.get(), self.filter_var.get(), self.low_stock_var.get()
-        # Implement filtering of the rows returned by self.db.pull_data(...) and then repopulate self.tree
-        # For now, just reload all rows
-        self.load_data()
+        # clear view
+        self.tree.delete(*self.tree.get_children())
+
+        rows = getattr(self, "_all_rows", None)
+        if rows is None:
+            # fallback to pulling directly
+            try:
+                rows = list(self.db.pull_data("drugs_in_inventory"))
+            except Exception:
+                rows = []
+
+        q = (self.search_var.get() or "").strip().lower()
+        mode = (self.filter_var.get() or "All")
+        low_only = bool(self.low_stock_var.get())
+        low_threshold = 5  # example threshold for low stock
+        now = datetime.date.today()
+
+        def parse_date(d):
+            if not d:
+                return None
+            if isinstance(d, datetime.date):
+                return d
+            s = str(d).strip()
+            for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%d-%m-%Y", "%Y-%m-%d %H:%M:%S"):
+                try:
+                    return datetime.datetime.strptime(s, fmt).date()
+                except Exception:
+                    continue
+            # last resort: try ISO parse
+            try:
+                return datetime.date.fromisoformat(s)
+            except Exception:
+                return None
+
+        for row in rows:
+            # Normalize DB row into (barcode, drug, est_amount, exp_date)
+            try:
+                barcode, drug, est_amount, exp_date_raw = row[0], row[1], row[2], row[3]
+            except Exception:
+                # fallback: use positional mapping if shape differs
+                vals = list(row)
+                barcode = vals[0] if len(vals) > 0 else ""
+                drug = vals[1] if len(vals) > 1 else ""
+                est_amount = vals[2] if len(vals) > 2 else ""
+                exp_date_raw = vals[3] if len(vals) > 3 else None
+
+            # Search filter
+            if q:
+                if q not in str(drug).lower() and q not in str(barcode).lower():
+                    continue
+
+            # Low stock filter
+            if low_only:
+                try:
+                    amt = float(est_amount)
+                except Exception:
+                    # if amount not parseable, exclude from low-stock view
+                    continue
+                if amt > low_threshold:
+                    continue
+
+            # Expiration filters
+            exp_date = parse_date(exp_date_raw)
+            if mode == "Expired":
+                if not exp_date or exp_date >= now:
+                    continue
+            elif mode == "Expiring Soon":
+                if not exp_date:
+                    continue
+                delta = (exp_date - now).days
+                if delta < 0 or delta > 30:
+                    continue
+
+            # Display order: (drug, barcode, est_amount, exp_date)
+            display_row = (drug, barcode, est_amount, exp_date_raw)
+            self.tree.insert("", "end", values=display_row)
 
     def admin(self, prompt="Enter admin code to delete scans"):
        code = 1234
@@ -346,6 +428,40 @@ class BarcodeViewer(ctk.CTk):
     def show_error(self, title="Error", message="An error occurred."):
         """Display an error window with the given title and message."""
         messagebox.showerror(title, message)
+
+    def _on_tree_click(self, event):
+        """
+        Toggle selection of the clicked row so multiple items can be selected
+        by clicking them one-by-one (no Ctrl/Shift needed).
+        Return "break" to suppress the default single-select behavior.
+        """
+        # Identify where the click occurred
+        region = self.tree.identify_region(event.x, event.y)
+        # Allow header/resize interactions to pass through to default handlers
+        if region not in ("cell", "tree"):
+            return None
+
+        row = self.tree.identify_row(event.y)
+        if not row:
+            # Clicked empty area -> clear selection
+            try:
+                self.tree.selection_remove(self.tree.selection())
+            except Exception:
+                pass
+            return "break"
+
+        cur = list(self.tree.selection())
+        if row in cur:
+            # Deselect the clicked row
+            cur.remove(row)
+            self.tree.selection_set(tuple(cur))
+        else:
+            # Add clicked row to current selection
+            cur.append(row)
+            self.tree.selection_set(tuple(cur))
+
+        # Prevent default handling which would reset selection to a single item
+        return "break"
 
 
 if __name__ == "__main__":
