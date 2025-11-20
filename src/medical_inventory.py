@@ -84,7 +84,7 @@ class BarcodeViewer(ctk.CTk):
         btns_frame.pack(padx=12, pady=(12,12), fill="x")
         ctk.CTkButton(btns_frame, text="Log Scan", command=self.log_scan, width=200).pack(pady=6)
         ctk.CTkButton(btns_frame, text="Delete Selected", command=self.delete_selected, width=200).pack(pady=6)
-        ctk.CTkButton(btns_frame, text="View Deletion History", command=self.show_deletion_history, width=200).pack(pady=6)
+        ctk.CTkButton(btns_frame, text="View History", command=self.show_history, width=200).pack(pady=6)
         ctk.CTkButton(btns_frame, text="Quit", command=self.destroy, width=200, fg_color="#b22222").pack(pady=6)
 
         # Content frame (right) for the treeview / main table
@@ -361,7 +361,7 @@ class BarcodeViewer(ctk.CTk):
                 values = self.tree.item(item_id)["values"]
                 # Barcode is now the second column in the Treeview (index 1)
                 barcode_value = values[1] if len(values) > 1 else values[0]
-                self.db.delete_entry(barcode=barcode_value)
+                self.db.delete_entry(barcode=barcode_value, reason=reason)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to delete from database:\n{e}")
             return
@@ -369,13 +369,13 @@ class BarcodeViewer(ctk.CTk):
         self.load_data()
         messagebox.showinfo("Deleted", f"Deleted {len(sel)} row(s).")
 
-    def show_deletion_history(self):
+    def show_history(self):
         """Show deletion history in a new window."""
         if not self.admin("Enter admin code to view history"):
             return
 
         history = ctk.CTkToplevel(self)
-        history.title("Deletion History")
+        history.title("History")
         try:
             history.attributes("-fullscreen", True)
         except Exception:
@@ -393,9 +393,9 @@ class BarcodeViewer(ctk.CTk):
         tree = ttk.Treeview(history, columns=columns, show="headings")
         
         # Configure columns
-        tree.heading("deleted_at", text="Deleted At")
-        tree.heading("deleted_by", text="Deleted By")
-        tree.heading("original_timestamp", text="Original Time")
+        tree.heading("barcode", text="Deleted At")
+        tree.heading("name_of_item", text="Deleted By")
+        tree.heading("amount_changed", text="Original Time")
         tree.heading("original_barcode", text="Barcode")
         tree.heading("original_user", text="Original User")
         tree.heading("reason", text="Reason")
@@ -409,7 +409,7 @@ class BarcodeViewer(ctk.CTk):
         scroll.pack(side="right", fill="y", padx=(0,8), pady=8)
 
         # Load history data
-        for row in self.db.get_deletion_history():
+        for row in self.db.pull_data("drug_changes"):
             tree.insert("", "end", values=row)
 
         # Close button
