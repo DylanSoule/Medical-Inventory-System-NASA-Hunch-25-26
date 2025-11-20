@@ -393,12 +393,13 @@ class BarcodeViewer(ctk.CTk):
         tree = ttk.Treeview(history, columns=columns, show="headings")
         
         # Configure columns
-        tree.heading("barcode", text="Deleted At")
-        tree.heading("name_of_item", text="Deleted By")
-        tree.heading("amount_changed", text="Original Time")
-        tree.heading("original_barcode", text="Barcode")
-        tree.heading("original_user", text="Original User")
+        tree.heading("barcode", text="Barcode")
+        tree.heading("name_of_item", text="Name of Item")
+        tree.heading("amount_changed", text="Amount Changed")
+        tree.heading("type", text="Type of Change")
+        tree.heading("time", text="Time of Change")
         tree.heading("reason", text="Reason")
+        tree.heading("user", text="User")
 
         # Add scrollbar
         scroll = ttk.Scrollbar(history, orient="vertical", command=tree.yview)
