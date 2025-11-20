@@ -1,6 +1,7 @@
 import logging
 import os
 from contextlib import contextmanager
+from enum import Enum
 
 # Suppress OpenCV warnings BEFORE importing cv2
 os.environ['OPENCV_LOG_LEVEL'] = 'SILENT'
@@ -17,6 +18,29 @@ import gc  # Garbage collection
 
 logging.getLogger("insightface").setLevel(logging.ERROR)
 logging.getLogger("onnxruntime").setLevel(logging.ERROR)
+
+
+# Error codes as Enum for better error handling
+class FaceRecognitionError(Enum):
+    """Error codes for face recognition operations"""
+    SUCCESS = (0, "Success")
+    MODEL_LOAD_FAILED = (1, "Failed to load face recognition model")
+    REFERENCE_FOLDER_ERROR = (2, "Reference folder not found or cannot be accessed")
+    PRELOAD_FAILED = (3, "Preloading initialization failed")
+    CAMERA_ERROR = (4, "Camera initialization or connection error")
+    CAMERA_DISCONNECTED = (5, "Camera disconnected during operation")
+    FRAME_CAPTURE_FAILED = (6, "Failed to capture frame from camera")
+    UNKNOWN_ERROR = (99, "Unknown error occurred")
+    
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+    
+    def __str__(self):
+        return f"[ERROR {self.code}] {self.message}"
+    
+    def __repr__(self):
+        return f"FaceRecognitionError.{self.name}"
 
 def _initialize_camera_robust():
     """Try multiple methods to initialize camera"""
@@ -155,16 +179,19 @@ def preload_everything():
         
         preloading_complete = True
 
-        return True
+        return FaceRecognitionError.SUCCESS
         
     except FileNotFoundError as e:
         print(f"Preloading failed: {e}")
         if "references" in str(e):
-            return 3  # Reference folder error
-        return False
+            print(FaceRecognitionError.REFERENCE_FOLDER_ERROR)
+            return FaceRecognitionError.REFERENCE_FOLDER_ERROR
+        print(FaceRecognitionError.PRELOAD_FAILED)
+        return FaceRecognitionError.PRELOAD_FAILED
     except Exception as e:
         print(f"Preloading failed: {e}")
-        return False
+        print(FaceRecognitionError.PRELOAD_FAILED)
+        return FaceRecognitionError.PRELOAD_FAILED
 
 
 def reinitialize_camera():
@@ -222,13 +249,13 @@ def quick_detect():
         if reinitialize_camera():
             print("Camera reconnected")
         else:
-            print("Camera reinitialization failed")
-            return 4  # Return camera error code
+            print(f"Camera reinitialization failed: {FaceRecognitionError.CAMERA_ERROR}")
+            return FaceRecognitionError.CAMERA_ERROR
 
     result = _run_detection_with_preloaded_camera()
     
     # If camera error occurred, try to reinitialize for next time
-    if result == 4:
+    if isinstance(result, FaceRecognitionError) and result == FaceRecognitionError.CAMERA_ERROR:
         reinitialize_camera()
     
     return result
@@ -240,8 +267,10 @@ def main():
     # If not preloaded, do it now (slower)
     if not preloading_complete:
         print("Preloading not complete, initializing now...")
-        if not preload_everything():
-            return 3
+        result = preload_everything()
+        if result != FaceRecognitionError.SUCCESS:
+            print(result)
+            return result
     
     return _run_detection()
 
@@ -275,14 +304,14 @@ def _run_detection_with_preloaded_camera():
     # Use pre-initialized camera - but check if it's still connected
     cap = global_camera
     if not cap.isOpened():
-        print("Pre-initialized camera not available")
-        return 4
+        print(f"Pre-initialized camera not available: {FaceRecognitionError.CAMERA_ERROR}")
+        return FaceRecognitionError.CAMERA_ERROR
     
     # Test if camera is actually working by trying to read a frame
     test_ret, test_frame = cap.read()
     if not test_ret:
-        print("Camera disconnected or not working")
-        return 4
+        print(f"Camera disconnected or not working: {FaceRecognitionError.CAMERA_DISCONNECTED}")
+        return FaceRecognitionError.CAMERA_DISCONNECTED
 
     # Threading for processing
     frame_queue = queue.Queue(maxsize=1)
@@ -326,8 +355,8 @@ def _run_detection_with_preloaded_camera():
         while True:
             ret, frame = cap.read()
             if not ret:
-                print("Failed to grab frame from webcam - camera disconnected.")
-                return 4  # Return camera error code
+                print(f"Failed to grab frame from webcam: {FaceRecognitionError.FRAME_CAPTURE_FAILED}")
+                return FaceRecognitionError.CAMERA_DISCONNECTED
 
             frame_count += 1
 
@@ -437,8 +466,8 @@ def _run_detection():
     if cap is None or not cap.isOpened():
         if cap is not None:
             safe_exit(cap)
-        print("Webcam could not be opened with any method.")
-        return 4
+        print(f"Webcam could not be opened: {FaceRecognitionError.CAMERA_ERROR}")
+        return FaceRecognitionError.CAMERA_ERROR
 
     thread = threading.Thread(target=recognition_worker, daemon=True)
     thread.start()
@@ -451,9 +480,9 @@ def _run_detection():
         while True:
             ret, frame = cap.read()
             if not ret:
-                print("Failed to grab frame from webcam - camera disconnected.")
+                print(f"Failed to grab frame from webcam: {FaceRecognitionError.FRAME_CAPTURE_FAILED}")
                 safe_exit(cap)
-                return 4  # Return camera error code
+                return FaceRecognitionError.CAMERA_DISCONNECTED
 
             frame_count += 1
 
