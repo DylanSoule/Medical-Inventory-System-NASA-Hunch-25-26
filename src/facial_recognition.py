@@ -1,6 +1,12 @@
 import logging
 import os
 from contextlib import contextmanager
+from enum import Enum
+
+# Suppress OpenCV warnings BEFORE importing cv2
+os.environ['OPENCV_LOG_LEVEL'] = 'SILENT'
+os.environ['OPENCV_VIDEOIO_DEBUG'] = '0'
+
 import cv2
 import re
 import numpy as np
@@ -13,8 +19,90 @@ import gc  # Garbage collection
 logging.getLogger("insightface").setLevel(logging.ERROR)
 logging.getLogger("onnxruntime").setLevel(logging.ERROR)
 
+
+# Error codes as Enum for better error handling
+class FaceRecognitionError(Enum):
+    """Error codes for face recognition operations"""
+    SUCCESS = (0, "Success")
+    MODEL_LOAD_FAILED = (1, "Failed to load face recognition model")
+    REFERENCE_FOLDER_ERROR = (2, "Reference folder not found or cannot be accessed")
+    PRELOAD_FAILED = (3, "Preloading initialization failed")
+    CAMERA_ERROR = (4, "Camera initialization or connection error")
+    CAMERA_DISCONNECTED = (5, "Camera disconnected during operation")
+    FRAME_CAPTURE_FAILED = (6, "Failed to capture frame from camera")
+    UNKNOWN_ERROR = (99, "Unknown error occurred")
+    
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+    
+    def __str__(self):
+        return f"[ERROR {self.code}] {self.message}"
+    
+    def __repr__(self):
+        return f"FaceRecognitionError.{self.name}"
+
+def _initialize_camera_robust():
+    """Try multiple methods to initialize camera"""
+    
+    # Method 1: Try different backends first (often more reliable)
+    backends = [
+        (cv2.CAP_V4L2, "V4L2"),           # Default Linux backend - try first
+        (cv2.CAP_GSTREAMER, "GStreamer"), # Often works better on Linux
+        (cv2.CAP_ANY, "ANY")              # Let OpenCV choose
+        # Note: Removed FFMPEG as it's primarily for video files, not live cameras
+    ]
+    
+    for backend, name in backends:
+        try:
+            cap = cv2.VideoCapture(0, backend)
+            if cap.isOpened():
+                # Give the camera a moment to initialize
+                time.sleep(0.2)  # Reduced wait time
+                ret, frame = cap.read()
+                if ret and frame is not None:
+                    # Set optimal settings
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                    cap.set(cv2.CAP_PROP_FPS, 30)
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    return cap
+                else:
+                    cap.release()
+        except Exception:
+            # Silently continue to next backend
+            pass
+    
+    # Method 2: Try different camera indices (fallback)
+    for camera_index in [0, 1, 2]:
+        try:
+            cap = cv2.VideoCapture(camera_index)
+            if cap.isOpened():
+                # Give the camera a moment to initialize
+                time.sleep(0.2)
+                # Test if we can actually read a frame
+                ret, frame = cap.read()
+                if ret and frame is not None:
+                    # Set optimal settings
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                    cap.set(cv2.CAP_PROP_FPS, 30)
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    return cap
+                else:
+                    cap.release()
+        except Exception:
+            # Silently continue to next camera index
+            pass
+    
+    return None
+
 # Global model and app cache
-app = None  
+app = None
+reference_embeddings = None
+preloading_complete = False
+camera_ready = False
+global_camera = None
 
 # Context manager to silence native output
 @contextmanager
@@ -34,25 +122,286 @@ def suppress_native_output():
         os.close(orig_stderr_fd)
 
 
+def preload_everything():
+    """Preload model, reference embeddings, and camera in background"""
+    global app, reference_embeddings, preloading_complete, camera_ready, global_camera
+    
+    try:
+
+        
+        # Load InsightFace model
+        with suppress_native_output():
+            app = insightface.app.FaceAnalysis(name="buffalo_sc", providers=['CPUExecutionProvider'])
+            app.prepare(ctx_id=0, det_size=(320, 320))
+
+        
+        # Load reference embeddings
+        def normalize(emb):
+            return emb / np.linalg.norm(emb)
+        
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        ref_dir = os.path.join(project_root, "assets", "references")
+        
+        reference_embeddings = {}
+        
+        for filename in os.listdir(ref_dir):
+            if filename.lower().endswith((".jpg", ".jpeg", ".png")):
+                path = os.path.join(ref_dir, filename)
+                img = cv2.imread(path)
+                if img is None:
+                    continue
+
+                faces = app.get(img)
+                if len(faces) == 0:
+                    continue
+
+                embedding = normalize(faces[0].embedding)
+                label = os.path.splitext(filename)[0]
+                label = re.sub(r'\d+$', '', label)
+                label = re.sub(r'[^A-Za-z0-9_\-]', '_', label)
+                label = label.capitalize()  # Capitalize first character
+
+                if label not in reference_embeddings:
+                    reference_embeddings[label] = []
+                reference_embeddings[label].append(embedding)
+
+        for label in reference_embeddings:
+            reference_embeddings[label] = np.array(reference_embeddings[label])
+
+        
+        # Pre-initialize camera 
+        global_camera = _initialize_camera_robust()
+        if global_camera is not None and global_camera.isOpened():
+            camera_ready = True
+        else:
+            camera_ready = False
+        
+        preloading_complete = True
+
+        return FaceRecognitionError.SUCCESS
+        
+    except FileNotFoundError as e:
+        print(f"Preloading failed: {e}")
+        if "references" in str(e):
+            print(FaceRecognitionError.REFERENCE_FOLDER_ERROR)
+            return FaceRecognitionError.REFERENCE_FOLDER_ERROR
+        print(FaceRecognitionError.PRELOAD_FAILED)
+        return FaceRecognitionError.PRELOAD_FAILED
+    except Exception as e:
+        print(f"Preloading failed: {e}")
+        print(FaceRecognitionError.PRELOAD_FAILED)
+        return FaceRecognitionError.PRELOAD_FAILED
+
+
+def reinitialize_camera():
+    """Reinitialize the camera when it becomes available again"""
+    global global_camera, camera_ready
+    try:
+        # Clean up old camera reference
+        if global_camera is not None:
+            global_camera.release()
+        
+        # Try to create new camera connection using robust method
+        global_camera = _initialize_camera_robust()
+        if global_camera is not None and global_camera.isOpened():
+            camera_ready = True
+            return True
+        else:
+            global_camera = None
+            camera_ready = False
+            return False
+    except Exception as e:
+        print(f"Camera reinitialization error: {e}")
+        global_camera = None
+        camera_ready = False
+        return False
+
+def cleanup_camera():
+    """Cleanup the global camera"""
+    global global_camera, camera_ready
+    try:
+        if global_camera is not None and global_camera.isOpened():
+            global_camera.release()
+            global_camera = None
+            camera_ready = False
+
+    except Exception as e:
+        print(f"Error releasing camera: {e}")
+
+
 def safe_exit(cap=None):
-    """Close the camera and OpenCV windows safely."""
+    """Close the camera safely (headless mode)."""
     if cap is not None and cap.isOpened():
         cap.release()
-    cv2.destroyAllWindows()
     print("Camera safely closed.")
 
 
+def quick_detect():
+    """Ultra-fast detection using preloaded model and camera"""
+    global app, reference_embeddings, preloading_complete, camera_ready, global_camera  # pylint: disable=global-variable-not-assigned
+    
+    if not preloading_complete:
+        print("System not ready, please wait...")
+        return []
+    
+    if not camera_ready:
+        if reinitialize_camera():
+            print("Camera reconnected")
+        else:
+            print(f"Camera reinitialization failed: {FaceRecognitionError.CAMERA_ERROR}")
+            return FaceRecognitionError.CAMERA_ERROR
+
+    result = _run_detection_with_preloaded_camera()
+    
+    # If camera error occurred, try to reinitialize for next time
+    if isinstance(result, FaceRecognitionError) and result == FaceRecognitionError.CAMERA_ERROR:
+        reinitialize_camera()
+    
+    return result
+
+
 def main():
-    global app
+    global app, reference_embeddings, preloading_complete  # pylint: disable=global-variable-not-assigned
 
-    # -----------------------------
-    # LOAD INSIGHTFACE MODEL (lazy load)
-    # -----------------------------
-    if app is None:
-        with suppress_native_output():
-            app = insightface.app.FaceAnalysis(name="buffalo_sc", providers=['CPUExecutionProvider'])
-            app.prepare(ctx_id=0, det_size=(320, 320))  #  smaller detection window
+    # If not preloaded, do it now (slower)
+    if not preloading_complete:
+        print("Preloading not complete, initializing now...")
+        result = preload_everything()
+        if result != FaceRecognitionError.SUCCESS:
+            print(result)
+            return result
+    
+    return _run_detection()
 
+
+def _run_detection_with_preloaded_camera():
+    """Ultra-fast detection using preloaded camera"""
+    global app, reference_embeddings, global_camera  # pylint: disable=global-variable-not-assigned
+    
+    def normalize(emb):
+        return emb / np.linalg.norm(emb)
+
+    def distance_to_confidence(dist, max_dist=2.0):
+        return max(0.0, min(1.0, 1.0 - dist / max_dist))
+    
+    THRESHOLD = 1
+
+    def recognize_face(face_embedding):
+        best_match = None
+        best_score = float("inf")
+        for label, embeddings in reference_embeddings.items():
+            distances = np.linalg.norm(embeddings - face_embedding, axis=1)
+            score = np.min(distances)
+            if score < best_score:
+                best_score = score
+                best_match = label
+        if best_score < THRESHOLD:
+            return best_match, best_score
+        else:
+            return "Unknown", best_score
+
+    # Use pre-initialized camera - but check if it's still connected
+    cap = global_camera
+    if not cap.isOpened():
+        print(f"Pre-initialized camera not available: {FaceRecognitionError.CAMERA_ERROR}")
+        return FaceRecognitionError.CAMERA_ERROR
+    
+    # Test if camera is actually working by trying to read a frame
+    test_ret, test_frame = cap.read()
+    if not test_ret:
+        print(f"Camera disconnected or not working: {FaceRecognitionError.CAMERA_DISCONNECTED}")
+        return FaceRecognitionError.CAMERA_DISCONNECTED
+
+    # Threading for processing
+    frame_queue = queue.Queue(maxsize=1)
+    result_queue = queue.Queue(maxsize=1)
+    stop_event = threading.Event()
+
+    detected_names = set()
+    known_face_detected = False
+
+    def recognition_worker():
+        while not stop_event.is_set():
+            if frame_queue.empty():
+                time.sleep(0.01)
+                continue
+            frame = frame_queue.get()
+            faces = app.get(frame)
+            results = []
+            for face in faces:
+                emb = normalize(face.embedding)
+                name, dist = recognize_face(emb)
+                confidence = distance_to_confidence(dist)
+                box = face.bbox.astype(int)
+                results.append((box, name, confidence))
+            if not result_queue.empty():
+                try:
+                    result_queue.get_nowait()
+                except Exception:
+                    pass
+            result_queue.put(results)
+            time.sleep(0.02)
+
+    thread = threading.Thread(target=recognition_worker, daemon=True)
+    thread.start()
+    
+
+
+    frame_count = 0
+    last_results = []
+
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print(f"Failed to grab frame from webcam: {FaceRecognitionError.FRAME_CAPTURE_FAILED}")
+                return FaceRecognitionError.CAMERA_DISCONNECTED
+
+            frame_count += 1
+
+            if frame_count % 1 == 0 and frame_queue.empty():
+                frame_queue.put(frame.copy())
+
+            if not result_queue.empty():
+                last_results = result_queue.get()
+
+            # Process detection results (headless - no visual display)
+            for box, name, confidence in last_results:
+                if name != "Unknown" and name not in detected_names:
+                    detected_names.add(name)
+                    print(f"Person detected: {name}")
+                    known_face_detected = True
+
+            # Clean up memory periodically
+            if frame_count % 200 == 0:
+                gc.collect()
+
+            # Exit when face detected
+            if known_face_detected:
+                stop_event.set()
+                break
+
+            # Small delay to prevent excessive CPU usage
+            time.sleep(0.01)
+
+    except Exception as e:
+        print(f"Error during webcam processing: {e}")
+    finally:
+        # Ensure thread is properly stopped
+        stop_event.set()
+        if thread.is_alive():
+            thread.join(timeout=1.0)
+        
+        # Don't release the camera - keep it for next use
+    
+    return list(detected_names)
+
+
+def _run_detection():
+    """Core detection logic using preloaded data"""
+    global app, reference_embeddings  # pylint: disable=global-variable-not-assigned
+    
     # -----------------------------
     # HELPER FUNCTIONS
     # -----------------------------
@@ -61,48 +410,6 @@ def main():
 
     def distance_to_confidence(dist, max_dist=2.0):
         return max(0.0, min(1.0, 1.0 - dist / max_dist))
-
-    # -----------------------------
-    # LOAD REFERENCES
-    # -----------------------------
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(script_dir)
-    ref_dir = os.path.join(project_root, "assets", "references")
-
-    if not os.path.exists(ref_dir):
-        print(f"Reference folder not found at: {ref_dir}")
-        return 3
-
-    reference_embeddings = {}
-
-    for filename in os.listdir(ref_dir):
-        if filename.lower().endswith((".jpg", ".jpeg", ".png")):
-            path = os.path.join(ref_dir, filename)
-            img = cv2.imread(path)
-            if img is None:
-                print(f"Warning: Could not read {filename}")
-                return 2
-
-            faces = app.get(img)
-            if len(faces) == 0:
-                print(f"Warning: No face detected in {filename}")
-                return 3
-
-            embedding = normalize(faces[0].embedding)
-            label = os.path.splitext(filename)[0]
-            label = re.sub(r'\d+$', '', label)
-            label = re.sub(r'[^A-Za-z0-9_\-]', '_', label)
-
-            if label not in reference_embeddings:
-                reference_embeddings[label] = []
-            reference_embeddings[label].append(embedding)
-
-    for label in reference_embeddings:
-        reference_embeddings[label] = np.array(reference_embeddings[label])
-
-    if not reference_embeddings:
-        print("No valid reference faces loaded.")
-        return []
 
     THRESHOLD = 1
 
@@ -155,27 +462,27 @@ def main():
     # -----------------------------
     # START WEBCAM & THREAD
     # -----------------------------
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        safe_exit(cap)
-        print("Webcam could not be opened.")
-        return 4
+    cap = _initialize_camera_robust()
+    if cap is None or not cap.isOpened():
+        if cap is not None:
+            safe_exit(cap)
+        print(f"Webcam could not be opened: {FaceRecognitionError.CAMERA_ERROR}")
+        return FaceRecognitionError.CAMERA_ERROR
 
     thread = threading.Thread(target=recognition_worker, daemon=True)
     thread.start()
     
-    print("Press 'q' to quit.")
 
     frame_count = 0
-    start_time = time.time()
     last_results = []
 
     try:
         while True:
             ret, frame = cap.read()
             if not ret:
-                print("Failed to grab frame from webcam.")
-                break
+                print(f"Failed to grab frame from webcam: {FaceRecognitionError.FRAME_CAPTURE_FAILED}")
+                safe_exit(cap)
+                return FaceRecognitionError.CAMERA_DISCONNECTED
 
             frame_count += 1
 
@@ -185,39 +492,32 @@ def main():
             if not result_queue.empty():
                 last_results = result_queue.get()
 
+            # Process detection results (headless - no visual display)
             for box, name, confidence in last_results:
-                color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
-                text = f"{name} ({confidence*100:.1f}%)"
-                cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), color, 2)
-                cv2.putText(frame, text, (box[0], box[1]-10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-
                 if name != "Unknown" and name not in detected_names:
                     detected_names.add(name)
                     print(f"Person detected: {name}")
                     known_face_detected = True
 
-            elapsed_time = time.time() - start_time
-            fps = frame_count / elapsed_time
-            cv2.putText(frame, f"FPS: {fps:.2f}", (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
-
-            cv2.imshow("Face Recognition", frame)
-
+            # Clean up memory periodically
             if frame_count % 200 == 0:
                 gc.collect()
 
+            # Exit when face detected
             if known_face_detected:
                 stop_event.set()
                 break
 
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
-                stop_event.set()
-                break
+            # Small delay to prevent excessive CPU usage
+            time.sleep(0.01)
 
     except Exception as e:
         print(f"Error during webcam processing: {e}")
+    finally:
+        # Ensure thread is properly stopped
+        stop_event.set()
+        if thread.is_alive():
+            thread.join(timeout=1.0)
 
     safe_exit(cap)
     return list(detected_names)
