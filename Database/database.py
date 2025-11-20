@@ -46,7 +46,8 @@ class DatabaseManager:
                 change INTEGER NOT NULL,
                 user TEXT NOT NULL,
                 type TEXT NOT NULL,
-                time DATETIME NOT NULL
+                time DATETIME NOT NULL,
+                reason TEXT
                 )
         ''')
 
