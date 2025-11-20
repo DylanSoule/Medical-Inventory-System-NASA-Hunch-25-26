@@ -89,8 +89,10 @@ class DatabaseManager:
                 VALUES (?, ?, ?, ?)
             ''', (drug[0], drug[1], drug[2], drug[3]))
         except (sqlite3.IntegrityError):
+            conn.close()
             return IndexError
         except Exception as e:
+            conn.close()
             return e
 
         c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug[1], drug[2], user, 'New Entry', datetime.datetime.now().strftime(time_format)))
