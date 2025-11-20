@@ -70,12 +70,7 @@ class BarcodeViewer(ctk.CTk):
 
         # Filter placeholder
         ctk.CTkLabel(sidebar, text="Filters", anchor="w").pack(padx=12, pady=(8,4), fill="x")
-        # Built-in warning bitmap next to a short note.
-        # Tk provides built-in bitmaps: "error", "info", "questhead", "question", "warning".
-        # This is a monochrome bitmap; use PhotoImage for colored/custom icons.
-        warn_icon = tk.Label(sidebar, bitmap="warning")
-        warn_icon.pack(padx=12, pady=(0,2), anchor="w")
-        ctk.CTkLabel(sidebar, text="Note: 'Expiring Soon' = within 30 days", text_color="orange", anchor="w").pack(padx=36, pady=(0,6), fill="x")
+
         self.filter_var = tk.StringVar(value="All")
         filter_opts = ["All", "Expiring Soon", "Expired"]
         ctk.CTkOptionMenu(sidebar, values=filter_opts, variable=self.filter_var, width=220, command=lambda v: self.apply_search_filter()).pack(padx=12, pady=(0,8))
@@ -270,7 +265,7 @@ class BarcodeViewer(ctk.CTk):
         q = (self.search_var.get() or "").strip().lower()
         mode = (self.filter_var.get() or "All")
         low_only = bool(self.low_stock_var.get())
-        low_threshold = 5  # example threshold for low stock
+        low_threshold = 20  # example threshold for low stock
         now = datetime.date.today()
 
         def parse_date(d):
