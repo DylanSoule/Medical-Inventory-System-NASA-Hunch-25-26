@@ -123,7 +123,7 @@ class DatabaseManager:
 
         c.execute("DELETE FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.datetime.now().strftime(time_format)), reason,)
+        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.datetime.now().strftime(time_format), reason,))
 
         conn.commit()
         conn.close()
