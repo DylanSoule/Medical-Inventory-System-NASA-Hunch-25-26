@@ -174,4 +174,3 @@ class PersonalDatabaseManager:
     def add_prescription_med(self, time, barcode, number):
         pass
 
-
