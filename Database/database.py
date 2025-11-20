@@ -56,6 +56,22 @@ class DatabaseManager:
 
 
     def add_to_inventory(self, barcode, user):
+        """
+        Adds a drug to the inventory if it exists in the drugs database and logs the change.
+
+        Parameters:
+            barcode (str): The barcode of the drug to add.
+            user (str): The user performing the addition.
+
+        Returns:
+            LookupError: If no drug is found with the given barcode.
+            IndexError: If the drug is already in the inventory (integrity error).
+            Exception: Any other exception encountered during insertion.
+            None: On successful addition.
+
+        Note:
+            This method does not raise exceptions; instead, it returns exception types or instances on error.
+        """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
