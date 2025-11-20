@@ -8,11 +8,6 @@ Python file to access databases for project, functions can access different data
 time_format = "%Y-%m-%d %H:%M:%S"
 
 class DatabaseManager:
-    # @staticmethod
-    # def adapt_datetime_iso(val):
-    #     """Adapt datetime.datetime to timezone-naive ISO 8601 date."""
-    #     return val.replace(tzinfo=None).isoformat()
-    
     def __init__(self, path_to_db):
         self.db_path = path_to_db
         self.create_inventory()
