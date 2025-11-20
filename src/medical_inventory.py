@@ -388,8 +388,7 @@ class BarcodeViewer(ctk.CTk):
         history.bind("<Escape>", lambda e: history.destroy())
 
         # Create treeview for history
-        columns = ("deleted_at", "deleted_by", "original_timestamp", 
-                  "original_barcode", "original_user", "reason")
+        columns = ("barcode", "name_of_item", "amount_changed", "user", "type", "time", "reason")
         tree = ttk.Treeview(history, columns=columns, show="headings")
         
         # Configure columns
@@ -413,8 +412,6 @@ class BarcodeViewer(ctk.CTk):
         for row in self.db.pull_data("drug_changes"):
             tree.insert("", "end", values=row)
 
-        # Close button
-        ctk.CTkButton(history, text="Close", command=history.destroy, width=120).pack(pady=12)
 
     def refresh_data(self):
         """Reload file periodically."""
