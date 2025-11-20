@@ -123,7 +123,7 @@ class DatabaseManager:
 
         c.execute("DELETE FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.datetime.now().strftime(time_format)), reason)
+        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.datetime.now().strftime(time_format)), reason,)
 
         conn.commit()
         conn.close()
@@ -174,14 +174,3 @@ class PersonalDatabaseManager:
     def add_prescription_med(self, time, barcode, number):
         pass
 
-read = DatabaseManager('Database/inventory.db')
-
-print(read.pull_data('drug_changes'))
-
-# conn = sqlite3.connect('Database/inventory.db')
-# c = conn.cursor()
-
-# c.execute('ALTER TABLE drug_changes ADD reason TEXT;')
-
-# conn.commit()
-# conn.close()
