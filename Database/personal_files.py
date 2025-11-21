@@ -29,6 +29,6 @@ def add_access(person):
     conn = sqlite3.connect(f'{person}.db')
     c = conn.cursor()
     
-    c.execute(f"INSERT INTO taken (HOUR, NUMBER_TAKEN, DRUG) VALUES ({hour}, {number}, {drug})")
+    c.execute("INSERT INTO taken (HOUR, NUMBER_TAKEN, DRUG) VALUES (?, ?, ?)", (hour, number, drug))
     conn.commit()
     conn.close()
