@@ -152,6 +152,16 @@ class DatabaseManager:
 
 
     def delete_entry(self, barcode, reason):
+        """
+        Deletes an entry from the inventory and logs the deletion in the drug_changes history.
+
+        Parameters:
+            barcode (str): The barcode of the drug to delete from inventory.
+            reason (str): The reason for deleting the entry.
+
+        Side effects:
+            Removes the entry from the drugs_in_inventory table and adds a record to the drug_changes table.
+        """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
