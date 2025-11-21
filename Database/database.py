@@ -177,6 +177,20 @@ class DatabaseManager:
         
 
     def pull_data(self, table):
+        """
+        Retrieve all records from a specified table in the database.
+
+        Parameters:
+            table (str): Name of the table to query.
+
+        Returns:
+            list of tuples: Each tuple contains the records from the specified table.
+
+        Security Considerations:
+            The table name is interpolated directly into the SQL query, which can lead to SQL injection
+            if the table name is not properly validated. Ensure that the table name is validated against
+            a whitelist of expected table names before calling this function.
+        """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
