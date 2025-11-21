@@ -102,6 +102,18 @@ class DatabaseManager:
 
 
     def add_to_drugs_database(self, barcode, dname, amount, expiration_date):
+        """
+        Add a new drug to the drugs reference table.
+
+        Parameters:
+            barcode (str): The barcode of the drug.
+            dname (str): The name of the drug.
+            amount (int): The amount of the drug.
+            expiration_date (date): The expiration date of the drug.
+
+        Side effects:
+            Inserts a new drug into the drugs table in the database.
+        """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         
