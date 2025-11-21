@@ -124,6 +124,17 @@ class DatabaseManager:
 
 
     def log_access_to_inventory(self, barcode, change, user):
+        """
+        Log changes to drug inventory amounts.
+
+        Parameters:
+            barcode (str): The barcode of the drug whose inventory is being updated.
+            change (int): The amount to change the inventory by (positive or negative).
+            user (str): The user making the change.
+
+        Side effects:
+            Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
+        """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
