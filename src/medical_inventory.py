@@ -141,12 +141,12 @@ class BarcodeViewer(ctk.CTk):
                     # Update UI on main thread - enable button when facial recognition is ready
                     if self.fr_ready:
                         self.after(0, lambda: [
-                            self.log_scan_btn.configure(text="Log Scan", state="normal"),
+                            self.log_scan.configure(text="Log Scan", state="normal"),
                             self.set_status_indicator("#22c55e")
                         ])
                     else:
                         self.after(0, lambda: [
-                            self.log_scan_btn.configure(text="Log Scan", state="disabled"),
+                            self.log_scan.configure(text="Log Scan", state="disabled"),
                             self.set_status_indicator("#94a3b8")
                         ])
                 else:
@@ -178,7 +178,7 @@ class BarcodeViewer(ctk.CTk):
                 def show_error():
                     try:
                         messagebox.showerror("Initialization Error", error_msg)
-                        self.log_scan_btn.configure(text="Log Scan", state="disabled")
+                        self.log_scan.configure(text="Log Scan", state="disabled")
                     except Exception as ui_error:
                         print(f"Failed to show error dialog: {ui_error}")
                         # Try again with longer delay

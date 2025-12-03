@@ -143,7 +143,7 @@ class DatabaseManager:
         
         try:
             c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, type, user, time) VALUES (?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'access', datetime.datetime.now().strftime(time_format)))
+            c.execute("INSERT INTO drug_changes (barcode, dname, change, type, user, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'access', datetime.datetime.now().strftime(time_format)))
         except Exception as e:
             print("Error:",e)
         
@@ -234,4 +234,3 @@ class PersonalDatabaseManager:
     
     def add_prescription_med(self, time, barcode, number):
         pass
-
