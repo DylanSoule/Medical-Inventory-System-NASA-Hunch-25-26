@@ -23,19 +23,25 @@ class DatabaseManager:
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS drugs_in_inventory (
-                barcode TEXT PRIMARY KEY NOT NULL,
+                barcode TEXT PRIMARY KEY NOT NULL UNIQUE,
                 dname TEXT NOT NULL,
                 estimated_amount INTEGER NOT NULL,
-                expiration_date DATE NOT NULL
+                expiration_date DATE NOT NULL,
+                type TEXT NOT NULL,
+                item_type TEXT NOT NULL,
+                dose_size TEXT NOT NULL
             )
         ''')
 
         c.execute('''
             CREATE TABLE IF NOT EXISTS drugs(
-                barcode TEXT PRIMARY KEY NOT NULL,
+                barcode TEXT PRIMARY KEY NOT NULL UNIQUE,
                 dname TEXT NOT NULL,
                 amount INTEGER NOT NULL,
-                expiration_date DATE NOT NULL      
+                expiration_date DATE NOT NULL,
+                type TEXT NOT NULL,
+                item_type TEXT NOT NULL,
+                dose_size TEXT NOT NULL
             )
         ''')
 
@@ -101,7 +107,7 @@ class DatabaseManager:
         conn.close()
 
 
-    def add_to_drugs_database(self, barcode, dname, amount, expiration_date):
+    def add_to_drugs_database(self, barcode, dname, amount, expiration_date, Type, item_type, dose_size):
         """
         Add a new drug to the drugs reference table.
 
@@ -110,14 +116,17 @@ class DatabaseManager:
             dname (str): The name of the drug.
             amount (int): The amount of the drug.
             expiration_date (date): The expiration date of the drug.
+            type (str): the type of the drug(Antibiotic, Antihistamine, etc.)
+            item_type(str): the method the drug is taken(Pill, Eye Drop, Ointment, etc.)
+            dose_size(str): The dose size of the drug
 
-        Side effects:
+        Effects:
             Inserts a new drug into the drugs table in the database.
         """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         
-        c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date) VALUES (?,?,?,?)", (barcode, dname, amount, expiration_date))
+        c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date, type, item_type, dose_size) VALUES (?,?,?,?,?,?,?)", (barcode, dname, amount, expiration_date,Type,item_type, dose_size))
 
         conn.commit()
         conn.close()
@@ -143,7 +152,7 @@ class DatabaseManager:
         
         try:
             c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, type, user, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'access', datetime.datetime.now().strftime(time_format)))
+            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.datetime.now().strftime(time_format)))
         except Exception as e:
             print("Error:",e)
         
@@ -234,3 +243,5 @@ class PersonalDatabaseManager:
     
     def add_prescription_med(self, time, barcode, number):
         pass
+
+
