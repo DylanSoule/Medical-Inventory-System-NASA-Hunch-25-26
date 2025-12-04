@@ -14,7 +14,7 @@ from facial_recognition import FaceRecognitionError
 
 # Database file path - store in parent directory
 DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Database/inventory.db")
-REFRESH_INTERVAL = 300000  # milliseconds
+REFRESH_INTERVAL = 30000  # milliseconds
 # Use CustomTkinter main window for modern look
 ctk.set_appearance_mode("System")         # "Dark", "Light", or "System"
 ctk.set_default_color_theme("dark-blue") # built-in themes: "blue", "green", "dark-blue"
@@ -71,8 +71,8 @@ class BarcodeViewer(ctk.CTk):
         # Search placeholder
         ctk.CTkLabel(sidebar, text="Search", anchor="w").pack(padx=12, pady=(12,4), fill="x")
         self.search_var = tk.StringVar()
-        search_entry = ctk.CTkEntry(sidebar, textvariable=self.search_var, placeholder_text="Search by barcode or drug...", width=220)
-        search_entry.pack(padx=12, pady=(0,8))
+        search_entry = ctk.CTkEntry(sidebar, textvariable=self.search_var, placeholder_text="Search all fields...", width=300, height=40, font=("Arial", 16))
+        search_entry.pack(padx=16, pady=(0,12))
         search_entry.bind("<KeyRelease>", self.apply_search_filter)
 
         # Filter placeholder
@@ -139,13 +139,16 @@ class BarcodeViewer(ctk.CTk):
         content_frame.pack(side="left", fill="both", expand=True, padx=(0,8), pady=8)
 
         # Create Treeview (table) with user column inside content frame
-        columns = ("drug", "barcode", "est_amount", "exp_date")
+        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_type")
         # keep extended selectmode but we intercept clicks to allow toggle-without-ctrl
         self.tree = ttk.Treeview(content_frame, columns=columns, show="headings", selectmode="extended")
         self.tree.heading("drug", text="Drug")
         self.tree.heading("barcode", text="Barcode")
         self.tree.heading("est_amount", text="Estimated Amount")
         self.tree.heading("exp_date", text="Expiration")
+        self.tree.heading("type_", text="Type")
+        self.tree.heading("dose_size", text="Dose Size")
+        self.tree.heading("item_type", text="Item Type")
 
         # Bind left-click to toggle selection on rows without requiring Ctrl/Shift
         # Clicking on a row toggles it in the selection set; clicking empty area clears selection.
@@ -540,7 +543,7 @@ class BarcodeViewer(ctk.CTk):
         """
         Apply search and filter UI to the cached DB rows and populate the treeview.
         Filters available:
-         - search text (matches drug or barcode)
+         - search text (matches drug, barcode, type, dose_size, or item_type)
          - filter_var: "All", "Expiring Soon", "Expired"
          - low_stock_var checkbox (threshold)
         """
@@ -579,9 +582,9 @@ class BarcodeViewer(ctk.CTk):
                 return None
 
         for row in rows:
-            # Normalize DB row into (barcode, drug, est_amount, exp_date)
+            # Normalize DB row into (barcode, drug, est_amount, exp_date, type_, dose_size, item_type)
             try:
-                barcode, drug, est_amount, exp_date_raw = row[0], row[1], row[2], row[3]
+                barcode, drug, est_amount, exp_date_raw, type_, dose_size, item_type = row[0], row[1], row[2], row[3], row[4], row[6], row[5]
             except Exception:
                 # fallback: use positional mapping if shape differs
                 vals = list(row)
@@ -589,10 +592,20 @@ class BarcodeViewer(ctk.CTk):
                 drug = vals[1] if len(vals) > 1 else ""
                 est_amount = vals[2] if len(vals) > 2 else ""
                 exp_date_raw = vals[3] if len(vals) > 3 else None
+                type_ = vals[4] if len(vals) > 4 else ""
+                dose_size = vals[5] if len(vals) > 5 else ""
+                item_type = vals[6] if len(vals) > 6 else ""
 
-            # Search filter
+            # Search filter - search across all text fields
             if q:
-                if q not in str(drug).lower() and q not in str(barcode).lower():
+                searchable_fields = [
+                    str(drug).lower(),
+                    str(barcode).lower(),
+                    str(type_).lower(),
+                    str(dose_size).lower(),
+                    str(item_type).lower()
+                ]
+                if not any(q in field for field in searchable_fields):
                     continue
 
             # Low stock filter
@@ -617,16 +630,98 @@ class BarcodeViewer(ctk.CTk):
                 if delta < 0 or delta > 30:
                     continue
 
-            # Display order: (drug, barcode, est_amount, exp_date)
-            display_row = (drug, barcode, est_amount, exp_date_raw)
+            # Display order: (drug, barcode, est_amount, exp_date, type_, dose_size, item_type)
+            display_row = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_type)
             self.tree.insert("", "end", values=display_row)
 
-    def admin(self, prompt="Enter admin code to delete scans"):
-       code = 1234
-       if simpledialog.askstring("Admin Access", prompt, show="*") != str(code):
-            messagebox.showerror("Access Denied", "Incorrect admin code.")
-            sel = self.tree.selection()
-            self.tree.selection_remove(*sel)
+    def admin(self, title, prompt="Enter admin code"):
+        code = 1234
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.transient(self)
+        dlg.resizable(False, False)
+
+        # --- create widgets ---
+        ctk.CTkLabel(dlg, text=prompt, font=("Arial", 18)).pack(padx=16, pady=(14,8))
+        entry_var = tk.StringVar()
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=300, height=40, font=("Arial", 16), show="*")
+        entry.pack(padx=16, pady=(0,14))
+
+        # --- numpad frame ---
+        button_frame = ctk.CTkFrame(dlg)
+        button_frame.pack(pady=(0,14))
+
+        buttons = [
+            ['7','8','9'],
+            ['4','5','6'],
+            ['1','2','3'],
+            ['C','0','<']
+        ]
+
+        def add_to_entry(value):
+            current = entry_var.get()
+            entry_var.set(current + str(value))
+
+        def clear_entry():
+            entry_var.set("")
+
+        def backspace():
+            entry_var.set(entry_var.get()[:-1])
+
+        for i, row in enumerate(buttons):
+            for j, btn_text in enumerate(row):
+                if btn_text == 'C':
+                    btn = ctk.CTkButton(button_frame, text=btn_text, width=80, height=80, font=("Arial", 20), command=clear_entry)
+                elif btn_text == '<':
+                    btn = ctk.CTkButton(button_frame, text=btn_text, width=80, height=80, font=("Arial", 20), command=backspace)
+                else:
+                    btn = ctk.CTkButton(button_frame, text=btn_text, width=80, height=80, font=("Arial", 20), command=lambda x=btn_text: add_to_entry(x))
+                btn.grid(row=i, column=j, padx=6, pady=6)
+
+        # --- OK / Cancel buttons ---
+        result = {"value": None}
+        btn_frame = ctk.CTkFrame(dlg)
+        btn_frame.pack(pady=(0,14), fill="x")
+        
+        def on_ok(event=None):
+            val = entry_var.get().strip()
+            if val != "":
+                result["value"] = val
+                dlg.destroy()
+
+        def on_cancel(event=None):
+            dlg.destroy()
+
+        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=120, height=40, font=("Arial", 16)).pack(side="left", padx=8)
+        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=120, height=40, font=("Arial", 16), fg_color="gray30").pack(side="right", padx=8)
+
+        entry.bind("<Return>", on_ok)
+        dlg.bind("<Escape>", on_cancel)
+
+        # --- force window to draw before grabbing ---
+        dlg.update_idletasks()
+        try:
+            dlg.attributes("-topmost", True)
+        except Exception:
+            pass
+        dlg.lift()
+        dlg.grab_set()
+        dlg.focus_force()
+        entry.focus_force()
+        try:
+            entry.select_range(0, "end")
+        except Exception:
+            pass
+
+        # Center dialog
+        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
+        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
+        dlg.geometry(f"+{x}+{y}")
+
+        self.wait_window(dlg)
+
+        entered = result.get("value")
+        if entered is None:
             return False
 
        return True
@@ -667,7 +762,7 @@ class BarcodeViewer(ctk.CTk):
 
     def show_history(self):
         """Show deletion history in a new window."""
-        if not self.admin("Enter admin code to view history"):
+        if not self.admin("View History"):
             return
 
         history = ctk.CTkToplevel(self)
