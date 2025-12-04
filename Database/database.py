@@ -245,3 +245,11 @@ class PersonalDatabaseManager:
         pass
 
 
+conn = sqlite3.connect('inventory.db')
+c = conn.cursor()
+
+c.execute('UPDATE drugs SET type = ? WHERE type = ?',('Antibiotics', 'Antibiotic'))
+c.execute('UPDATE drugs_in_inventory SET type = ? WHERE type = ?',('Antibiotics', 'Antibiotic'))
+
+conn.commit()
+conn.close()
