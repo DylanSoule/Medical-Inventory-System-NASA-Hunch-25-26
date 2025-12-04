@@ -45,10 +45,10 @@ class BarcodeViewer(ctk.CTk):
 
         # larger default styling for readability on fullscreen
         style = ttk.Style()
-        style.configure("TLabel", font=("Arial", 20))
-        style.configure("TButton", font=("Arial", 16), padding=10)
-        style.configure("Treeview", font=("Arial", 15), rowheight=36)
-        style.configure("Treeview.Heading", font=("Arial", 17, "bold"))
+        style.configure("TLabel", font=("Arial", 26))
+        style.configure("TButton", font=("Arial", 22), padding=18)
+        style.configure("Treeview", font=("Arial", 20), rowheight=50)
+        style.configure("Treeview.Heading", font=("Arial", 22, "bold"))
 
         # allow toggling fullscreen with F11 and exit fullscreen with Escape
         self.bind("<F11>", lambda e: self.attributes("-fullscreen", not self.attributes("-fullscreen")))
@@ -58,64 +58,66 @@ class BarcodeViewer(ctk.CTk):
         # self.log_file = LOG_FILE
 
         # Title (use CTkLabel for modern appearance)
-        ctk.CTkLabel(self, text="Medical Inventory System", font=("Arial", 22, "bold")).pack(pady=12)
+        ctk.CTkLabel(self, text="Medical Inventory System", font=("Arial", 36, "bold")).pack(pady=20)
 
         # Main frame containing sidebar (left) and content (right)
         main_frame = ctk.CTkFrame(self, corner_radius=0)
-        main_frame.pack(fill="both", expand=True, padx=8, pady=(4,12))
+        main_frame.pack(fill="both", expand=True, padx=15, pady=(8,20))
 
         # Sidebar on the left with buttons, search and filters
-        sidebar = ctk.CTkFrame(main_frame, width=260, corner_radius=8)
-        sidebar.pack(side="left", fill="y", padx=(8,12), pady=8)
+        sidebar = ctk.CTkFrame(main_frame, width=380, corner_radius=8)
+        sidebar.pack(side="left", fill="y", padx=(15,20), pady=15)
 
         # Search placeholder
-        ctk.CTkLabel(sidebar, text="Search", anchor="w").pack(padx=12, pady=(12,4), fill="x")
+        ctk.CTkLabel(sidebar, text="Search", anchor="w", font=("Arial", 20)).pack(padx=20, pady=(20,8), fill="x")
         self.search_var = tk.StringVar()
-        search_entry = ctk.CTkEntry(sidebar, textvariable=self.search_var, placeholder_text="Search all fields...", width=300, height=40, font=("Arial", 16))
-        search_entry.pack(padx=16, pady=(0,12))
+        search_entry = ctk.CTkEntry(sidebar, textvariable=self.search_var, placeholder_text="Search all fields...", width=340, height=45, font=("Arial", 18))
+        search_entry.pack(padx=20, pady=(0,15))
         search_entry.bind("<KeyRelease>", self.apply_search_filter)
 
         # Filter placeholder
-        ctk.CTkLabel(sidebar, text="Filters", anchor="w").pack(padx=12, pady=(8,4), fill="x")
+        ctk.CTkLabel(sidebar, text="Filters", anchor="w", font=("Arial", 20)).pack(padx=20, pady=(15,8), fill="x")
 
         self.filter_var = tk.StringVar(value="All")
         filter_opts = ["All", "Expiring Soon", "Expired"]
-        ctk.CTkOptionMenu(sidebar, values=filter_opts, variable=self.filter_var, width=220, command=lambda v: self.apply_search_filter()).pack(padx=12, pady=(0,8))
+        ctk.CTkOptionMenu(sidebar, values=filter_opts, variable=self.filter_var, width=340, height=45, font=("Arial", 18), command=lambda v: self.apply_search_filter()).pack(padx=20, pady=(0,15))
 
         # Example checkbox placeholder (e.g., show only low stock)
         self.low_stock_var = tk.BooleanVar(value=False)
-        ctk.CTkCheckBox(sidebar, text="Show low stock only", variable=self.low_stock_var, command=self.apply_search_filter).pack(padx=12, pady=(4,8))
+        ctk.CTkCheckBox(sidebar, text="Show low stock only", variable=self.low_stock_var, font=("Arial", 18), command=self.apply_search_filter).pack(padx=20, pady=(8,15))
 
 # Vertical button group in sidebar
         btns_frame = ctk.CTkFrame(sidebar, corner_radius=6)
-        btns_frame.pack(padx=12, pady=(12,12), fill="x")
+        btns_frame.pack(padx=20, pady=(20,20), fill="x")
 
 # Container to hold button + overlay indicator
         btn_container = ctk.CTkFrame(btns_frame, corner_radius=0, fg_color="transparent")
-        btn_container.pack(pady=(6, 6))
+        btn_container.pack(pady=(10, 10))
 
-        # Log Scan button (exact width 200px)
+        # Log Scan button (exact width 300px)
         self.log_scan_btn = ctk.CTkButton(
                 btn_container,
                 text="Log Scan",
                 command=self.log_scan,
-                width=200
+                width=300,
+                height=55,
+                font=("Arial", 20)
         )
         self.log_scan_btn.pack()
 
         # CLEAN status indicator (no square, no border, no background)
         self.status_indicator = ctk.CTkFrame(
                 btn_container,
-                width=12,
-                height=12,
-                corner_radius=8,
+                width=16,
+                height=16,
+                corner_radius=10,
                 fg_color="#94a3b8",        # circle color
                 bg_color="#1f538d",
         )
         self.status_indicator.pack_propagate(False)
 
         # Place it over the right edge of the button
-        self.status_indicator.place(relx=1.0, rely=0.5, anchor="e", x=-8)
+        self.status_indicator.place(relx=1.0, rely=0.5, anchor="e", x=-10)
 
         # Change indicator color on button hover
         def on_enter(_):
@@ -130,13 +132,13 @@ class BarcodeViewer(ctk.CTk):
         self.status_indicator.tkraise()
 
         
-        ctk.CTkButton(btns_frame, text="Delete Selected", command=self.delete_selected, width=200).pack(pady=6)
-        ctk.CTkButton(btns_frame, text="View History", command=self.show_history, width=200).pack(pady=6)
-        ctk.CTkButton(btns_frame, text="Quit", command=self.destroy, width=200, fg_color="#b22222").pack(pady=6)
+        ctk.CTkButton(btns_frame, text="Delete Selected", command=self.delete_selected, width=300, height=55, font=("Arial", 20)).pack(pady=10)
+        ctk.CTkButton(btns_frame, text="View History", command=self.show_history, width=300, height=55, font=("Arial", 20)).pack(pady=10)
+        ctk.CTkButton(btns_frame, text="Quit", command=self.destroy, width=300, height=55, font=("Arial", 20), fg_color="#b22222").pack(pady=10)
 
         # Content frame (right) for the treeview / main table
         content_frame = ctk.CTkFrame(main_frame, corner_radius=6)
-        content_frame.pack(side="left", fill="both", expand=True, padx=(0,8), pady=8)
+        content_frame.pack(side="left", fill="both", expand=True, padx=(0,15), pady=15)
 
         # Create Treeview (table) with user column inside content frame
         columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_type")
@@ -157,8 +159,8 @@ class BarcodeViewer(ctk.CTk):
         # Add scrollbar (ttk scrollbar looks fine beside CTk styled widgets)
         scroll = ttk.Scrollbar(content_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scroll.set)
-        self.tree.pack(fill="both", expand=True, side="left", padx=(10, 0), pady=(8,12))
-        scroll.pack(fill="y", side="right", padx=(0, 10), pady=(8,12))
+        self.tree.pack(fill="both", expand=True, side="left", padx=(15, 0), pady=(15,20))
+        scroll.pack(fill="y", side="right", padx=(0, 15), pady=(15,20))
 
         # Load data and start auto-refresh
         self.load_data()
@@ -426,11 +428,11 @@ class BarcodeViewer(ctk.CTk):
         dlg.grab_set()
         dlg.resizable(False, False)
 
-        ctk.CTkLabel(dlg, text=prompt, anchor="w").pack(padx=12, pady=(10, 6))
+        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 20)).pack(padx=20, pady=(18, 10))
 
         entry_var = tk.StringVar()
-        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=420, height=30)
-        entry.pack(padx=12, pady=(0, 10))
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=550, height=50, font=("Arial", 18))
+        entry.pack(padx=20, pady=(0, 18))
         entry.focus_set()
 
         result = {"value": None}
@@ -450,11 +452,11 @@ class BarcodeViewer(ctk.CTk):
 
         # Buttons
         btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
-        btn_frame.pack(pady=(0, 10), padx=8, fill="x")
-        ok_btn = ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=100)
-        ok_btn.pack(side="left", padx=6, pady=6)
-        cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=100, fg_color="gray30")
-        cancel_btn.pack(side="left", padx=6, pady=6)
+        btn_frame.pack(pady=(0, 18), padx=15, fill="x")
+        ok_btn = ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=140, height=50, font=("Arial", 18))
+        ok_btn.pack(side="left", padx=10, pady=10)
+        cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=140, height=50, font=("Arial", 18), fg_color="gray30")
+        cancel_btn.pack(side="left", padx=10, pady=10)
 
         # Bind Enter to OK and Escape to cancel
         entry.bind("<Return>", on_ok)
@@ -546,6 +548,7 @@ class BarcodeViewer(ctk.CTk):
          - search text (matches drug, barcode, type, dose_size, or item_type)
          - filter_var: "All", "Expiring Soon", "Expired"
          - low_stock_var checkbox (threshold)
+        Results are sorted alphabetically by drug name.
         """
         # clear view
         self.tree.delete(*self.tree.get_children())
@@ -580,6 +583,9 @@ class BarcodeViewer(ctk.CTk):
                 return datetime.date.fromisoformat(s)
             except Exception:
                 return None
+
+        # Collect filtered rows before inserting
+        filtered_rows = []
 
         for row in rows:
             # Normalize DB row into (barcode, drug, est_amount, exp_date, type_, dose_size, item_type)
@@ -632,6 +638,13 @@ class BarcodeViewer(ctk.CTk):
 
             # Display order: (drug, barcode, est_amount, exp_date, type_, dose_size, item_type)
             display_row = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_type)
+            filtered_rows.append(display_row)
+
+        # Sort alphabetically by drug name (first column in display_row)
+        filtered_rows.sort(key=lambda x: str(x[0]).lower())
+
+        # Insert sorted rows into treeview
+        for display_row in filtered_rows:
             self.tree.insert("", "end", values=display_row)
 
     def admin(self, title, prompt="Enter admin code"):
@@ -642,14 +655,14 @@ class BarcodeViewer(ctk.CTk):
         dlg.resizable(False, False)
 
         # --- create widgets ---
-        ctk.CTkLabel(dlg, text=prompt, font=("Arial", 18)).pack(padx=16, pady=(14,8))
+        ctk.CTkLabel(dlg, text=prompt, font=("Arial", 20)).pack(padx=20, pady=(18,10))
         entry_var = tk.StringVar()
-        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=300, height=40, font=("Arial", 16), show="*")
-        entry.pack(padx=16, pady=(0,14))
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=350, height=50, font=("Arial", 18), show="*")
+        entry.pack(padx=20, pady=(0,18))
 
         # --- numpad frame ---
         button_frame = ctk.CTkFrame(dlg)
-        button_frame.pack(pady=(0,14))
+        button_frame.pack(pady=(0,18))
 
         buttons = [
             ['7','8','9'],
@@ -671,17 +684,17 @@ class BarcodeViewer(ctk.CTk):
         for i, row in enumerate(buttons):
             for j, btn_text in enumerate(row):
                 if btn_text == 'C':
-                    btn = ctk.CTkButton(button_frame, text=btn_text, width=80, height=80, font=("Arial", 20), command=clear_entry)
+                    btn = ctk.CTkButton(button_frame, text=btn_text, width=100, height=100, font=("Arial", 24), command=clear_entry)
                 elif btn_text == '<':
-                    btn = ctk.CTkButton(button_frame, text=btn_text, width=80, height=80, font=("Arial", 20), command=backspace)
+                    btn = ctk.CTkButton(button_frame, text=btn_text, width=100, height=100, font=("Arial", 24), command=backspace)
                 else:
-                    btn = ctk.CTkButton(button_frame, text=btn_text, width=80, height=80, font=("Arial", 20), command=lambda x=btn_text: add_to_entry(x))
-                btn.grid(row=i, column=j, padx=6, pady=6)
+                    btn = ctk.CTkButton(button_frame, text=btn_text, width=100, height=100, font=("Arial", 24), command=lambda x=btn_text: add_to_entry(x))
+                btn.grid(row=i, column=j, padx=8, pady=8)
 
         # --- OK / Cancel buttons ---
         result = {"value": None}
         btn_frame = ctk.CTkFrame(dlg)
-        btn_frame.pack(pady=(0,14), fill="x")
+        btn_frame.pack(pady=(0,18), fill="x")
         
         def on_ok(event=None):
             val = entry_var.get().strip()
@@ -692,8 +705,8 @@ class BarcodeViewer(ctk.CTk):
         def on_cancel(event=None):
             dlg.destroy()
 
-        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=120, height=40, font=("Arial", 16)).pack(side="left", padx=8)
-        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=120, height=40, font=("Arial", 16), fg_color="gray30").pack(side="right", padx=8)
+        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=140, height=50, font=("Arial", 18)).pack(side="left", padx=10)
+        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=140, height=50, font=("Arial", 18), fg_color="gray30").pack(side="right", padx=10)
 
         entry.bind("<Return>", on_ok)
         dlg.bind("<Escape>", on_cancel)
@@ -724,7 +737,7 @@ class BarcodeViewer(ctk.CTk):
         if entered is None:
             return False
 
-       return True
+        return True
     
     def delete_selected(self):
         if not self.admin("Enter admin code to delete scans"):
@@ -774,8 +787,8 @@ class BarcodeViewer(ctk.CTk):
 
         # NEW: top bar with close button
         top_bar = ctk.CTkFrame(history, corner_radius=6)
-        top_bar.pack(fill="x", padx=8, pady=(8,0))
-        ctk.CTkButton(top_bar, text="Close", command=history.destroy, width=90).pack(side="right", padx=8, pady=8)
+        top_bar.pack(fill="x", padx=15, pady=(15,0))
+        ctk.CTkButton(top_bar, text="Close", command=history.destroy, width=140, height=50, font=("Arial", 20)).pack(side="right", padx=15, pady=15)
         history.bind("<Escape>", lambda e: history.destroy())
 
         # Create treeview for history
@@ -796,8 +809,8 @@ class BarcodeViewer(ctk.CTk):
         tree.configure(yscrollcommand=scroll.set)
         
         # Pack widgets
-        tree.pack(side="left", fill="both", expand=True, padx=(8,0), pady=8)
-        scroll.pack(side="right", fill="y", padx=(0,8), pady=8)
+        tree.pack(side="left", fill="both", expand=True, padx=(15,0), pady=15)
+        scroll.pack(side="right", fill="y", padx=(0,15), pady=15)
 
         # Load history data
         for row in self.db.pull_data("drug_changes"):
