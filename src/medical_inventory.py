@@ -10,13 +10,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import facial_recognition as fr
 from Database.database import DatabaseManager
-from facial_recognition import FaceRecognitionError
 
 # Database file path - store in parent directory
 DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Database/inventory.db")
 REFRESH_INTERVAL = 300000  # milliseconds
 # Use CustomTkinter main window for modern look
-ctk.set_appearance_mode("System")         # "Dark", "Light", or "System"
+ctk.set_appearance_mode("Dark")         # "Dark", "Light", or "System"
 ctk.set_default_color_theme("dark-blue") # built-in themes: "blue", "green", "dark-blue"
 
 class BarcodeViewer(ctk.CTk):
@@ -24,12 +23,6 @@ class BarcodeViewer(ctk.CTk):
         super().__init__()
         # Initialize database
         self.db = DatabaseManager(DB_FILE)
-        
-        # Start preloading facial recognition immediately
-        self._start_preloading()
-        
-        # Start background camera recovery monitor
-        self._start_camera_recovery_monitor()
 
         self.title("Medical Inventory System")
         # start fullscreen
@@ -120,207 +113,12 @@ class BarcodeViewer(ctk.CTk):
         # Load data and start auto-refresh
         self.load_data()
         self.after(REFRESH_INTERVAL, self.refresh_data)
-    
-    def _start_preloading(self):
-        """Start preloading facial recognition in background"""
-        import threading
-        
-        self.fr_ready = False
-        self.camera_ready = False
-        
-        def preload_worker():
-            try:
-                result = fr.preload_everything()
-                
-                # Handle different return values from preload_everything()
-                if result == FaceRecognitionError.SUCCESS:
-                    # Success - enable facial recognition
-                    self.fr_ready = fr.preloading_complete
-                    self.camera_ready = fr.camera_ready
-                    
-                    # Update UI on main thread - enable button when facial recognition is ready
-                    if self.fr_ready:
-                        self.after(0, lambda: [
-                            self.log_scan.configure(text="Log Scan", state="normal"),
-                            self.set_status_indicator("#22c55e")
-                        ])
-                    else:
-                        self.after(0, lambda: [
-                            self.log_scan.configure(text="Log Scan", state="disabled"),
-                            self.set_status_indicator("#94a3b8")
-                        ])
-                else:
-                    # Error occurred - show appropriate error message
-                    self.fr_ready = False
-                    self.camera_ready = False
-                    
-                    # Map error codes to user-friendly messages
-                    error_messages = {
-                        FaceRecognitionError.REFERENCE_FOLDER_ERROR: "Reference folder not found. Please add reference images to assets/references/",
-                        FaceRecognitionError.MODEL_LOAD_FAILED: "Failed to load face recognition model. Please check dependencies.",
-                        FaceRecognitionError.PRELOAD_FAILED: "Failed to initialize facial recognition system.",
-                        FaceRecognitionError.CAMERA_ERROR: "Camera not found or could not be initialized.",
-                    }
-                    
-                    error_msg = error_messages.get(result, f"Initialization failed: {result.message}")
-                    
-                    def show_error():
-                        try:
-                            messagebox.showerror("Initialization Error", error_msg)
-                            self.log_scan_btn.configure(text="Log Scan", state="disabled")
-                        except Exception as ui_error:
-                            print(f"Failed to show error dialog: {ui_error}")
-                    self.after(500, show_error)
-            except Exception as e:
-                print(f"Preloading error: {e}")
-                # Show error in UI - ensure proper thread scheduling with longer delay
-                error_msg = f"Failed to initialize facial recognition system:\n{str(e)}"
-                def show_error():
-                    try:
-                        messagebox.showerror("Initialization Error", error_msg)
-                        self.log_scan.configure(text="Log Scan", state="disabled")
-                    except Exception as ui_error:
-                        print(f"Failed to show error dialog: {ui_error}")
-                        # Try again with longer delay
-                        self.after(1000, lambda: messagebox.showerror("Initialization Error", error_msg))
-                self.after(500, show_error)  # Longer delay to ensure UI is ready
-        
-        thread = threading.Thread(target=preload_worker, daemon=True)
-        thread.start()
 
-    def _start_camera_recovery_monitor(self):
-        """Monitor camera status and attempt recovery if disconnected"""
-        import threading
-        import time
-        
-        def camera_monitor():
-            """Continuously check if camera can be recovered with exponential backoff"""
-            check_interval = 5  # Start checking every 5 seconds
-            max_interval = 120  # Cap at 2 minutes
-            
-            while True:
-                try:
-                    # If camera is not ready and facial recognition is loaded, try recovery
-                    if not self.camera_ready and self.fr_ready:
-                        if fr.reinitialize_camera():
-                            self.camera_ready = True
-                            fr.camera_ready = True
-                            check_interval = 5  # Reset to fast checking on success
-                            # Update UI on main thread with stronger update
-                            def update_ui():
-                                try:
-                                    self.log_scan_btn.configure(state="normal")
-                                    self.set_status_indicator("#22c55e")
-                                    print("Camera recovered successfully!")
-                                except Exception as e:
-                                    print(f"Error updating UI after camera recovery: {e}")
-                            
-                            self.after(0, update_ui)
-                        else:
-                            # Increase check interval on failure (exponential backoff)
-                            check_interval = min(check_interval * 1.5, max_interval)
-                    else:
-                        # Camera is ready, reset to normal checking
-                        check_interval = 5
-                    
-                    time.sleep(check_interval)
-                    
-                except Exception as e:
-                    print(f"Camera monitor error: {e}")
-                    check_interval = min(check_interval * 2, max_interval)
-                    time.sleep(check_interval)
-        
-        monitor_thread = threading.Thread(target=camera_monitor, daemon=True)
-        monitor_thread.start()
+    def face_recognition(self):
+        # run face recognition and return a username (string) if available
+        result = fr.main()
 
-    def set_status_indicator(self, color):
-        """Update the status indicator color"""
-        try:
-            self.status_canvas.itemconfig(self.status_circle, fill=color)
-            self.status_canvas.update()  # Force immediate update
-        except Exception as e:
-            print(f"Error updating status indicator: {e}")
-
-    def face_recognition_with_timeout(self):
-        """Run face recognition with timeout and visual feedback"""
-        import threading
-        import time
-        
-        # Set status to scanning (amber/yellow)
-        self.set_status_indicator("#f59e0b")
-        self.log_scan_btn.configure(state="disabled", text="Scanning...")
-        
-        result = {"value": None, "completed": False}
-        
-        def recognition_worker():
-            try:
-                if self.fr_ready:
-                    result["value"] = fr.quick_detect()
-                else:
-                    result["value"] = fr.main()
-                result["completed"] = True
-            except Exception as e:
-                result["value"] = f"Error: {e}"
-                result["completed"] = True
-        
-        # Start recognition in background
-        thread = threading.Thread(target=recognition_worker, daemon=True)
-        thread.start()
-        
-        # Wait with timeout (5 seconds)
-        timeout_seconds = 5
-        start_time = time.time()
-        
-        while not result["completed"] and (time.time() - start_time) < timeout_seconds:
-            self.update()
-            time.sleep(0.1)
-        
-        # Reset button and status
-        self.log_scan_btn.configure(state="normal", text="Log Scan")
-        
-        if not result["completed"]:
-            # Timeout occurred
-            self.set_status_indicator("#dc2626")
-            default_status = "#22c55e" if self.fr_ready else "#94a3b8"
-            self.after(2000, lambda: self.set_status_indicator(default_status))
-            return "timeout"
-        else:
-            # Completed normally - reset status to default
-            default_status = "#22c55e" if self.fr_ready else "#94a3b8"
-            self.set_status_indicator(default_status)
-            return result["value"]
-
-    def process_face_recognition_result(self, result):
-        """Process face recognition result and return username"""
-        
-        # Handle FaceRecognitionError enum types
-        if isinstance(result, FaceRecognitionError):
-            if result == FaceRecognitionError.CAMERA_ERROR:
-                messagebox.showerror("Camera Error", "Camera could not be initialized.")
-                self.camera_ready = False
-                self.set_status_indicator("#dc2626")
-                self.log_scan_btn.configure(state="disabled")
-            elif result == FaceRecognitionError.CAMERA_DISCONNECTED:
-                messagebox.showerror("Camera Disconnected", "Camera was disconnected. Please reconnect and try again.")
-                self.set_status_indicator("#dc2626")
-                self.camera_ready = False
-                # Attempt to reinitialize camera
-                if fr.reinitialize_camera():
-                    self.camera_ready = True
-                    messagebox.showinfo("Camera Reconnected", "Camera has been reconnected!")
-                    self.log_scan_btn.configure(state="normal")
-                else:
-                    self.log_scan_btn.configure(state="disabled")
-            elif result == FaceRecognitionError.REFERENCE_FOLDER_ERROR:
-                messagebox.showerror("Reference Folder Error", "Reference images folder not found. Please add face images to assets/references/")
-            elif result == FaceRecognitionError.FRAME_CAPTURE_FAILED:
-                messagebox.showerror("Frame Capture Error", "Failed to capture frame from camera.")
-                self.camera_ready = False
-            else:
-                messagebox.showerror("Recognition Error", f"An error occurred: {result.message}")
-            return ""
-        
-        # Handle old numeric error codes for backward compatibility
+        # backward-compatible numeric error codes
         if isinstance(result, int):
             if result == 4:
                 messagebox.showerror("Camera Error", "Couldn't find camera")
@@ -343,15 +141,6 @@ class BarcodeViewer(ctk.CTk):
         # unexpected return type
         messagebox.showerror("Face Recognition", f"Unexpected result from recognizer: {result}")
         return ""
-
-    def face_recognition(self):
-        # run face recognition and return a username (string) if available
-        if self.fr_ready:
-            result = fr.quick_detect()  # Ultra-fast version
-        else:
-            result = fr.main()  # Fallback
-
-        return self.process_face_recognition_result(result)
 
     def _prompt_for_barcode(self, prompt="Scan barcode and press Enter", title="Scan Barcode"):
         """
@@ -413,32 +202,7 @@ class BarcodeViewer(ctk.CTk):
     def log_scan(self):
         time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         """Wait for a barcode to be scanned (or typed) and log current date/time + barcode."""
-        if not self.fr_ready:
-            messagebox.showinfo("Please Wait", "System is still loading. Please wait and try again.")
-            return
-        
-        # If camera wasn't ready at startup, try to reinitialize it now
-        if not self.camera_ready:
-            print("Camera not ready, attempting to reinitialize...")
-            if fr.reinitialize_camera():
-                self.camera_ready = True
-                fr.camera_ready = True
-                print("Camera reinitialized successfully")
-            else:
-                messagebox.showerror("Camera Error", "Could not find camera. Please make sure camera is connected.")
-                return
-            
-        user_result = self.face_recognition_with_timeout()
-        
-        if user_result == "timeout":
-            messagebox.showerror(f"Timeout", "Face recognition timed out after 5 seconds. Please try again.")
-            print("Face recognition timeout")
-            return
-        elif isinstance(user_result, str) and user_result.startswith("Error:"):
-            messagebox.showerror("Error", f"Face recognition failed: {user_result}")
-            return
-        
-        user = self.process_face_recognition_result(user_result)
+        user = self.face_recognition()
         
         if not user:
             messagebox.showerror("Authentication Required", "Face recognition must be successful before scanning barcodes.")
@@ -564,21 +328,76 @@ class BarcodeViewer(ctk.CTk):
             display_row = (drug, barcode, est_amount, exp_date_raw)
             self.tree.insert("", "end", values=display_row)
 
-    def admin(self, prompt="Enter admin code to delete scans"):
-       code = 1234
-       if simpledialog.askstring("Admin Access", prompt, show="*") != str(code):
-            messagebox.showerror("Access Denied", "Incorrect admin code.")
-            sel = self.tree.selection()
-            self.tree.selection_remove(*sel)
-            return False
+    def admin(self, title, prompt="Enter admin code" ):
+        code = 1234
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.transient(self)
+        dlg.resizable(False, False)
 
-       return True
+        # --- create widgets ---
+        ctk.CTkLabel(dlg, text=prompt).pack(padx=12, pady=(10,6))
+        entry_var = tk.StringVar()
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=240, show="*")
+        entry.pack(padx=12, pady=(0,10))
+
+        # OK / Cancel buttons
+        result = {"value": None}
+        def on_ok(event=None):
+            val = entry_var.get().strip()
+            if val != "":
+                result["value"] = val
+                dlg.destroy()
+
+        def on_cancel(event=None):
+            dlg.destroy()
+
+        btn_frame = ctk.CTkFrame(dlg)
+        btn_frame.pack(pady=(0,10), fill="x")
+        ctk.CTkButton(btn_frame, text="OK", command=on_ok).pack(side="left", padx=6)
+        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, fg_color="gray30").pack(side="left", padx=6)
+
+        entry.bind("<Return>", on_ok)
+        dlg.bind("<Escape>", on_cancel)
+
+        # --- force window to draw before grabbing ---
+        dlg.update_idletasks()
+        # Ensure dialog appears above parent and grabs input
+        try:
+            dlg.attributes("-topmost", True)
+        except Exception:
+            pass
+        dlg.lift()
+        dlg.grab_set()
+        # Force focus to the dialog and to the entry so typing works immediately
+        dlg.focus_force()
+        entry.focus_force()
+        try:
+            entry.select_range(0, "end")
+        except Exception:
+            pass
+
+        # Center
+        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
+        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
+        dlg.geometry(f"+{x}+{y}")
+
+        self.wait_window(dlg)
+        entered = result.get("value")
+        if entered is None:
+            # user cancelled or submitted empty -> treat as failure
+            return False
+        # compare as strings to avoid type issues
+        if str(entered) == str(code):
+            return True
+        # incorrect code
+        messagebox.showerror(title="Code error", message="Incorrect admin code")
+        return False
     
     def delete_selected(self):
-        if not self.admin("Enter admin code to delete scans"):
+        if not self.admin("Delete Scans"):
             return
         sel = self.tree.selection()
-        
         if not sel:
             messagebox.showinfo("Delete", "No row selected.")
             return
@@ -595,7 +414,6 @@ class BarcodeViewer(ctk.CTk):
             return
 
         try:
-            admin_user = "ADMIN"
             for item_id in sel:
                 values = self.tree.item(item_id)["values"]
                 # Barcode is now the second column in the Treeview (index 1)
