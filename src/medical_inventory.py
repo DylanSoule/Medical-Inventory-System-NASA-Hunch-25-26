@@ -338,7 +338,8 @@ class BarcodeViewer(ctk.CTk):
             self.after(2000, lambda: self.set_status_indicator(default_status))
             return "timeout"
         else:
-            # Completed normally - reset status to default
+            # Completed normally - reset status to defaultmake face id work with the new ui,
+
             default_status = "#22c55e" if self.fr_ready else "#94a3b8"
             self.set_status_indicator(default_status)
             return result["value"]
