@@ -166,6 +166,97 @@ class BarcodeViewer(ctk.CTk):
         self.load_data()
         self.after(REFRESH_INTERVAL, self.refresh_data)
     
+    def show_popup(self, title, message, popup_type="info"):
+        """Show a custom CTk popup dialog matching the app's modern style.
+        popup_type: 'info', 'error', or 'warning'
+        """
+        popup = ctk.CTkToplevel(self)
+        popup.title(title)
+        popup.geometry("450x200")
+        popup.resizable(False, False)
+        
+        # Wait for window to be ready before adding content
+        popup.after(10, lambda: self._setup_popup_content(popup, title, message, popup_type))
+        
+        # Center dialog over parent
+        self.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() // 2) - 225
+        y = self.winfo_rooty() + (self.winfo_height() // 2) - 100
+        popup.geometry(f"450x200+{x}+{y}")
+        
+        popup.transient(self)
+        popup.grab_set()
+        
+        # Wait for popup to close
+        self.wait_window(popup)
+    
+    def _setup_popup_content(self, popup, title, message, popup_type):
+        """Setup popup content after window is ready"""
+        # Set colors based on popup type
+        if popup_type == "error":
+            accent_color = "#dc2626"  # Red
+        elif popup_type == "warning":
+            accent_color = "#f59e0b"  # Amber
+        else:
+            accent_color = "#3b82f6"  # Blue
+        
+        # Title with accent color
+        ctk.CTkLabel(popup, text=title, font=("Arial", 20, "bold"), text_color=accent_color).pack(pady=(25, 15))
+        
+        # Message
+        ctk.CTkLabel(popup, text=message, font=("Arial", 16), wraplength=400, justify="center").pack(pady=(0, 20))
+        
+        # OK button
+        ctk.CTkButton(popup, text="OK", command=popup.destroy, width=120, height=40, font=("Arial", 16), fg_color=accent_color).pack()
+    
+    def show_confirm(self, title, message):
+        """Show a custom CTk confirmation dialog. Returns True if confirmed, False otherwise."""
+        result = {"value": False}
+        
+        popup = ctk.CTkToplevel(self)
+        popup.title(title)
+        popup.geometry("450x220")
+        popup.resizable(False, False)
+        
+        # Center dialog over parent
+        self.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() // 2) - 225
+        y = self.winfo_rooty() + (self.winfo_height() // 2) - 110
+        popup.geometry(f"450x220+{x}+{y}")
+        
+        popup.transient(self)
+        popup.grab_set()
+        
+        def on_yes():
+            result["value"] = True
+            popup.destroy()
+        
+        def on_no():
+            result["value"] = False
+            popup.destroy()
+        
+        # Wait for window to be ready before adding content
+        def setup_content():
+            # Title
+            ctk.CTkLabel(popup, text=title, font=("Arial", 20, "bold"), text_color="#3b82f6").pack(pady=(25, 15))
+            
+            # Message
+            ctk.CTkLabel(popup, text=message, font=("Arial", 16), wraplength=400, justify="center").pack(pady=(0, 20))
+            
+            # Buttons
+            btn_frame = ctk.CTkFrame(popup, fg_color="transparent")
+            btn_frame.pack()
+            
+            ctk.CTkButton(btn_frame, text="Yes", command=on_yes, width=100, height=40, font=("Arial", 16)).pack(side="left", padx=10)
+            ctk.CTkButton(btn_frame, text="No", command=on_no, width=100, height=40, font=("Arial", 16), fg_color="gray50").pack(side="left", padx=10)
+        
+        popup.after(10, setup_content)
+        popup.bind("<Escape>", lambda e: on_no())
+        
+        self.wait_window(popup)
+        return result["value"]
+        return result["value"]
+
     def _start_preloading(self):
         """Start preloading facial recognition in background"""
         import threading
@@ -219,7 +310,7 @@ class BarcodeViewer(ctk.CTk):
                     
                     def show_error():
                         try:
-                            messagebox.showerror("Initialization Error", error_msg)
+                            self.show_popup("Initialization Error", error_msg, "error")
                             self.log_scan_btn.configure(text="Log Scan", state="disabled")
                         except Exception as ui_error:
                             print(f"Failed to show error dialog: {ui_error}")
@@ -230,12 +321,12 @@ class BarcodeViewer(ctk.CTk):
                 error_msg = f"Failed to initialize facial recognition system:\n{str(e)}"
                 def show_error():
                     try:
-                        messagebox.showerror("Initialization Error", error_msg)
+                        self.show_popup("Initialization Error", error_msg, "error")
                         self.log_scan_btn.configure(text="Log Scan", state="disabled")
                     except Exception as ui_error:
                         print(f"Failed to show error dialog: {ui_error}")
                         # Try again with longer delay
-                        self.after(1000, lambda: messagebox.showerror("Initialization Error", error_msg))
+                        self.after(1000, lambda: self.show_popup("Initialization Error", error_msg, "error"))
                 self.after(500, show_error)  # Longer delay to ensure UI is ready
         
         thread = threading.Thread(target=preload_worker, daemon=True)
@@ -355,55 +446,55 @@ class BarcodeViewer(ctk.CTk):
         # Handle FaceRecognitionError enum types
         if isinstance(result, FaceRecognitionError):
             if result == FaceRecognitionError.CAMERA_ERROR:
-                messagebox.showerror("Camera Error", "Camera could not be initialized.")
+                self.show_popup("Camera Error", "Camera could not be initialized.", "error")
                 self.camera_ready = False
                 self.set_status_indicator("#dc2626")
                 if hasattr(self, 'log_scan_btn'):
                     self.log_scan_btn.configure(state="disabled")
             elif result == FaceRecognitionError.CAMERA_DISCONNECTED:
-                messagebox.showerror("Camera Disconnected", "Camera was disconnected. Please reconnect and try again.")
+                self.show_popup("Camera Disconnected", "Camera was disconnected. Please reconnect and try again.", "error")
                 self.set_status_indicator("#dc2626")
                 self.camera_ready = False
                 # Attempt to reinitialize camera
                 if fr.reinitialize_camera():
                     self.camera_ready = True
-                    messagebox.showinfo("Camera Reconnected", "Camera has been reconnected!")
+                    self.show_popup("Camera Reconnected", "Camera has been reconnected!", "info")
                     if hasattr(self, 'log_scan_btn'):
                         self.log_scan_btn.configure(state="normal")
                 else:
                     if hasattr(self, 'log_scan_btn'):
                         self.log_scan_btn.configure(state="disabled")
             elif result == FaceRecognitionError.REFERENCE_FOLDER_ERROR:
-                messagebox.showerror("Reference Folder Error", "Reference images folder not found. Please add face images to assets/references/")
+                self.show_popup("Reference Folder Error", "Reference images folder not found. Please add face images to assets/references/", "error")
             elif result == FaceRecognitionError.FRAME_CAPTURE_FAILED:
-                messagebox.showerror("Frame Capture Error", "Failed to capture frame from camera.")
+                self.show_popup("Frame Capture Error", "Failed to capture frame from camera.", "error")
                 self.camera_ready = False
             else:
-                messagebox.showerror("Recognition Error", f"An error occurred: {result.message}")
+                self.show_popup("Recognition Error", f"An error occurred: {result.message}", "error")
             return ""
         
         # Handle old numeric error codes for backward compatibility
         if isinstance(result, int):
             if result == 4:
-                messagebox.showerror("Camera Error", "Couldn't find camera")
+                self.show_popup("Camera Error", "Couldn't find camera", "error")
             elif result == 3:
-                messagebox.showerror("Reference Folder Error", "No reference folder found")
+                self.show_popup("Reference Folder Error", "No reference folder found", "error")
             elif result == 2:
-                messagebox.showerror("No Faces Found", "No faces found in reference images")
+                self.show_popup("No Faces Found", "No faces found in reference images", "error")
             return ""
 
         # expected: list/tuple of detected names (or empty list)
         if isinstance(result, (list, tuple)):
             if not result:
-                messagebox.showinfo("Face Recognition", "No known faces detected.")
+                self.show_popup("Face Recognition", "No known faces detected.", "info")
                 return ""
             # use the first detected name as the user
             detected_name = str(result[0])
-            messagebox.showinfo("Face Recognition", f"Detected: {detected_name}")
+            self.show_popup("Face Recognition", f"Detected: {detected_name}", "info")
             return detected_name
 
         # unexpected return type
-        messagebox.showerror("Face Recognition", f"Unexpected result from recognizer: {result}")
+        self.show_popup("Face Recognition", f"Unexpected result from recognizer: {result}", "error")
         return ""
 
     def face_recognition(self):
@@ -476,7 +567,7 @@ class BarcodeViewer(ctk.CTk):
         time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         """Wait for a barcode to be scanned (or typed) and log current date/time + barcode."""
         if not self.fr_ready:
-            messagebox.showinfo("Please Wait", "System is still loading. Please wait and try again.")
+            self.show_popup("Please Wait", "System is still loading. Please wait and try again.", "info")
             return
         
         # If camera wasn't ready at startup, try to reinitialize it now
@@ -487,23 +578,23 @@ class BarcodeViewer(ctk.CTk):
                 fr.camera_ready = True
                 print("Camera reinitialized successfully")
             else:
-                messagebox.showerror("Camera Error", "Could not find camera. Please make sure camera is connected.")
+                self.show_popup("Camera Error", "Could not find camera. Please make sure camera is connected.", "error")
                 return
             
         user_result = self.face_recognition_with_timeout()
         
         if user_result == "timeout":
-            messagebox.showerror(f"Timeout", "Face recognition timed out after 5 seconds. Please try again.")
+            self.show_popup("Timeout", "Face recognition timed out after 5 seconds. Please try again.", "error")
             print("Face recognition timeout")
             return
         elif isinstance(user_result, str) and user_result.startswith("Error:"):
-            messagebox.showerror("Error", f"Face recognition failed: {user_result}")
+            self.show_popup("Error", f"Face recognition failed: {user_result}", "error")
             return
         
         user = self.process_face_recognition_result(user_result)
         
         if not user:
-            messagebox.showerror("Authentication Required", "Face recognition must be successful before scanning barcodes.")
+            self.show_popup("Authentication Required", "Face recognition must be successful before scanning barcodes.", "error")
             return
         
         barcode = self._prompt_for_barcode()
@@ -514,18 +605,18 @@ class BarcodeViewer(ctk.CTk):
             # Add scan to database
             log = self.db.add_to_inventory(barcode, user)
             if log == LookupError:
-                messagebox.showerror("Error", f"No drug found with barcode: {barcode}")
+                self.show_popup("Error", f"No drug found with barcode: {barcode}", "error")
                 return
             elif log == IndexError:
-                messagebox.showerror("Error", f"Drug with barcode {barcode} is already in inventory.")
+                self.show_popup("Error", f"Drug with barcode {barcode} is already in inventory.", "error")
                 return
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to write to database:\n{e}")
+            self.show_popup("Error", f"Failed to write to database:\n{e}", "error")
             return
 
         self.load_data()
-        messagebox.showinfo("Logged", f"Logged {barcode} at {time} by {user}")
+        self.show_popup("Logged", f"Logged {barcode} at {time} by {user}", "info")
 
     def load_data(self):
         """Read from database and load rows into the table."""
@@ -747,7 +838,7 @@ class BarcodeViewer(ctk.CTk):
         sel = self.tree.selection()
         
         if not sel:
-            messagebox.showinfo("Delete", "No row selected.")
+            self.show_popup("Delete", "No row selected.", "info")
             return
 
         # Get deletion reason
@@ -755,10 +846,10 @@ class BarcodeViewer(ctk.CTk):
         if reason is None:  # User clicked Cancel
             return
         if not reason.strip():  # Empty or whitespace only
-            messagebox.showerror("Error", "A deletion reason is required.")
+            self.show_popup("Error", "A deletion reason is required.", "error")
             return
 
-        if not messagebox.askyesno("Confirm Delete", f"Delete {len(sel)} selected row(s)?\nReason: {reason}"):
+        if not self.show_confirm("Confirm Delete", f"Delete {len(sel)} selected row(s)?\nReason: {reason}"):
             return
 
         try:
@@ -769,11 +860,11 @@ class BarcodeViewer(ctk.CTk):
                 barcode_value = values[1] if len(values) > 1 else values[0]
                 self.db.delete_entry(barcode=barcode_value, reason=reason)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to delete from database:\n{e}")
+            self.show_popup("Error", f"Failed to delete from database:\n{e}", "error")
             return
 
         self.load_data()
-        messagebox.showinfo("Deleted", f"Deleted {len(sel)} row(s).")
+        self.show_popup("Deleted", f"Deleted {len(sel)} row(s).", "info")
 
     def show_history(self):
         """Show deletion history in a new window."""
@@ -826,7 +917,7 @@ class BarcodeViewer(ctk.CTk):
 
     def show_error(self, title="Error", message="An error occurred."):
         """Display an error window with the given title and message."""
-        messagebox.showerror(title, message)
+        self.show_popup(title, message, "error")
 
     def _on_tree_click(self, event):
         """
