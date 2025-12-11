@@ -888,16 +888,36 @@ class BarcodeViewer(ctk.CTk):
 
         history = ctk.CTkToplevel(self)
         history.title("History")
+        
+        # Update idletasks to ensure window is ready
+        history.update_idletasks()
+        
+        # Get screen dimensions
+        screen_width = history.winfo_screenwidth()
+        screen_height = history.winfo_screenheight()
+        
+        # Try fullscreen first, with robust fallback
         try:
-            # prefer true fullscreen (hides window decorations)
             history.attributes("-fullscreen", True)
         except Exception:
-            # fallback to maximized state where available
-            try:
-                history.state("zoomed")
-            except Exception:
-                 history.geometry("1200x800")
-        # --- create widgets ---
+            # Fallback: explicitly set geometry to screen size
+            history.geometry(f"{screen_width}x{screen_height}+0+0")
+        
+        # Make window modal and ensure it gets focus
+        try:
+            history.transient(self)
+            history.lift()
+            history.focus_force()
+            
+            # Delay grab_set slightly to ensure window is visible
+            def do_grab():
+                try:
+                    history.grab_set()
+                except Exception as e:
+                    print(f"Could not grab focus: {e}")
+            history.after(100, do_grab)
+        except Exception as e:
+            print(f"Could not make history window modal: {e}")
        
         # NEW: top bar with close button
         top_bar = ctk.CTkFrame(history, corner_radius=6)
