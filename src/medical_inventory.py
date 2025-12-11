@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 import customtkinter as ctk
 import os
 import sys
@@ -842,7 +842,7 @@ class BarcodeViewer(ctk.CTk):
         if entered is None:
             return False
         elif str(entered) != str(code):
-            messagebox.showerror("Admin Access Denied", "Incorrect admin code.")
+            self.show_error("Admin Access Denied", "Incorrect admin code.")
             return False
         return True
     
