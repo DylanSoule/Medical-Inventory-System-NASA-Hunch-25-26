@@ -68,21 +68,21 @@ class BarcodeViewer(ctk.CTk):
         sidebar = ctk.CTkFrame(main_frame, width=380, corner_radius=8)
         sidebar.pack(side="left", fill="y", padx=(15,20), pady=15)
 
-        # Search placeholder
+        # Search
         ctk.CTkLabel(sidebar, text="Search", anchor="w", font=("Arial", 20)).pack(padx=20, pady=(20,8), fill="x")
         self.search_var = tk.StringVar()
         search_entry = ctk.CTkEntry(sidebar, textvariable=self.search_var, placeholder_text="Search all fields...", width=340, height=45, font=("Arial", 18))
         search_entry.pack(padx=20, pady=(0,15))
         search_entry.bind("<KeyRelease>", self.apply_search_filter)
 
-        # Filter placeholder
+        # Filter
         ctk.CTkLabel(sidebar, text="Filters", anchor="w", font=("Arial", 20)).pack(padx=20, pady=(15,8), fill="x")
 
         self.filter_var = tk.StringVar(value="All")
         filter_opts = ["All", "Expiring Soon", "Expired"]
         ctk.CTkOptionMenu(sidebar, values=filter_opts, variable=self.filter_var, width=340, height=45, font=("Arial", 18), command=lambda v: self.apply_search_filter()).pack(padx=20, pady=(0,15))
 
-        # Example checkbox placeholder (e.g., show only low stock)
+        # Example checkbox (e.g., show only low stock)
         self.low_stock_var = tk.BooleanVar(value=False)
         ctk.CTkCheckBox(sidebar, text="Show low stock only", variable=self.low_stock_var, font=("Arial", 18), command=self.apply_search_filter).pack(padx=20, pady=(8,15))
 
@@ -146,7 +146,7 @@ class BarcodeViewer(ctk.CTk):
         self.tree = ttk.Treeview(content_frame, columns=columns, show="headings", selectmode="extended")
         self.tree.heading("drug", text="Drug")
         self.tree.heading("barcode", text="Barcode")
-        self.tree.heading("est_amount", text="Estimated Amount")
+        self.tree.heading("est_amount", text="Amount est")
         self.tree.heading("exp_date", text="Expiration")
         self.tree.heading("type_", text="Type")
         self.tree.heading("dose_size", text="Dose Size")
