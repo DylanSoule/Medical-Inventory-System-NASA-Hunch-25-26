@@ -818,10 +818,13 @@ class BarcodeViewer(ctk.CTk):
 
         # --- force window to draw before grabbing ---
         dlg.update_idletasks()
-        try:
-            dlg.attributes("-fullscreen", True)
-        except Exception:
-            pass
+        
+        # Center dialog (don't make it fullscreen)
+        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
+        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
+        dlg.geometry(f"+{x}+{y}")
+        
+        # Ensure dialog is on top and has focus
         dlg.lift()
         dlg.grab_set()
         dlg.focus_force()
@@ -830,11 +833,6 @@ class BarcodeViewer(ctk.CTk):
             entry.select_range(0, "end")
         except Exception:
             pass
-
-        # Center dialog
-        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
-        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
-        dlg.geometry(f"+{x}+{y}")
 
         self.wait_window(dlg)
 
