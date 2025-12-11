@@ -16,7 +16,7 @@ from facial_recognition import FaceRecognitionError
 DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Database/inventory.db")
 REFRESH_INTERVAL = 30000  # milliseconds
 # Use CustomTkinter main window for modern look
-ctk.set_appearance_mode("System")         # "Dark", "Light", or "System"
+ctk.set_appearance_mode("Darl")         # "Dark", "Light", or "System"
 ctk.set_default_color_theme("dark-blue") # built-in themes: "blue", "green", "dark-blue"
 
 class BarcodeViewer(ctk.CTk):
