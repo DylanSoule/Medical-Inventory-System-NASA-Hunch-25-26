@@ -1,8 +1,5 @@
 # Medical Inventory System — NASA HUNCH 2025‑26
 
-![Raspberry Pi Compat](https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26/actions/workflows/raspberry-pi-compat.yml/badge.svg)
-![Python Tests](https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26/actions/workflows/app-tester.yml/badge.svg)
-![Syntax Check](https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26/actions/workflows/syntax-check.yml/badge.svg)
 
 A facial‑authenticated medical inventory scan logging system built for the NASA HUNCH 2025‑2026 program.  
 Runs on a Raspberry Pi 4 for low power, embedded deployment suitable for constrained or remote environments (e.g. space habitation modules).
