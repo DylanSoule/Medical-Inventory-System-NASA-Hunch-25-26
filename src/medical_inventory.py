@@ -881,37 +881,24 @@ class BarcodeViewer(ctk.CTk):
         self.show_popup("Deleted", f"Deleted {len(sel)} row(s).", "info")
 
     def show_history(self):
+
         """Show deletion history in a new window."""
         if not self.admin("View History"):
             return
 
         history = ctk.CTkToplevel(self)
         history.title("History")
-        # Try real fullscreen first (preferred). If that fails (some platforms like
-        # Raspberry Pi desktop/pico may not support the attribute), fall back to
-        # sizing the window to the screen resolution so it appears full-screen.
         try:
+            # prefer true fullscreen (hides window decorations)
             history.attributes("-fullscreen", True)
         except Exception:
+            # fallback to maximized state where available
             try:
-                # fallback to covering the full screen
-                sw = history.winfo_screenwidth()
-                sh = history.winfo_screenheight()
-                history.geometry(f"{sw}x{sh}+0+0")
+                history.state("zoomed")
             except Exception:
-                history.geometry("1024x600")
-
-        # Make it modal / focused so the main window doesn't keep focus on some platforms
-        try:
-            history.transient(self)
-            history.lift()
-            # ensure the window grabs input and receives focus
-            history.grab_set()
-            history.focus_force()
-        except Exception:
-            # best-effort only; ignore failures so we don't crash the app
-            pass
-
+                 history.geometry("1200x800")
+        # --- create widgets ---
+       
         # NEW: top bar with close button
         top_bar = ctk.CTkFrame(history, corner_radius=6)
         top_bar.pack(fill="x", padx=15, pady=(15,0))
