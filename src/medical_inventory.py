@@ -736,7 +736,9 @@ class BarcodeViewer(ctk.CTk):
         entered = result.get("value")
         if entered is None:
             return False
-
+        elif str(entered) != str(code):
+            messagebox.showerror("Admin Access Denied", "Incorrect admin code.")
+            return False
         return True
     
     def delete_selected(self):
