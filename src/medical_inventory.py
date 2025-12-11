@@ -819,7 +819,7 @@ class BarcodeViewer(ctk.CTk):
         # --- force window to draw before grabbing ---
         dlg.update_idletasks()
         try:
-            dlg.attributes("-topmost", True)
+            dlg.attributes("-fullscreen", True)
         except Exception:
             pass
         dlg.lift()
@@ -887,10 +887,30 @@ class BarcodeViewer(ctk.CTk):
 
         history = ctk.CTkToplevel(self)
         history.title("History")
+        # Try real fullscreen first (preferred). If that fails (some platforms like
+        # Raspberry Pi desktop/pico may not support the attribute), fall back to
+        # sizing the window to the screen resolution so it appears full-screen.
         try:
             history.attributes("-fullscreen", True)
         except Exception:
-            history.geometry("1024x600")
+            try:
+                # fallback to covering the full screen
+                sw = history.winfo_screenwidth()
+                sh = history.winfo_screenheight()
+                history.geometry(f"{sw}x{sh}+0+0")
+            except Exception:
+                history.geometry("1024x600")
+
+        # Make it modal / focused so the main window doesn't keep focus on some platforms
+        try:
+            history.transient(self)
+            history.lift()
+            # ensure the window grabs input and receives focus
+            history.grab_set()
+            history.focus_force()
+        except Exception:
+            # best-effort only; ignore failures so we don't crash the app
+            pass
 
         # NEW: top bar with close button
         top_bar = ctk.CTkFrame(history, corner_radius=6)
