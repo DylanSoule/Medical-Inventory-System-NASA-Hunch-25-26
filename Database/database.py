@@ -217,29 +217,70 @@ class PersonalDatabaseManager:
 
     def create_personal_database(self):
         """
-        This function just creates the changes database, realistically it doesn't ever need to be used if the database is already created, will likely be deleted eventually, but keeping just in case for now
+        This function just creates the changes database, rand checks that it exists every time the class is called
+
+        prescription table:
+            barcode - same as in inventory db, and is used as identifier
+            dname - name of drug
+            dosage - their dose for the prescription in number of eg. pills, or a normal dose
+            frequency - how often they take the drug in days(eg. 1 means every day, 2 is every other day, 4 is every 4 days, and 7 is weekly)
+            time - if they have one, when they should take the medication(Not needed for database)(in HH:MM:SS)
+            start_date - when they first started taking the medication, or a day that they were supposed to take it, used to calculate when they should take it in the future(in %Y-%m-%d)
+            end_date - when they stop taking their prescription(Not needed for database to work)
+        
+        history table:
+            barcode - same as in inventory db, and is used as identifier
+            dname - name of drug
+            when_taken - when they took the medication, used to compare with prescriptions
+            dose - how big of a dose they take, used to compare with prescriptions
         """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS prescription(
-                time TIME PRIMARY KEY NOT NULL,
-                barcode TEXT NOT NULL,
+                barcode TEXT PRIMARY KEY NOT NULL UNIQUE,
                 dname TEXT NOT NULL,
-                number TEXT NOT NULL
-                )
+                dosage INTEGER NOT NULL,
+                frequency INTEGER NOT NULL,
+                time TIME,
+                start_date DATE NOT NULL,
+                end_date DATE
+            )
         ''')
 
         c.execute('''
             CREATE TABLE IF NOT EXISTS history(
-                time TIME PRIMARY KEY NOT NULL,
-                barcode TEXT NOT NULL,
+                barcode TEXT PRIMARY KEY,
                 dname TEXT NOT NULL,
-                number TEXT NOT NULL)
+                when_taken DATETIME NOT NULL,
+                dose TEXT NOT NULL
+            )
         ''')
 
         conn.commit()
         conn.close()
     
-    def add_prescription_med(self, time, barcode, number):
-        pass
+    def add_prescription_med(self, barcode, dose, frequency, start_date, end_date=None, time=None, drug_name=None):
+        if drug_name == None:
+            pass
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        c.execute("INSERT INTO prescription (barcode, dname, dosage, frequency, time, start_date, end_date) VALUES (?,?,?,?,?,?,?)", (barcode, drug_name, dose, frequency, time, start_date, end_date))
+
+        conn.commit()
+        conn.close()
+
+    def log_access(self, barcode, dose, drug_name=None):
+        if drug_name == None:
+            pass
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (barcode, drug_name, datetime.datetime.now().strftime(time_format), dose))
+
+        conn.commit()
+        conn.close()
+
+
+
