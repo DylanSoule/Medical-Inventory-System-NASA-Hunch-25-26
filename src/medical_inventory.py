@@ -196,6 +196,7 @@ class BarcodeViewer(ctk.CTk):
         if popup_type == "error":
             accent_color = "#dc2626"  # Red
         elif popup_type == "warning":
+            
             accent_color = "#f59e0b"  # Amber
         else:
             accent_color = "#3b82f6"  # Blue
@@ -516,7 +517,6 @@ class BarcodeViewer(ctk.CTk):
         dlg = ctk.CTkToplevel(self)
         dlg.title(title)
         dlg.transient(self)
-        dlg.grab_set()
         dlg.resizable(False, False)
 
         ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 20)).pack(padx=20, pady=(18, 10))
@@ -524,7 +524,6 @@ class BarcodeViewer(ctk.CTk):
         entry_var = tk.StringVar()
         entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=550, height=50, font=("Arial", 18))
         entry.pack(padx=20, pady=(0, 18))
-        entry.focus_set()
 
         result = {"value": None}
 
@@ -534,11 +533,17 @@ class BarcodeViewer(ctk.CTk):
                 # ignore empty submit
                 return
             result["value"] = val
-            dlg.grab_release()
+            try:
+                dlg.grab_release()
+            except:
+                pass
             dlg.destroy()
 
         def on_cancel(event=None):
-            dlg.grab_release()
+            try:
+                dlg.grab_release()
+            except:
+                pass
             dlg.destroy()
 
         # Buttons
@@ -558,6 +563,15 @@ class BarcodeViewer(ctk.CTk):
         x = self.winfo_rootx() + (self.winfo_width() // 2) - (dlg.winfo_reqwidth() // 2)
         y = self.winfo_rooty() + (self.winfo_height() // 2) - (dlg.winfo_reqheight() // 2)
         dlg.geometry(f"+{x}+{y}")
+        
+        # Delay grab_set and focus until window is viewable
+        def do_grab():
+            try:
+                dlg.grab_set()
+                entry.focus_set()
+            except:
+                pass
+        dlg.after(50, do_grab)
 
         # Wait for user (modal)
         self.wait_window(dlg)
