@@ -211,13 +211,14 @@ class DatabaseManager:
 
 
 class PersonalDatabaseManager:
-    def __init__(self, path_to_database):
-        self.db_path = path_to_database
+    def __init__(self, path_to_person_database,path_to_database):
+        self.db_path = path_to_person_database
+        self.mdb_path = path_to_database
         self.create_personal_database()
 
     def create_personal_database(self):
         """
-        This function just creates the changes database, rand checks that it exists every time the class is called
+        This function just creates the changes database, and checks that it exists every time the class is called
 
         prescription table:
             barcode - same as in inventory db, and is used as identifier
@@ -225,6 +226,7 @@ class PersonalDatabaseManager:
             dosage - their dose for the prescription in number of eg. pills, or a normal dose
             frequency - how often they take the drug in days(eg. 1 means every day, 2 is every other day, 4 is every 4 days, and 7 is weekly)
             time - if they have one, when they should take the medication(Not needed for database)(in HH:MM:SS)
+            leeway - how long they have before or after to take the drug before alert is raised(in minutes)
             start_date - when they first started taking the medication, or a day that they were supposed to take it, used to calculate when they should take it in the future(in %Y-%m-%d)
             end_date - when they stop taking their prescription(Not needed for database to work)
         
@@ -243,6 +245,7 @@ class PersonalDatabaseManager:
                 dosage INTEGER NOT NULL,
                 frequency INTEGER NOT NULL,
                 time TIME,
+                leeway INTEGER,
                 start_date DATE NOT NULL,
                 end_date DATE
             )
@@ -260,13 +263,17 @@ class PersonalDatabaseManager:
         conn.commit()
         conn.close()
     
-    def add_prescription_med(self, barcode, dose, frequency, start_date, end_date=None, time=None, drug_name=None):
+    def add_prescription_med(self, barcode, dose, frequency, start_date, leeway=None, end_date=None, time=None, drug_name=None):
         if drug_name == None:
-            pass
+            conn = sqlite3.connect(self.mdb_path)
+            cur = conn.cursor()
+            cur.execute(f"SELECT dname FROM drugs WHERE barcode = {barcode}")
+            drug_name = cur.fetchone()
+            conn.close()
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-        c.execute("INSERT INTO prescription (barcode, dname, dosage, frequency, time, start_date, end_date) VALUES (?,?,?,?,?,?,?)", (barcode, drug_name, dose, frequency, time, start_date, end_date))
+        c.execute("INSERT INTO prescription (barcode, dname, dosage, frequency, time, leeway, start_date, end_date) VALUES (?,?,?,?,?,?,?,?)", (barcode, drug_name, dose, frequency, time, leeway, start_date, end_date))
 
         conn.commit()
         conn.close()
@@ -283,4 +290,37 @@ class PersonalDatabaseManager:
         conn.close()
 
 
+    def pull_data(self, table):
+        """
+        Retrieve all records from a specified table in the database.
 
+        Parameters:
+            table (str): Name of the table to query.
+
+        Returns:
+            list of tuples: Each tuple contains the records from the specified table.
+
+        Security Considerations:
+            The table name is interpolated directly into the SQL query, which can lead to SQL injection
+            if the table name is not properly validated. Ensure that the table name is validated against
+            a whitelist of expected table names before calling this function.
+        """
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        c.execute(f"SELECT * FROM {table}")
+        table = c.fetchall()
+        
+        conn.close()
+        return table
+    
+read = PersonalDatabaseManager('Database/dylan_records.db', 'Database/inventory.db')
+
+read.add_prescription_med('766490599880', 1, 1, '2025-10-10', leeway=60, time='21:00:00')
+
+
+# print(read.pull_data('prescription'))
+
+#self, barcode, dose, frequency, start_date, leeway, end_date=None, time=None, drug_name=None
+
+# time_format = "%Y-%m-%d %H:%M:%S"
