@@ -1051,7 +1051,6 @@ class BarcodeViewer(ctk.CTk):
             self.column_visibility["drug"].set(True)
             self.tree.configure(displaycolumns=["drug"])
 
-
 if __name__ == "__main__":
     app = BarcodeViewer()
     app.mainloop()
