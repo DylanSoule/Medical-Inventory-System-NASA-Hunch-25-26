@@ -1049,11 +1049,21 @@ class BarcodeViewer(ctk.CTk):
         """Handler for tree resize events: schedule adjusting visible column widths."""
         try:
             visible = [col for col, var in self.column_visibility.items() if var.get()]
+            # Debounce: cancel any pending width adjustment before scheduling a new one
+            try:
+                if hasattr(self, "_column_adjust_after_id"):
+                    self.after_cancel(self._column_adjust_after_id)
+            except Exception:
+                # If cancellation fails (e.g., ID already executed), ignore
+                pass
             # schedule adjustment to avoid layout churn during configure bubbling
             # Only adjust if tree is actually visible and has width
             if self.tree.winfo_width() > 1:
-                self.after(100, lambda: self._adjust_column_widths(visible))
+                self._column_adjust_after_id = self.after(
+                    100, lambda: self._adjust_column_widths(visible)
+                )
         except Exception:
+            # Intentionally ignore resize-related errors to prevent UI crashes
             pass
 
     def _adjust_column_widths(self, visible_columns):
