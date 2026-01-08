@@ -159,6 +159,9 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
+        personal_log = PersonalDatabaseManager(f"{user.lower()}_records.db")
+        personal_log.log_access(barcode, abs(change),drug_name=drug_info[1])
+
 
     def delete_entry(self, barcode, reason):
         """
@@ -211,9 +214,8 @@ class DatabaseManager:
 
 
 class PersonalDatabaseManager:
-    def __init__(self, path_to_person_database,path_to_database):
+    def __init__(self, path_to_person_database):
         self.db_path = path_to_person_database
-        self.mdb_path = path_to_database
         self.create_personal_database()
 
     def create_personal_database(self):
@@ -265,7 +267,7 @@ class PersonalDatabaseManager:
     
     def add_prescription_med(self, barcode, dose, frequency, start_date, leeway=None, end_date=None, time=None, drug_name=None):
         if drug_name == None:
-            conn = sqlite3.connect(self.mdb_path)
+            conn = sqlite3.connect("inventory.db")
             cur = conn.cursor()
             cur.execute(f"SELECT dname FROM drugs WHERE barcode = {barcode}")
             drug_name = cur.fetchone()
@@ -314,9 +316,9 @@ class PersonalDatabaseManager:
         conn.close()
         return table
     
-read = PersonalDatabaseManager('Database/dylan_records.db', 'Database/inventory.db')
+# read = PersonalDatabaseManager('Database/dylan_records.db', 'Database/inventory.db')
 
-read.add_prescription_med('766490599880', 1, 1, '2025-10-10', leeway=60, time='21:00:00')
+# read.add_prescription_med('766490599880', 1, 1, '2025-10-10', leeway=60, time='21:00:00')
 
 
 # print(read.pull_data('prescription'))
@@ -324,3 +326,6 @@ read.add_prescription_med('766490599880', 1, 1, '2025-10-10', leeway=60, time='2
 #self, barcode, dose, frequency, start_date, leeway, end_date=None, time=None, drug_name=None
 
 # time_format = "%Y-%m-%d %H:%M:%S"
+
+read = DatabaseManager("Database/inventory.db")
+print(str(read.pull_data("drugs_in_inventory")).replace('),',')\n'))
