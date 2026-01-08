@@ -1088,16 +1088,29 @@ class BarcodeViewer(ctk.CTk):
             min_widths = [self.column_configs.get(c, {}).get("width", 100) for c in visible_columns]
             sum_min = sum(min_widths) if min_widths else 1
 
-            # Distribute usable width proportionally; last column gets remaining pixels
-            widths = []
-            remainder = usable
-            for i, wmin in enumerate(min_widths):
-                if i == len(min_widths) - 1:
-                    w = remainder
+            # Distribute usable width proportionally across all columns, ensuring:
+            # - widths are non-negative
+            # - total width matches `usable`
+            # - proportions follow min_widths as weights
+            raw_widths = [usable * (wmin / sum_min) for wmin in min_widths]
+            widths = [int(w) for w in raw_widths]
+            current_total = sum(widths)
+            diff = usable - current_total
+
+            # Adjust for rounding so that sum(widths) == usable
+            i = 0
+            n = len(widths)
+            while diff != 0 and n > 0:
+                idx = i % n
+                if diff > 0:
+                    widths[idx] += 1
+                    diff -= 1
                 else:
-                    w = max(60, int(usable * (wmin / sum_min)))
-                    remainder -= w
-                widths.append(w)
+                    # Avoid negative widths when reducing
+                    if widths[idx] > 0:
+                        widths[idx] -= 1
+                        diff += 1
+                i += 1
 
             for col, w in zip(visible_columns, widths):
                 try:
