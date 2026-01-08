@@ -281,6 +281,3 @@ class PersonalDatabaseManager:
 
         conn.commit()
         conn.close()
-
-
-
