@@ -199,6 +199,11 @@ class BarcodeViewer(ctk.CTk):
             self.tree.heading(col_id, text=config["text"])
             self.tree.column(col_id, width=config["width"])
 
+        # Adjust columns automatically when tree resizes
+        self.tree.bind("<Configure>", self._on_tree_configure)
+        # initial adjust once widget is laid out
+        self.after(500, lambda: self._adjust_column_widths([c for c, v in self.column_visibility.items() if v.get()]))
+ 
         # Bind left-click to toggle selection on rows without requiring Ctrl/Shift
         # Clicking on a row toggles it in the selection set; clicking empty area clears selection.
         self.tree.bind("<Button-1>", self._on_tree_click)
@@ -211,6 +216,8 @@ class BarcodeViewer(ctk.CTk):
 
         # Load data and start auto-refresh
         self.load_data()
+        # Initial column width adjustment after UI is fully loaded
+        self.after(500, lambda: self._adjust_column_widths([c for c, v in self.column_visibility.items() if v.get()]))
         self.after(REFRESH_INTERVAL, self.refresh_data)
     
     def show_popup(self, title, message, popup_type="info"):
@@ -1038,6 +1045,69 @@ class BarcodeViewer(ctk.CTk):
         # Prevent default handling which would reset selection to a single item
         return "break"
 
+    def _on_tree_configure(self, event):
+        """Handler for tree resize events: schedule adjusting visible column widths."""
+        try:
+            visible = [col for col, var in self.column_visibility.items() if var.get()]
+            # schedule adjustment to avoid layout churn during configure bubbling
+            # Only adjust if tree is actually visible and has width
+            if self.tree.winfo_width() > 1:
+                self.after(100, lambda: self._adjust_column_widths(visible))
+        except Exception:
+            pass
+
+    def _adjust_column_widths(self, visible_columns):
+        """Distribute available tree width across visible columns proportionally."""
+        try:
+            if not visible_columns:
+                return
+            
+            # Ensure widget is ready
+            if not self.tree.winfo_exists():
+                return
+                
+            self.tree.update_idletasks()
+            total_width = self.tree.winfo_width()
+            
+            if total_width <= 10:
+                # fallback to parent width if tree not yet mapped
+                try:
+                    total_width = self.tree.master.winfo_width()
+                except Exception:
+                    total_width = sum(self.column_configs[c]["width"] for c in visible_columns) or 600
+            
+            # Don't adjust if width is still too small (not ready yet)
+            if total_width < 100:
+                return
+
+            # Reserve small space for vertical scrollbar if present
+            scrollbar_reserve = 18
+            usable = max(100, total_width - scrollbar_reserve)
+
+            # Use configured widths as minima / weights
+            min_widths = [self.column_configs.get(c, {}).get("width", 100) for c in visible_columns]
+            sum_min = sum(min_widths) if min_widths else 1
+
+            # Distribute usable width proportionally; last column gets remaining pixels
+            widths = []
+            remainder = usable
+            for i, wmin in enumerate(min_widths):
+                if i == len(min_widths) - 1:
+                    w = remainder
+                else:
+                    w = max(60, int(usable * (wmin / sum_min)))
+                    remainder -= w
+                widths.append(w)
+
+            for col, w in zip(visible_columns, widths):
+                try:
+                    self.tree.column(col, width=w, stretch=True)
+                except Exception:
+                    pass
+        except Exception as e:
+            # avoid crashing UI - silently ignore during startup
+            pass  # Don't print errors during initialization
+ 
     def update_column_visibility(self):
         """Update which columns are displayed in the treeview based on checkbox states."""
         # Get list of visible columns
@@ -1046,11 +1116,14 @@ class BarcodeViewer(ctk.CTk):
         # Update the displaycolumns property
         if visible_columns:
             self.tree.configure(displaycolumns=visible_columns)
+            # adjust widths after visibility change
+            self.after(50, lambda: self._adjust_column_widths(visible_columns))
         else:
             # If no columns selected, show at least the drug column
             self.column_visibility["drug"].set(True)
             self.tree.configure(displaycolumns=["drug"])
+            self.after(50, lambda: self._adjust_column_widths(["drug"]))
 
-if __name__ == "__main__":
+if __name__=="__main__":
     app = BarcodeViewer()
     app.mainloop()
