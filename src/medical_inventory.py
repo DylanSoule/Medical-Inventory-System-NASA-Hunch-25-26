@@ -201,8 +201,6 @@ class BarcodeViewer(ctk.CTk):
 
         # Adjust columns automatically when tree resizes
         self.tree.bind("<Configure>", self._on_tree_configure)
-        # initial adjust once widget is laid out
-        self.after(500, lambda: self._adjust_column_widths([c for c, v in self.column_visibility.items() if v.get()]))
  
         # Bind left-click to toggle selection on rows without requiring Ctrl/Shift
         # Clicking on a row toggles it in the selection set; clicking empty area clears selection.
