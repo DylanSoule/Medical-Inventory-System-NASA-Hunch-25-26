@@ -2,12 +2,128 @@
 <html>
     <head>
         <title>Medical Inventory System</title>
+        <link rel="icon" href="../assets/transparent_logo.png" />
+        <style>
+            body {
+                margin: 0;
+                padding: 20px;
+                font-family: Arial, sans-serif;
+            }
+            .container {
+                display: flex;
+                gap: 100px;
+                max-width: 1200px;
+                margin: 0 auto;
+                flex-wrap: wrap;
+            }
+            .column {
+                flex: 1;
+                min-width: 300px;
+            }
+            .column h3 {
+                margin-top: 0;
+            }
+            .column hr {
+                border: 1px solid;
+                margin-left: 0;
+            }
+            @media (max-width: 768px) {
+                .container {
+                    flex-direction: column;
+                }
+            }
+        </style>
         <img src="../assets/transparent_logo.png" alt="HELIOS logo" style="display: block; margin-left: auto; margin-right: auto; width: 150px; height: 150px;"> 
         <h1 style="text-align: center;">H.E.L.I.O.S</h1>
-        <link rel="icon" href="../assets/transparent_logo.png" />
-        
+        <hr style="border: 1px solid;" width="80%">
+        <p style="text-align: center; max-width: 800px; margin-left: auto; margin-right: auto;">H.E.L.I.O.S is a facial‑authenticated medical inventory scan logging system built for the NASA HUNCH 2025‑2026 program.</p>
+        <br>
+        <br>
     </head>
     <body>
+        <div class="container">
+            <div class="column">
+                <h3>The Problem</h3>
+                <hr width="40%">
+                <p>Astronauts on the ISS may use medical supplies without recording them, leading to incorrect inventory counts. NASA needs an easy-to-use system that tracks medical supplies accurately and sends updates to Earth for proper resupply planning.</p>
+            </div>
+            <div class="column">
+                <h3>Our Objective</h3>
+                <hr width="40%">
+                <p>An accurate inventory system prevents supply shortages during long missions and helps astronauts manage medical resources efficiently, ensuring needed supplies are available when required.</p>
+            </div>
+            <div class="column">
+                <h3>The Team</h3>
+                <hr width="40%">
+                <ul style="width: 3000px;">
+                    <li>Dylan Soule (Team lead/Database)</li>
+                    <li>Lucca Townsend (Facial Recognition/Frontend Development)</li>
+                    <li>Brody Barnes (Frontend Development)</li>
+                    <li>Zach Stelman (Developer)</li>
+                </ul>
+            </div>
+        </div>
 
+        <!-- Roadmap Section -->
+        <br><br>
+        <h2 align="center">Project Timeline</h2>
+        <hr width="80%">
+        <br>
+        
+        <table border="1" cellpadding="10" cellspacing="0" width="80%" align="center">
+            <tr bgcolor="#cccccc">
+                <th width="20%">Date</th>
+                <th width="30%">Milestone</th>
+                <th width="50%">Achievement</th>
+            </tr>
+            
+            <tr>
+                <tr bgcolor="#f4f4f4">
+                <td align="center"><b>Sep 2025</b></td>
+                <td><b>Project Initialization</b></td>
+                <td>Repository created, and initial project structure developed.</td>
+            </tr>
+            <tr>
+                <td align="center"><b>Sep 2025</b></td>
+                <td><b>Facial Recognition System</b></td>
+                <td>Implemented facial authentication for secure user identification before inventory modification.</td>
+            </tr>
+            <tr bgcolor="#f4f4f4">
+                <td align="center"><b>Oct 2025</b></td>
+                <td><b>Security & Testing Framework</b></td>
+                <td>Added security features, created testing infrastructure, and implemented GitHub Actions functionality.</td>
+            </tr>
+            <tr>
+                <td align="center"><b>Oct 2025</b></td>
+                <td><b>PDR</b></td>
+                <td>Showcase of current project status and progress to NASA stakeholders.</td>
+            <tr>
+                <td align="center"><b>Nov 2025</b></td>
+                <td><b>Repo Reorganization</b></td>
+                <td>Restructured codebase into organized directories (src/, tests/, scripts/, docs/, assets/) for better maintainability.</td>
+            </tr>
+            <tr bgcolor="#f4f4f4">
+                <td align="center"><b>Nov 2025</b></td>
+                <td><b>Deletion & log System</b></td>
+                <td>Built comprehensive deletion tracking with mandatory admin PIN, and persistent log trail.</td>
+            </tr>
+            <tr>
+                <td align="center"><b>Dec 2025</b></td>
+                <td><b>Raspberry Pi Deployment</b></td>
+                <td>Configured system for Raspberry Pi 4 with auto-start capabilities, fullscreen kiosk mode, and deployment documents.</td>
+            </tr>
+            <tr bgcolor="#f4f4f4">
+                <td align="center"><b>Jan 2026</b></td>
+                <td><b>UI/UX Polish</b></td>
+                <td>Reworked UI layout, enhanced admin controls, and improved user experience.</td>
+            </tr>
+            <tr>
+                <td align="center"><b>Jan 2026</b></td>
+                <td><b>Documentation & Website</b></td>
+                <td>Created documentation, project website, and materials for NASA Hunch CDR presentation.</td>
+            </tr>
+        </table>
+        <br><br>
+        
     </body>
 </html>
