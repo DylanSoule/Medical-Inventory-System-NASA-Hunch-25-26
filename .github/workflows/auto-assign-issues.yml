@@ -33,7 +33,8 @@ jobs:
           # - 123-feature-name
           # - feature/issue-123
           # - fix/123-bug-description
-          ISSUE_NUM=$(echo "$BRANCH_NAME" | grep -oP '(?:issue[-_]?|^|/)(\d+)' | grep -oP '\d+' | head -n 1)
+          # Extract the first number found in the branch name
+          ISSUE_NUM=$(echo "$BRANCH_NAME" | grep -oP '\d+' | head -n 1)
           
           if [ -z "$ISSUE_NUM" ]; then
             echo "No issue number found in branch name: $BRANCH_NAME"
@@ -95,30 +96,30 @@ jobs:
           # Generate PR title
           PR_TITLE="[Issue #${ISSUE_NUM}] ${ISSUE_TITLE}"
           
-          # Generate PR description
-          PR_DESCRIPTION="## Related Issue
-          Closes #${ISSUE_NUM}
-          
-          ## Description
-          This PR addresses the issue: ${ISSUE_TITLE}
-          
-          ## Changes
-          - Work in progress
-          
-          ## Checklist
-          - [ ] Code changes completed
-          - [ ] Tests added/updated
-          - [ ] Documentation updated
-          - [ ] Ready for review"
-          
           # Use delimiter to handle multiline content
           echo "pr_title<<EOF" >> $GITHUB_OUTPUT
           echo "$PR_TITLE" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           
-          echo "pr_description<<EOF" >> $GITHUB_OUTPUT
-          echo "$PR_DESCRIPTION" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Generate PR description with proper formatting
+          {
+            echo "pr_description<<EOF"
+            echo "## Related Issue"
+            echo "Closes #${ISSUE_NUM}"
+            echo ""
+            echo "## Description"
+            echo "This PR addresses the issue: ${ISSUE_TITLE}"
+            echo ""
+            echo "## Changes"
+            echo "- Work in progress"
+            echo ""
+            echo "## Checklist"
+            echo "- [ ] Code changes completed"
+            echo "- [ ] Tests added/updated"
+            echo "- [ ] Documentation updated"
+            echo "- [ ] Ready for review"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
           
       - name: Create draft pull request
         id: create_pr
