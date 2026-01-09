@@ -298,11 +298,12 @@ class PersonalDatabaseManager:
                 barcode TEXT NOT NULL,
                 dname TEXT NOT NULL,
                 dosage INTEGER NOT NULL,
-                frequency INTEGER NOT NULL,
+                frequency INTEGER,
                 time TIME,
                 leeway INTEGER,
-                start_date DATE NOT NULL,
-                end_date DATE
+                start_date DATE,
+                end_date DATE,
+                as_needed BOOLEAN
             )
         ''')
 
@@ -320,7 +321,7 @@ class PersonalDatabaseManager:
         conn.commit()
         conn.close()
   
-    def add_prescription_med(self, barcode, dose, frequency, start_date, leeway=None, end_date=None, time=None, drug_name=None):
+    def add_prescription_med(self, barcode, dose, frequency, start_date, leeway=None, end_date=None, time=None, drug_name=None, as_needed=False):
         if drug_name == None:
             conn = sqlite3.connect('Database/inventory.db')
             cur = conn.cursor()
@@ -331,7 +332,7 @@ class PersonalDatabaseManager:
         c = conn.cursor()
 
 
-        c.execute("INSERT INTO prescription (barcode, dname, dosage, frequency, time, leeway, start_date, end_date) VALUES (?,?,?,?,?,?,?,?)", (barcode, drug_name, dose, frequency, time, leeway, start_date, end_date))
+        c.execute("INSERT INTO prescription (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed) VALUES (?,?,?,?,?,?,?,?,?)", (barcode, drug_name, dose, frequency, time, leeway, start_date, end_date, as_needed))
 
 
         conn.commit()
@@ -384,18 +385,20 @@ class PersonalDatabaseManager:
         conn.close()
         return table
   
-read = PersonalDatabaseManager('Database/dylan_records.db')
-read1 = DatabaseManager('Database/inventory.db')
-
-read.add_prescription_med('910348161816', 1, 1, '2025-12-9', leeway=1, time='21:00:00')
-
-#  ('910348161816', 'Ibuprofen', 183, '2026-08-21', 'Pain Reliever', 'Tablet', '400 mg')
-# def add_prescription_med(self, barcode, dose, frequency, start_date, leeway=None, end_date=None, time=None, drug_name=None):
 
 
-# print(str(read1.pull_data('drugs_in_inventory')).replace('),',')\n'))
-# print(str(read.pull_data('prescription')).replace('),',')\n'))
+if __name__ == "__main__":
+    read = PersonalDatabaseManager('Database/brody_records.db')
+    read1 = DatabaseManager('Database/inventory.db')
 
 
-# time_format = "%Y-%m-%d %H:%M:%S"
+
+    #   '766490599880', 'Melatonin', 1, 1, '21:00:00', 1, '2025-12-9', None, 0
+    # def add_prescription_med(self, barcode, dose, frequency, start_date, leeway=None, end_date=None, time=None, drug_name=None, as_needed=False):
+
+    # print(str(read1.pull_data('drug_changes')).replace('),',')\n'))
+    # print(str(read.pull_data('prescription')).replace('),',')\n'))
+
+
+    # time_format = "%Y-%m-%d %H:%M:%S"
 
