@@ -34,7 +34,7 @@ jobs:
           # - feature/issue-123
           # - fix/123-bug-description
           # Extract the first number found in the branch name
-          ISSUE_NUM=$(echo "$BRANCH_NAME" | grep -oP '\d+' | head -n 1)
+          ISSUE_NUM=$(echo "$BRANCH_NAME" | grep -oE '[0-9]+' | head -n 1)
           
           if [ -z "$ISSUE_NUM" ]; then
             echo "No issue number found in branch name: $BRANCH_NAME"
@@ -254,9 +254,11 @@ jobs:
                 );
                 
                 if (statusField) {
-                  const inProgressOption = statusField.options.find(
-                    option => option.name === 'In Progress' || option.name === 'In progress'
-                  );
+                  // Try to find an "In Progress" status option (case-insensitive, flexible matching)
+                  const inProgressOption = statusField.options.find(option => {
+                    const normalizedName = option.name.toLowerCase().replace(/[\s\-_]/g, '');
+                    return normalizedName === 'inprogress';
+                  });
                   
                   if (inProgressOption) {
                     // Update the project item status
