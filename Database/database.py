@@ -200,6 +200,50 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
+    
+
+    def log_access_to_inventory_with_mutable_date(self, barcode, change, user, date_time): # FOR TESTING ONLY
+        """
+        Log changes to drug inventory amounts.
+
+
+        Parameters:
+            barcode (str): The barcode of the drug whose inventory is being updated.
+            change (int): The amount to change the inventory by (positive or negative).
+            user (str): The user making the change.
+
+
+        Side effects:
+            Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
+        """
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+
+        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        drug_info = c.fetchone()
+        
+        try:
+            c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
+            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', date_time))
+        except Exception as e:
+            print("Error:",e)
+        
+        conn.commit()
+        conn.close()
+
+
+        conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
+        c = conn.cursor()
+        
+        try:
+            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], date_time, abs(change)))
+        except Exception as e:
+            print("Error:",e)
+
+        conn.commit()
+        conn.close()
+
   
     def delete_entry(self, barcode, reason):
         """
@@ -310,7 +354,7 @@ class PersonalDatabaseManager:
 
         c.execute('''
             CREATE TABLE IF NOT EXISTS history(
-                barcode TEXT PRIMARY KEY,
+                barcode TEXT,
                 dname TEXT NOT NULL,
                 when_taken DATETIME NOT NULL,
                 dose TEXT NOT NULL
@@ -338,16 +382,22 @@ class PersonalDatabaseManager:
         conn.commit()
         conn.close()
 
+    def compare_history_with_prescription():
+        pass
 
-   # def log_access(self, barcode, dose, drug_name=None):
-   #     if drug_name == None:
-   #         conn = sqlite3.connect('Database/inventory.db')
-   #         cur = conn.cursor()
-   #         cur.execute(f"SELECT dname FROM drugs WHERE barcode = {barcode}")
-   #         drug_name = cur.fetchone()[0]
-   #         conn.close()
-   #     conn = sqlite3.connect(self.db_path)
-   #     c = conn.cursor()
+    def compare_log_with_prescription():
+        pass
+
+    '''The following is an old function that is not in use but being kept around just in case'''
+    # def log_access(self, barcode, dose, drug_name=None):
+    #     if drug_name == None:
+    #         conn = sqlite3.connect('Database/inventory.db')
+    #         cur = conn.cursor()
+    #         cur.execute(f"SELECT dname FROM drugs WHERE barcode = {barcode}")
+    #         drug_name = cur.fetchone()[0]
+    #         conn.close()
+    #     conn = sqlite3.connect(self.db_path)
+    #     c = conn.cursor()
 
 
    #     c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (barcode, drug_name, datetime.datetime.now().strftime(time_format), dose))
@@ -388,13 +438,11 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    read = PersonalDatabaseManager('Database/brody_records.db')
+    read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
-
-
-    #   '766490599880', 'Melatonin', 1, 1, '21:00:00', 1, '2025-12-9', None, 0
-    # def add_prescription_med(self, barcode, dose, frequency, start_date, leeway=None, end_date=None, time=None, drug_name=None, as_needed=False):
+   
+    #  def log_access_to_inventory_with_mutable_date(self, barcode, change, user, date_time): # FOR TESTING ONLY
 
     # print(str(read1.pull_data('drug_changes')).replace('),',')\n'))
     # print(str(read.pull_data('prescription')).replace('),',')\n'))
