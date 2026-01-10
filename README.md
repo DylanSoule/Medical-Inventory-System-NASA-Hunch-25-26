@@ -5,7 +5,6 @@ Runs on a Raspberry Pi 4 for low power, embedded deployment suitable for constra
 
 Note: This project is still under development
 
-
 ---
 
 ## Table of Contents
