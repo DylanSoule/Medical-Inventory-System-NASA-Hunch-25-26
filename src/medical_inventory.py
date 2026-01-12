@@ -155,7 +155,7 @@ class BarcodeViewer(ctk.CTk):
         # Log Scan button (exact width 350px)
         self.log_scan_btn = ctk.CTkButton(
                 btn_container,
-                text="Log Scan",
+                text="Log Item Use",
                 command=self.log_scan,
                 width=350,
                 height=60,
@@ -446,7 +446,7 @@ class BarcodeViewer(ctk.CTk):
                         def enable_ui():
                             try:
                                 if hasattr(self, 'log_scan_btn'):
-                                    self.log_scan_btn.configure(text="Log Scan", state="normal")
+                                    self.log_scan_btn.configure(text="Log Item Use", state="normal")
                                 self.set_status_indicator("#22c55e")
                             except Exception as e:
                                 print(f"Error enabling UI: {e}")
@@ -455,7 +455,7 @@ class BarcodeViewer(ctk.CTk):
                         def disable_ui():
                             try:
                                 if hasattr(self, 'log_scan_btn'):
-                                    self.log_scan_btn.configure(text="Log Scan", state="disabled")
+                                    self.log_scan_btn.configure(text="Log Item Use", state="disabled")
                                 self.set_status_indicator("#94a3b8")
                             except Exception as e:
                                 print(f"Error disabling UI: {e}")
