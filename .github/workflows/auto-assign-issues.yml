@@ -1,1 +1,325 @@
+name: Auto-assign Issues to Draft PR
 
+on:
+  create:
+    branches:
+      - '**'
+
+jobs:
+  create-draft-pr:
+    # Only run when a branch is created (not tags)
+    if: github.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Extract issue number from branch name
+        id: extract_issue
+        run: |
+          BRANCH_NAME="${{ github.ref_name }}"
+          echo "Branch name: $BRANCH_NAME"
+          
+          # Extract issue number from branch name patterns like:
+          # - issue-123
+          # - 123-feature-name
+          # - feature/issue-123
+          # - fix/123-bug-description
+          # Extract the first number found in the branch name
+          ISSUE_NUM=$(echo "$BRANCH_NAME" | grep -oE '[0-9]+' | head -n 1)
+          
+          if [ -z "$ISSUE_NUM" ]; then
+            echo "No issue number found in branch name: $BRANCH_NAME"
+            echo "has_issue=false" >> $GITHUB_OUTPUT
+          else
+            echo "Found issue number: $ISSUE_NUM"
+            echo "has_issue=true" >> $GITHUB_OUTPUT
+            echo "issue_number=$ISSUE_NUM" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Determine base branch
+        id: determine_base
+        if: steps.extract_issue.outputs.has_issue == 'true'
+        run: |
+          # Default to main branch, but check if main or master exists
+          if git show-ref --verify --quiet refs/remotes/origin/main; then
+            BASE_BRANCH="main"
+          elif git show-ref --verify --quiet refs/remotes/origin/master; then
+            BASE_BRANCH="master"
+          else
+            # Fallback to the default branch
+            BASE_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)
+          fi
+          
+          echo "Base branch: $BASE_BRANCH"
+          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+          
+      - name: Get issue details
+        id: get_issue
+        if: steps.extract_issue.outputs.has_issue == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const issue = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: ${{ steps.extract_issue.outputs.issue_number }}
+              });
+              
+              core.setOutput('issue_title', issue.data.title);
+              core.setOutput('issue_body', issue.data.body || 'No description provided.');
+              core.setOutput('issue_exists', 'true');
+              
+              console.log(`Issue #${{ steps.extract_issue.outputs.issue_number }} found: ${issue.data.title}`);
+            } catch (error) {
+              console.log(`Issue #${{ steps.extract_issue.outputs.issue_number }} not found or not accessible`);
+              core.setOutput('issue_exists', 'false');
+            }
+            
+      - name: Generate PR title and description
+        id: generate_pr_content
+        if: steps.get_issue.outputs.issue_exists == 'true'
+        run: |
+          ISSUE_NUM="${{ steps.extract_issue.outputs.issue_number }}"
+          ISSUE_TITLE="${{ steps.get_issue.outputs.issue_title }}"
+          BRANCH_NAME="${{ github.ref_name }}"
+          
+          # Generate PR title
+          PR_TITLE="[Issue #${ISSUE_NUM}] ${ISSUE_TITLE}"
+          
+          # Use delimiter to handle multiline content
+          echo "pr_title<<EOF" >> $GITHUB_OUTPUT
+          echo "$PR_TITLE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Generate PR description with proper formatting
+          {
+            echo "pr_description<<EOF"
+            echo "## Related Issue"
+            echo "Closes #${ISSUE_NUM}"
+            echo ""
+            echo "## Description"
+            echo "This PR addresses the issue: ${ISSUE_TITLE}"
+            echo ""
+            echo "## Changes"
+            echo "- Work in progress"
+            echo ""
+            echo "## Checklist"
+            echo "- [ ] Code changes completed"
+            echo "- [ ] Tests added/updated"
+            echo "- [ ] Documentation updated"
+            echo "- [ ] Ready for review"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+          
+      - name: Create draft pull request
+        id: create_pr
+        if: steps.get_issue.outputs.issue_exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              // Check if PR already exists for this branch
+              const existingPRs = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: `${context.repo.owner}:${{ github.ref_name }}`,
+                state: 'open'
+              });
+              
+              if (existingPRs.data.length > 0) {
+                console.log(`PR already exists for branch ${{ github.ref_name }}`);
+                core.setOutput('pr_number', existingPRs.data[0].number);
+                core.setOutput('pr_url', existingPRs.data[0].html_url);
+                return;
+              }
+              
+              // Create new draft PR
+              const pr = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `${{ steps.generate_pr_content.outputs.pr_title }}`,
+                body: `${{ steps.generate_pr_content.outputs.pr_description }}`,
+                head: '${{ github.ref_name }}',
+                base: '${{ steps.determine_base.outputs.base_branch }}',
+                draft: true
+              });
+              
+              console.log(`Created draft PR #${pr.data.number}: ${pr.data.html_url}`);
+              core.setOutput('pr_number', pr.data.number);
+              core.setOutput('pr_url', pr.data.html_url);
+              
+            } catch (error) {
+              core.setFailed(`Failed to create PR: ${error.message}`);
+            }
+            
+      - name: Link issue to PR and update project status
+        if: steps.create_pr.outputs.pr_number
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.extract_issue.outputs.issue_number }};
+            const prNumber = ${{ steps.create_pr.outputs.pr_number }};
+            
+            try {
+              // Add comment to issue linking to PR
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `🚀 Draft PR #${prNumber} has been automatically created for this issue.\n\nView PR: ${{ steps.create_pr.outputs.pr_url }}`
+              });
+              
+              console.log(`Added comment to issue #${issueNumber} linking to PR #${prNumber}`);
+              
+              // Get all project items for this repository
+              const query = `query($owner: String!, $repo: String!, $issueNumber: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $issueNumber) {
+                    projectItems(first: 10) {
+                      nodes {
+                        id
+                        project {
+                          id
+                          title
+                        }
+                        fieldValues(first: 10) {
+                          nodes {
+                            ... on ProjectV2ItemFieldSingleSelectValue {
+                              id
+                              name
+                              field {
+                                ... on ProjectV2SingleSelectField {
+                                  id
+                                  name
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }`;
+              
+              const projectData = await github.graphql(query, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issueNumber: issueNumber
+              });
+              
+              // Update project status to "In Progress" for each project this issue is in
+              const projectItems = projectData.repository.issue.projectItems.nodes;
+              
+              for (const item of projectItems) {
+                console.log(`Processing project: ${item.project.title}`);
+                
+                // Get the project to find the Status field
+                const projectQuery = `query($projectId: ID!) {
+                  node(id: $projectId) {
+                    ... on ProjectV2 {
+                      fields(first: 20) {
+                        nodes {
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options {
+                              id
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }`;
+                
+                const project = await github.graphql(projectQuery, {
+                  projectId: item.project.id
+                });
+                
+                // Find Status field and "In Progress" option
+                const statusField = project.node.fields.nodes.find(
+                  field => field.name === 'Status'
+                );
+                
+                if (statusField) {
+                  // Try to find an "In Progress" status option (case-insensitive, flexible matching)
+                  const inProgressOption = statusField.options.find(option => {
+                    const normalizedName = option.name.toLowerCase().replace(/[\s\-_]/g, '');
+                    return normalizedName === 'inprogress';
+                  });
+                  
+                  if (inProgressOption) {
+                    // Update the project item status
+                    const updateMutation = `mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId
+                        itemId: $itemId
+                        fieldId: $fieldId
+                        value: {
+                          singleSelectOptionId: $optionId
+                        }
+                      }) {
+                        projectV2Item {
+                          id
+                        }
+                      }
+                    }`;
+                    
+                    await github.graphql(updateMutation, {
+                      projectId: item.project.id,
+                      itemId: item.id,
+                      fieldId: statusField.id,
+                      optionId: inProgressOption.id
+                    });
+                    
+                    console.log(`Updated issue #${issueNumber} to "In Progress" in project ${item.project.title}`);
+                  } else {
+                    console.log(`"In Progress" status not found in project ${item.project.title}`);
+                  }
+                } else {
+                  console.log(`Status field not found in project ${item.project.title}`);
+                }
+              }
+              
+            } catch (error) {
+              console.log(`Note: Could not update project status - ${error.message}`);
+              console.log('This is expected if the issue is not part of a project or lacks project permissions.');
+            }
+            
+      - name: Summary
+        if: steps.extract_issue.outputs.has_issue == 'true'
+        run: |
+          echo "### Auto-assign Issue Workflow Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Issue:** #${{ steps.extract_issue.outputs.issue_number }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.get_issue.outputs.issue_exists }}" == "true" ]; then
+            echo "**Issue Title:** ${{ steps.get_issue.outputs.issue_title }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Base Branch:** ${{ steps.determine_base.outputs.base_branch }}" >> $GITHUB_STEP_SUMMARY
+            
+            if [ -n "${{ steps.create_pr.outputs.pr_number }}" ]; then
+              echo "**PR Created:** #${{ steps.create_pr.outputs.pr_number }}" >> $GITHUB_STEP_SUMMARY
+              echo "**PR URL:** ${{ steps.create_pr.outputs.pr_url }}" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "✅ Draft PR successfully created and linked to issue!" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ PR creation skipped or failed" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ Issue #${{ steps.extract_issue.outputs.issue_number }} not found" >> $GITHUB_STEP_SUMMARY
+          fi

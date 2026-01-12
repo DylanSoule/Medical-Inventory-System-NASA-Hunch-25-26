@@ -1,5 +1,6 @@
 # Medical Inventory System — NASA HUNCH 2025‑26
 
+
 A facial‑authenticated medical inventory scan logging system built for the NASA HUNCH 2025‑2026 program.  
 Runs on a Raspberry Pi 4 for low power, embedded deployment suitable for constrained or remote environments (e.g. space habitation modules).
 
@@ -280,6 +281,18 @@ Planned contribution guidelines will include:
 - Coding standards (PEP8 + type hints).
 - Facial image enrollment procedure.
 - Security hardening steps (PIN storage, least privilege).
+
+### Development Workflow
+
+We use an automated workflow to streamline development:
+
+**Auto-Assign Issues Workflow**: When you create a branch with an issue number in its name (e.g., `issue-123`, `42-feature-name`), our GitHub Actions workflow automatically:
+- Creates a draft pull request
+- Links the issue to the PR
+- Moves the issue to "In Progress" in project boards
+- Auto-generates PR title and description
+
+See [Auto-Assign Workflow Documentation](docs/AUTO_ASSIGN_WORKFLOW.md) for detailed usage instructions.
 
 For now, feel free to open issues or pull requests with clear descriptions.
 
