@@ -1,5 +1,5 @@
 import sqlite3
-import datetime
+from datetime import datetime
 
 
 """
@@ -119,7 +119,7 @@ class DatabaseManager:
             return e
 
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug[1], drug[2], user, 'New Entry', datetime.datetime.now().strftime(time_format)))
+        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug[1], drug[2], user, 'New Entry', datetime.now().strftime(time_format)))
 
 
         conn.commit()
@@ -181,7 +181,7 @@ class DatabaseManager:
         
         try:
             c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.datetime.now().strftime(time_format)))
+            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
         except Exception as e:
             print("Error:",e)
         
@@ -193,7 +193,7 @@ class DatabaseManager:
         c = conn.cursor()
         
         try:
-            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.datetime.now().strftime(time_format), abs(change)))
+            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change)))
         except Exception as e:
             print("Error:",e)
 
@@ -202,7 +202,7 @@ class DatabaseManager:
 
     
 
-    def log_access_to_inventory_with_mutable_date(self, barcode, change, user, date_time): # FOR TESTING ONLY
+    def log_access_to_inventory_with_mutable_date(self, barcode, change, user, date_time): # FOR TESTING ONLY DELETE BEFORE FINAL PRODUCT
         """
         Log changes to drug inventory amounts.
 
@@ -269,7 +269,7 @@ class DatabaseManager:
         c.execute("DELETE FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
 
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time, reason) VALUES (?,?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.datetime.now().strftime(time_format), reason,))
+        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time, reason) VALUES (?,?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.now().strftime(time_format), reason,))
 
 
         conn.commit()
@@ -382,11 +382,26 @@ class PersonalDatabaseManager:
         conn.commit()
         conn.close()
 
-    def compare_history_with_prescription(days_back):
+    def compare_history_with_prescription(self, days_back):
         pass
 
-    def compare_log_with_prescription(row):
-        pass
+    def compare_most_recent_log_with_prescription(self):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        c.execute("SELECT * FROM history ORDER BY rowid DESC LIMIT 1")
+        last_taken = c.fetchone()
+        c.execute(f"SELECT * FROM prescription WHERE barcode = {last_taken[0]}")
+        matching_prescriptions = c.fetchall()
+
+        date_taken = datetime.strptime(last_taken[3], time_format)
+
+        for prescription in matching_prescriptions:
+            prescription_date = prescription[3]
+            
+
+
+
 
     '''The following is an old function that is not in use but being kept around just in case'''
     # def log_access(self, barcode, dose, drug_name=None):
@@ -400,7 +415,7 @@ class PersonalDatabaseManager:
     #     c = conn.cursor()
 
 
-   #     c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (barcode, drug_name, datetime.datetime.now().strftime(time_format), dose))
+   #     c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (barcode, drug_name, datetime.now().strftime(time_format), dose))
 
 
    #     conn.commit()
@@ -441,12 +456,17 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
-   
+    
     #  def log_access_to_inventory_with_mutable_date(self, barcode, change, user, date_time): # FOR TESTING ONLY
 
     # print(str(read1.pull_data('drug_changes')).replace('),',')\n'))
-    # print(str(read.pull_data('prescription')).replace('),',')\n'))
-
-
+    # print(str(read.pull_data('history')).replace('),',')\n'))
+    # a1 = datetime.strptime("2026-1-8 13:00:00", time_format)
+    # a2 = datetime.strptime("2026-1-1 14:00:00", time_format)
+    # print(a1)
+    # print(a2)
+    # print((a2-a1))
+    # print((a1-a2).seconds)
     # time_format = "%Y-%m-%d %H:%M:%S"
 
+# self, barcode, dname, amount, expiration_date, Type, item_type, dose_size
