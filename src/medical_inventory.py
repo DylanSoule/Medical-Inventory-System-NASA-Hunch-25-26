@@ -1,20 +1,25 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
+import customtkinter as ctk
 import os
 import sys
 from tkinter import simpledialog
-
-# Add src directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import datetime
+# Add parent directory to path for imports from Database and src
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import facial_recognition as fr
+from Database.database import DatabaseManager
 from facial_recognition import FaceRecognitionError
-from db_manager import DatabaseManager
 
 # Database file path - store in parent directory
-DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "inventory.db")
-REFRESH_INTERVAL = 300000  # milliseconds
-class BarcodeViewer(tk.Tk):
+DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Database/inventory.db")
+REFRESH_INTERVAL = 30000  # milliseconds
+# Use CustomTkinter main window for modern look
+ctk.set_appearance_mode("Dark")         # "Dark", "Light", or "System"
+ctk.set_default_color_theme("dark-blue") # built-in themes: "blue", "green", "dark-blue"
+
+class BarcodeViewer(ctk.CTk):
     def __init__(self):
         super().__init__()
         # Initialize database
@@ -39,11 +44,11 @@ class BarcodeViewer(tk.Tk):
                 self.geometry("1200x800")
 
         # larger default styling for readability on fullscreen
-        style = ttk.Style(self)
-        style.configure("TLabel", font=("Arial", 20))
-        style.configure("TButton", font=("Arial", 16), padding=10)
-        style.configure("Treeview", font=("Arial", 16), rowheight=36)
-        style.configure("Treeview.Heading", font=("Arial", 18, "bold"))
+        style = ttk.Style()
+        style.configure("TLabel", font=("Arial", 28))
+        style.configure("TButton", font=("Arial", 24), padding=20)
+        style.configure("Treeview", font=("Arial", 22), rowheight=55)
+        style.configure("Treeview.Heading", font=("Arial", 24, "bold"))
 
         # allow toggling fullscreen with F11 and exit fullscreen with Escape
         self.bind("<F11>", lambda e: self.attributes("-fullscreen", not self.attributes("-fullscreen")))
@@ -52,45 +57,257 @@ class BarcodeViewer(tk.Tk):
         # keep current log path on the instance
         # self.log_file = LOG_FILE
 
-        # Title
-        ttk.Label(self, text="Medical Inventory System" , font=("Arial", 22, "bold")).pack(pady=12)
+        # Title (use CTkLabel for modern appearance)
+        ctk.CTkLabel(self, text="Medical Inventory System", font=("Arial", 40, "bold")).pack(pady=25)
 
-        # Button frame (webcam + log + quit)
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(pady=5)
-        
-        # Log scan button with status indicator
-        log_frame = ttk.Frame(btn_frame)
-        log_frame.grid(row=0, column=1, padx=5)
-        
-        # Status canvas (small perfect circle)
-        self.status_canvas = tk.Canvas(log_frame, width=16, height=16, highlightthickness=0)
-        self.status_canvas.pack(side="left", padx=(0, 5))
-        self.status_circle = self.status_canvas.create_oval(2, 2, 14, 14, fill="gray", outline="", width=0)
-        
-        self.log_scan_btn = ttk.Button(log_frame, text="Log Scan", command=self.log_scan, state="disabled")
-        self.log_scan_btn.pack(side="left")
-        
-        ttk.Button(btn_frame, text="Delete Selected", command=self.delete_selected).grid(row=0, column=2, padx=5)
-        ttk.Button(btn_frame, text="View Deletion History", command=self.show_deletion_history).grid(row=0, column=3, padx=5)
-        ttk.Button(btn_frame, text="Quit", command=self.destroy).grid(row=0, column=4, padx=5)
+        # Main frame containing sidebar (left) and content (right)
+        main_frame = ctk.CTkFrame(self, corner_radius=0)
+        main_frame.pack(fill="both", expand=True, padx=18, pady=(10,25))
 
-        # Create Treeview (table) with user column
-        columns = ("timestamp", "barcode", "user")
-        self.tree = ttk.Treeview(self, columns=columns, show="headings")
-        self.tree.heading("timestamp", text="Timestamp")
-        self.tree.heading("barcode", text="Barcode")
-        self.tree.heading("user", text="User")
+        # Sidebar on the left with buttons, search and filters
+        sidebar = ctk.CTkFrame(main_frame, width=420, corner_radius=8)
+        sidebar.pack(side="left", fill="y", padx=(18,25), pady=18)
 
-        # Add scrollbar
-        scroll = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
+        # Search
+        ctk.CTkLabel(sidebar, text="Search", anchor="w", font=("Arial", 22)).pack(padx=25, pady=(25,10), fill="x")
+        self.search_var = tk.StringVar()
+        search_entry = ctk.CTkEntry(sidebar, textvariable=self.search_var, placeholder_text="Search all fields...", width=370, height=50, font=("Arial", 20))
+        search_entry.pack(padx=25, pady=(0,18))
+        search_entry.bind("<KeyRelease>", self.apply_search_filter)
+
+        # Filter
+        ctk.CTkLabel(sidebar, text="Filters", anchor="w", font=("Arial", 22)).pack(padx=25, pady=(18,10), fill="x")
+
+        self.filter_var = tk.StringVar(value="All")
+        filter_opts = ["All", "Expiring Soon", "Expired"]
+        ctk.CTkOptionMenu(sidebar, values=filter_opts, variable=self.filter_var, width=370, height=50, font=("Arial", 20), command=lambda v: self.apply_search_filter()).pack(padx=25, pady=(0,18))
+
+        # Example checkbox (e.g., show only low stock)
+        self.low_stock_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(sidebar, text="Show low stock only", variable=self.low_stock_var, font=("Arial", 20), command=self.apply_search_filter).pack(padx=25, pady=(10,18))
+
+        # Column visibility controls
+        ctk.CTkLabel(sidebar, text="Show Columns", anchor="w", font=("Arial", 22)).pack(padx=25, pady=(18,10), fill="x")
+        
+        # Track column visibility
+        self.column_visibility = {
+            "drug": tk.BooleanVar(value=True),
+            "barcode": tk.BooleanVar(value=True),
+            "est_amount": tk.BooleanVar(value=True),
+            "exp_date": tk.BooleanVar(value=True),
+            "type_": tk.BooleanVar(value=True),
+            "dose_size": tk.BooleanVar(value=True),
+            "item_type": tk.BooleanVar(value=True)
+        }
+        
+        # Column labels for display
+        column_labels = {
+            "drug": "Drug",
+            "barcode": "Barcode",
+            "est_amount": "Amount",
+            "exp_date": "Expiration",
+            "type_": "Type",
+            "dose_size": "Dose Size",
+            "item_type": "Item Type"
+        }
+        
+        # Create checkboxes for each column
+        columns_frame = ctk.CTkFrame(sidebar, corner_radius=6)
+        columns_frame.pack(padx=25, pady=(0,18), fill="x")
+        
+        for col_id, label in column_labels.items():
+            ctk.CTkCheckBox(
+                columns_frame, 
+                text=label, 
+                variable=self.column_visibility[col_id],
+                font=("Arial", 18),
+                command=self.update_column_visibility
+            ).pack(padx=12, pady=5, anchor="w")
+
+# Vertical button group in sidebar
+        btns_frame = ctk.CTkFrame(sidebar, corner_radius=6)
+        btns_frame.pack(padx=25, pady=(25,25), fill="x")
+
+# Container to hold button + overlay indicator
+        btn_container = ctk.CTkFrame(btns_frame, corner_radius=0, fg_color="transparent")
+        btn_container.pack(pady=(12, 12))
+
+        # Log Scan button (exact width 350px)
+        self.log_scan_btn = ctk.CTkButton(
+                btn_container,
+                text="Log Scan",
+                command=self.log_scan,
+                width=350,
+                height=60,
+                font=("Arial", 22)
+        )
+        self.log_scan_btn.pack()
+
+        # CLEAN status indicator (no square, no border, no background)
+        self.status_indicator = ctk.CTkFrame(
+                btn_container,
+                width=18,
+                height=18,
+                corner_radius=12,
+                fg_color="#94a3b8",        # circle color
+                bg_color="#1f538d",
+        )
+        self.status_indicator.pack_propagate(False)
+
+        # Place it over the right edge of the button
+        self.status_indicator.place(relx=1.0, rely=0.5, anchor="e", x=-12)
+
+        # Change indicator color on button hover
+        def on_enter(_):
+            self.status_indicator.configure(bg_color="#14375e")
+        def on_leave(_):
+            self.status_indicator.configure(bg_color="#1f538d")
+
+        self.log_scan_btn.bind("<Enter>", on_enter)
+        self.log_scan_btn.bind("<Leave>", on_leave)
+
+        # Make sure it renders above the button
+        self.status_indicator.tkraise()
+
+        
+        ctk.CTkButton(btns_frame, text="Delete Selected", command=self.delete_selected, width=350, height=60, font=("Arial", 22)).pack(pady=12)
+        ctk.CTkButton(btns_frame, text="View History", command=self.show_history, width=350, height=60, font=("Arial", 22)).pack(pady=12)
+        ctk.CTkButton(btns_frame, text="Quit", command=self.destroy, width=350, height=60, font=("Arial", 22), fg_color="#b22222").pack(pady=12)
+
+        # Content frame (right) for the treeview / main table
+        content_frame = ctk.CTkFrame(main_frame, corner_radius=6)
+        content_frame.pack(side="left", fill="both", expand=True, padx=(0,18), pady=18)
+
+        # Create Treeview (table) with user column inside content frame
+        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_type")
+        # keep extended selectmode but we intercept clicks to allow toggle-without-ctrl
+        self.tree = ttk.Treeview(content_frame, columns=columns, show="headings", selectmode="extended")
+        
+        # Store column configurations
+        self.column_configs = {
+            "drug": {"text": "Drug", "width": 220},
+            "barcode": {"text": "Barcode", "width": 170},
+            "est_amount": {"text": "Amount est", "width": 140},
+            "exp_date": {"text": "Expiration", "width": 140},
+            "type_": {"text": "Type", "width": 120},
+            "dose_size": {"text": "Dose Size", "width": 140},
+            "item_type": {"text": "Item Type", "width": 140}
+        }
+        
+        # Configure all columns initially
+        for col_id, config in self.column_configs.items():
+            self.tree.heading(col_id, text=config["text"])
+            self.tree.column(col_id, width=config["width"])
+
+        # Adjust columns automatically when tree resizes
+        self.tree.bind("<Configure>", self._on_tree_configure)
+ 
+        # Bind left-click to toggle selection on rows without requiring Ctrl/Shift
+        # Clicking on a row toggles it in the selection set; clicking empty area clears selection.
+        self.tree.bind("<Button-1>", self._on_tree_click)
+
+        # Add scrollbar (ttk scrollbar looks fine beside CTk styled widgets)
+        scroll = ttk.Scrollbar(content_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scroll.set)
-        self.tree.pack(fill="both", expand=True, side="left", padx=(10, 0))
-        scroll.pack(fill="y", side="right", padx=(0, 10))
+        self.tree.pack(fill="both", expand=True, side="left", padx=(18, 0), pady=(18,25))
+        scroll.pack(fill="y", side="right", padx=(0, 18), pady=(18,25))
 
         # Load data and start auto-refresh
         self.load_data()
+        # Initial column width adjustment after UI is fully loaded
+        self.after(500, lambda: self._adjust_column_widths([c for c, v in self.column_visibility.items() if v.get()]))
         self.after(REFRESH_INTERVAL, self.refresh_data)
+    
+    def show_popup(self, title, message, popup_type="info"):
+        """Show a custom CTk popup dialog matching the app's modern style.
+        popup_type: 'info', 'error', or 'warning'
+        """
+        popup = ctk.CTkToplevel(self)
+        popup.title(title)
+        popup.geometry("520x240")
+        popup.resizable(False, False)
+        
+        # Wait for window to be ready before adding content
+        popup.after(10, lambda: self._setup_popup_content(popup, title, message, popup_type))
+        
+        # Center dialog over parent
+        self.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() // 2) - 260
+        y = self.winfo_rooty() + (self.winfo_height() // 2) - 120
+        popup.geometry(f"520x240+{x}+{y}")
+        
+        popup.transient(self)
+        popup.grab_set()
+        
+        # Wait for popup to close
+        self.wait_window(popup)
+    
+    def _setup_popup_content(self, popup, title, message, popup_type):
+        """Setup popup content after window is ready"""
+        # Set colors based on popup type
+        if popup_type == "error":
+            accent_color = "#dc2626"  # Red
+        elif popup_type == "warning":
+            
+            accent_color = "#f59e0b"  # Amber
+        else:
+            accent_color = "#3b82f6"  # Blue
+        
+        # Title with accent color
+        ctk.CTkLabel(popup, text=title, font=("Arial", 22, "bold"), text_color=accent_color).pack(pady=(30, 18))
+        
+        # Message
+        ctk.CTkLabel(popup, text=message, font=("Arial", 18), wraplength=460, justify="center").pack(pady=(0, 25))
+        
+        # OK button
+        ctk.CTkButton(popup, text="OK", command=popup.destroy, width=140, height=45, font=("Arial", 18), fg_color=accent_color).pack()
+    
+    def show_confirm(self, title, message):
+        """Show a custom CTk confirmation dialog. Returns True if confirmed, False otherwise."""
+        result = {"value": False}
+        
+        popup = ctk.CTkToplevel(self)
+        popup.title(title)
+        popup.geometry("520x260")
+        popup.resizable(False, False)
+        
+        # Center dialog over parent
+        self.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() // 2) - 260
+        y = self.winfo_rooty() + (self.winfo_height() // 2) - 130
+        popup.geometry(f"520x260+{x}+{y}")
+        
+        popup.transient(self)
+        popup.grab_set()
+        
+        def on_yes():
+            result["value"] = True
+            popup.destroy()
+        
+        def on_no():
+            result["value"] = False
+            popup.destroy()
+        
+        # Wait for window to be ready before adding content
+        def setup_content():
+            # Title
+            ctk.CTkLabel(popup, text=title, font=("Arial", 22, "bold"), text_color="#3b82f6").pack(pady=(30, 18))
+            
+            # Message
+            ctk.CTkLabel(popup, text=message, font=("Arial", 18), wraplength=460, justify="center").pack(pady=(0, 25))
+            
+            # Buttons
+            btn_frame = ctk.CTkFrame(popup, fg_color="transparent")
+            btn_frame.pack()
+            
+            ctk.CTkButton(btn_frame, text="Yes", command=on_yes, width=120, height=45, font=("Arial", 18)).pack(side="left", padx=12)
+            ctk.CTkButton(btn_frame, text="No", command=on_no, width=120, height=45, font=("Arial", 18), fg_color="gray50").pack(side="left", padx=12)
+        
+        popup.after(10, setup_content)
+        popup.bind("<Escape>", lambda e: on_no())
+        
+        self.wait_window(popup)
+        return result["value"]
     
     def _start_preloading(self):
         """Start preloading facial recognition in background"""
@@ -111,15 +328,23 @@ class BarcodeViewer(tk.Tk):
                     
                     # Update UI on main thread - enable button when facial recognition is ready
                     if self.fr_ready:
-                        self.after(0, lambda: [
-                            self.log_scan_btn.configure(text="Log Scan", state="normal"),
-                            self.set_status_indicator("#22c55e")
-                        ])
+                        def enable_ui():
+                            try:
+                                if hasattr(self, 'log_scan_btn'):
+                                    self.log_scan_btn.configure(text="Log Scan", state="normal")
+                                self.set_status_indicator("#22c55e")
+                            except Exception as e:
+                                print(f"Error enabling UI: {e}")
+                        self.after(0, enable_ui)
                     else:
-                        self.after(0, lambda: [
-                            self.log_scan_btn.configure(text="Log Scan", state="disabled"),
-                            self.set_status_indicator("#94a3b8")
-                        ])
+                        def disable_ui():
+                            try:
+                                if hasattr(self, 'log_scan_btn'):
+                                    self.log_scan_btn.configure(text="Log Scan", state="disabled")
+                                self.set_status_indicator("#94a3b8")
+                            except Exception as e:
+                                print(f"Error disabling UI: {e}")
+                        self.after(0, disable_ui)
                 else:
                     # Error occurred - show appropriate error message
                     self.fr_ready = False
@@ -137,7 +362,7 @@ class BarcodeViewer(tk.Tk):
                     
                     def show_error():
                         try:
-                            messagebox.showerror("Initialization Error", error_msg)
+                            self.show_popup("Initialization Error", error_msg, "error")
                             self.log_scan_btn.configure(text="Log Scan", state="disabled")
                         except Exception as ui_error:
                             print(f"Failed to show error dialog: {ui_error}")
@@ -148,12 +373,12 @@ class BarcodeViewer(tk.Tk):
                 error_msg = f"Failed to initialize facial recognition system:\n{str(e)}"
                 def show_error():
                     try:
-                        messagebox.showerror("Initialization Error", error_msg)
+                        self.show_popup("Initialization Error", error_msg, "error")
                         self.log_scan_btn.configure(text="Log Scan", state="disabled")
                     except Exception as ui_error:
                         print(f"Failed to show error dialog: {ui_error}")
                         # Try again with longer delay
-                        self.after(1000, lambda: messagebox.showerror("Initialization Error", error_msg))
+                        self.after(1000, lambda: self.show_popup("Initialization Error", error_msg, "error"))
                 self.after(500, show_error)  # Longer delay to ensure UI is ready
         
         thread = threading.Thread(target=preload_worker, daemon=True)
@@ -180,7 +405,8 @@ class BarcodeViewer(tk.Tk):
                             # Update UI on main thread with stronger update
                             def update_ui():
                                 try:
-                                    self.log_scan_btn.configure(state="normal")
+                                    if hasattr(self, 'log_scan_btn'):
+                                        self.log_scan_btn.configure(state="normal")
                                     self.set_status_indicator("#22c55e")
                                     print("Camera recovered successfully!")
                                 except Exception as e:
@@ -205,12 +431,14 @@ class BarcodeViewer(tk.Tk):
         monitor_thread.start()
 
     def set_status_indicator(self, color):
-        """Update the status indicator color"""
+        """Update the status indicator color - the colored dot to the right of Log Scan button"""
         try:
-            self.status_canvas.itemconfig(self.status_circle, fill=color)
-            self.status_canvas.update()  # Force immediate update
+            if hasattr(self, 'status_indicator'):
+                self.status_indicator.configure(fg_color=color)
+                self.status_indicator.update()  # Force immediate update
         except Exception as e:
-            print(f"Error updating status indicator: {e}")
+            # Silently ignore if status_indicator doesn't exist
+            pass
 
     def face_recognition_with_timeout(self):
         """Run face recognition with timeout and visual feedback"""
@@ -219,7 +447,8 @@ class BarcodeViewer(tk.Tk):
         
         # Set status to scanning (amber/yellow)
         self.set_status_indicator("#f59e0b")
-        self.log_scan_btn.configure(state="disabled", text="Scanning...")
+        if hasattr(self, 'log_scan_btn'):
+            self.log_scan_btn.configure(state="disabled", text="Scanning...")
         
         result = {"value": None, "completed": False}
         
@@ -247,7 +476,8 @@ class BarcodeViewer(tk.Tk):
             time.sleep(0.1)
         
         # Reset button and status
-        self.log_scan_btn.configure(state="normal", text="Log Scan")
+        if hasattr(self, 'log_scan_btn'):
+            self.log_scan_btn.configure(state="normal", text="Log Scan")
         
         if not result["completed"]:
             # Timeout occurred
@@ -256,7 +486,8 @@ class BarcodeViewer(tk.Tk):
             self.after(2000, lambda: self.set_status_indicator(default_status))
             return "timeout"
         else:
-            # Completed normally - reset status to default
+            # Completed normally - reset status to defaultmake face id work with the new ui,
+
             default_status = "#22c55e" if self.fr_ready else "#94a3b8"
             self.set_status_indicator(default_status)
             return result["value"]
@@ -267,52 +498,55 @@ class BarcodeViewer(tk.Tk):
         # Handle FaceRecognitionError enum types
         if isinstance(result, FaceRecognitionError):
             if result == FaceRecognitionError.CAMERA_ERROR:
-                messagebox.showerror("Camera Error", "Camera could not be initialized.")
+                self.show_popup("Camera Error", "Camera could not be initialized.", "error")
                 self.camera_ready = False
                 self.set_status_indicator("#dc2626")
-                self.log_scan_btn.configure(state="disabled")
+                if hasattr(self, 'log_scan_btn'):
+                    self.log_scan_btn.configure(state="disabled")
             elif result == FaceRecognitionError.CAMERA_DISCONNECTED:
-                messagebox.showerror("Camera Disconnected", "Camera was disconnected. Please reconnect and try again.")
+                self.show_popup("Camera Disconnected", "Camera was disconnected. Please reconnect and try again.", "error")
                 self.set_status_indicator("#dc2626")
                 self.camera_ready = False
                 # Attempt to reinitialize camera
                 if fr.reinitialize_camera():
                     self.camera_ready = True
-                    messagebox.showinfo("Camera Reconnected", "Camera has been reconnected!")
-                    self.log_scan_btn.configure(state="normal")
+                    self.show_popup("Camera Reconnected", "Camera has been reconnected!", "info")
+                    if hasattr(self, 'log_scan_btn'):
+                        self.log_scan_btn.configure(state="normal")
                 else:
-                    self.log_scan_btn.configure(state="disabled")
+                    if hasattr(self, 'log_scan_btn'):
+                        self.log_scan_btn.configure(state="disabled")
             elif result == FaceRecognitionError.REFERENCE_FOLDER_ERROR:
-                messagebox.showerror("Reference Folder Error", "Reference images folder not found. Please add face images to assets/references/")
+                self.show_popup("Reference Folder Error", "Reference images folder not found. Please add face images to assets/references/", "error")
             elif result == FaceRecognitionError.FRAME_CAPTURE_FAILED:
-                messagebox.showerror("Frame Capture Error", "Failed to capture frame from camera.")
+                self.show_popup("Frame Capture Error", "Failed to capture frame from camera.", "error")
                 self.camera_ready = False
             else:
-                messagebox.showerror("Recognition Error", f"An error occurred: {result.message}")
+                self.show_popup("Recognition Error", f"An error occurred: {result.message}", "error")
             return ""
         
         # Handle old numeric error codes for backward compatibility
         if isinstance(result, int):
             if result == 4:
-                messagebox.showerror("Camera Error", "Couldn't find camera")
+                self.show_popup("Camera Error", "Couldn't find camera", "error")
             elif result == 3:
-                messagebox.showerror("Reference Folder Error", "No reference folder found")
+                self.show_popup("Reference Folder Error", "No reference folder found", "error")
             elif result == 2:
-                messagebox.showerror("No Faces Found", "No faces found in reference images")
+                self.show_popup("No Faces Found", "No faces found in reference images", "error")
             return ""
 
         # expected: list/tuple of detected names (or empty list)
         if isinstance(result, (list, tuple)):
             if not result:
-                messagebox.showinfo("Face Recognition", "No known faces detected.")
+                self.show_popup("Face Recognition", "No known faces detected.", "info")
                 return ""
             # use the first detected name as the user
             detected_name = str(result[0])
-            messagebox.showinfo("Face Recognition", f"Detected: {detected_name}")
+            self.show_popup("Face Recognition", f"Detected: {detected_name}", "info")
             return detected_name
 
         # unexpected return type
-        messagebox.showerror("Face Recognition", f"Unexpected result from recognizer: {result}")
+        self.show_popup("Face Recognition", f"Unexpected result from recognizer: {result}", "error")
         return ""
 
     def face_recognition(self):
@@ -330,18 +564,17 @@ class BarcodeViewer(tk.Tk):
         (str) when Enter is pressed, or None if canceled/closed.
         Works with barcode scanners that act as keyboard input (they send Enter).
         """
-        dlg = tk.Toplevel(self)
+        # Use CTkToplevel for a consistent modern dialog
+        dlg = ctk.CTkToplevel(self)
         dlg.title(title)
         dlg.transient(self)
-        dlg.grab_set()
         dlg.resizable(False, False)
 
-        ttk.Label(dlg, text=prompt).pack(padx=12, pady=(8, 4))
+        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
 
         entry_var = tk.StringVar()
-        entry = ttk.Entry(dlg, textvariable=entry_var, width=40)
-        entry.pack(padx=12, pady=(0, 8))
-        entry.focus_set()
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=600, height=55, font=("Arial", 20))
+        entry.pack(padx=25, pady=(0, 22))
 
         result = {"value": None}
 
@@ -351,20 +584,26 @@ class BarcodeViewer(tk.Tk):
                 # ignore empty submit
                 return
             result["value"] = val
-            dlg.grab_release()
+            try:
+                dlg.grab_release()
+            except:
+                pass
             dlg.destroy()
 
         def on_cancel(event=None):
-            dlg.grab_release()
+            try:
+                dlg.grab_release()
+            except:
+                pass
             dlg.destroy()
 
         # Buttons
-        btn_frame = ttk.Frame(dlg)
-        btn_frame.pack(pady=(0, 8))
-        ok_btn = ttk.Button(btn_frame, text="OK", command=on_ok)
-        ok_btn.pack(side="left", padx=6)
-        cancel_btn = ttk.Button(btn_frame, text="Cancel", command=on_cancel)
-        cancel_btn.pack(side="left", padx=6)
+        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
+        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
+        ok_btn = ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55, font=("Arial", 20))
+        ok_btn.pack(side="left", padx=12, pady=12)
+        cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55, font=("Arial", 20), fg_color="gray30")
+        cancel_btn.pack(side="left", padx=12, pady=12)
 
         # Bind Enter to OK and Escape to cancel
         entry.bind("<Return>", on_ok)
@@ -375,15 +614,25 @@ class BarcodeViewer(tk.Tk):
         x = self.winfo_rootx() + (self.winfo_width() // 2) - (dlg.winfo_reqwidth() // 2)
         y = self.winfo_rooty() + (self.winfo_height() // 2) - (dlg.winfo_reqheight() // 2)
         dlg.geometry(f"+{x}+{y}")
+        
+        # Delay grab_set and focus until window is viewable
+        def do_grab():
+            try:
+                dlg.grab_set()
+                entry.focus_set()
+            except:
+                pass
+        dlg.after(50, do_grab)
 
         # Wait for user (modal)
         self.wait_window(dlg)
         return result["value"]
 
     def log_scan(self):
+        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         """Wait for a barcode to be scanned (or typed) and log current date/time + barcode."""
         if not self.fr_ready:
-            messagebox.showinfo("Please Wait", "System is still loading. Please wait and try again.")
+            self.show_popup("Please Wait", "System is still loading. Please wait and try again.", "info")
             return
         
         # If camera wasn't ready at startup, try to reinitialize it now
@@ -394,23 +643,23 @@ class BarcodeViewer(tk.Tk):
                 fr.camera_ready = True
                 print("Camera reinitialized successfully")
             else:
-                messagebox.showerror("Camera Error", "Could not find camera. Please make sure camera is connected.")
+                self.show_popup("Camera Error", "Could not find camera. Please make sure camera is connected.", "error")
                 return
             
         user_result = self.face_recognition_with_timeout()
         
         if user_result == "timeout":
-            messagebox.showerror(f"Timeout", "Face recognition timed out after 5 seconds. Please try again.")
+            self.show_popup("Timeout", "Face recognition timed out after 5 seconds. Please try again.", "error")
             print("Face recognition timeout")
             return
         elif isinstance(user_result, str) and user_result.startswith("Error:"):
-            messagebox.showerror("Error", f"Face recognition failed: {user_result}")
+            self.show_popup("Error", f"Face recognition failed: {user_result}", "error")
             return
         
         user = self.process_face_recognition_result(user_result)
         
         if not user:
-            messagebox.showerror("Authentication Required", "Face recognition must be successful before scanning barcodes.")
+            self.show_popup("Authentication Required", "Face recognition must be successful before scanning barcodes.", "error")
             return
         
         barcode = self._prompt_for_barcode()
@@ -419,34 +668,232 @@ class BarcodeViewer(tk.Tk):
 
         try:
             # Add scan to database
-            ts = self.db.add_scan(barcode, user)
+            log = self.db.add_to_inventory(barcode, user)
+            if log == LookupError:
+                self.show_popup("Error", f"No drug found with barcode: {barcode}", "error")
+                return
+            elif log == IndexError:
+                self.show_popup("Error", f"Drug with barcode {barcode} is already in inventory.", "error")
+                return
+
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to write to database:\n{e}")
+            self.show_popup("Error", f"Failed to write to database:\n{e}", "error")
             return
 
         self.load_data()
-        messagebox.showinfo("Logged", f"Logged {barcode} at {ts} by {user}")
+        self.show_popup("Logged", f"Logged {barcode} at {time} by {user}", "info")
 
     def load_data(self):
         """Read from database and load rows into the table."""
-        self.tree.delete(*self.tree.get_children())
-        
+        # Cache rows and populate via the filter function so UI filters/search work.
         try:
-            rows = self.db.get_all_scans()
-            for row in rows:
-                self.tree.insert("", "end", values=row)
+            rows = list(self.db.pull_data("drugs_in_inventory"))
         except Exception as e:
             print("Error reading database:", e)
-    
-    def admin(self, prompt="Enter admin code to delete scans"):
-       code = 1234
-       if simpledialog.askstring("Admin Access", prompt, show="*") != str(code):
-            messagebox.showerror("Access Denied", "Incorrect admin code.")
-            sel = self.tree.selection()
-            self.tree.selection_remove(*sel)
-            return False
+            rows = []
 
-       return True
+        # Store raw DB rows for filtering; typical shape: (barcode, drug, est_amount, exp_date)
+        self._all_rows = rows
+        # Populate the tree according to current filters/search
+        self.apply_search_filter()
+    
+    def apply_search_filter(self, event=None):
+        """
+        Apply search and filter UI to the cached DB rows and populate the treeview.
+        Filters available:
+         - search text (matches drug, barcode, type, dose_size, or item_type)
+         - filter_var: "All", "Expiring Soon", "Expired"
+         - low_stock_var checkbox (threshold)
+        Results are sorted alphabetically by drug name.
+        """
+        # clear view
+        self.tree.delete(*self.tree.get_children())
+
+        rows = getattr(self, "_all_rows", None)
+        if rows is None:
+            # fallback to pulling directly
+            try:
+                rows = list(self.db.pull_data("drugs_in_inventory"))
+            except Exception:
+                rows = []
+
+        q = (self.search_var.get() or "").strip().lower()
+        mode = (self.filter_var.get() or "All")
+        low_only = bool(self.low_stock_var.get())
+        low_threshold = 20  # example threshold for low stock
+        now = datetime.date.today()
+
+        def parse_date(d):
+            if not d:
+                return None
+            if isinstance(d, datetime.date):
+                return d
+            s = str(d).strip()
+            for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%d-%m-%Y", "%Y-%m-%d %H:%M:%S"):
+                try:
+                    return datetime.datetime.strptime(s, fmt).date()
+                except Exception:
+                    continue
+            # last resort: try ISO parse
+            try:
+                return datetime.date.fromisoformat(s)
+            except Exception:
+                return None
+
+        # Collect filtered rows before inserting
+        filtered_rows = []
+
+        for row in rows:
+            # Normalize DB row into (barcode, drug, est_amount, exp_date, type_, dose_size, item_type)
+            try:
+                barcode, drug, est_amount, exp_date_raw, type_, dose_size, item_type = row[0], row[1], row[2], row[3], row[4], row[6], row[5]
+            except Exception:
+                # fallback: use positional mapping if shape differs
+                vals = list(row)
+                barcode = vals[0] if len(vals) > 0 else ""
+                drug = vals[1] if len(vals) > 1 else ""
+                est_amount = vals[2] if len(vals) > 2 else ""
+                exp_date_raw = vals[3] if len(vals) > 3 else None
+                type_ = vals[4] if len(vals) > 4 else ""
+                dose_size = vals[5] if len(vals) > 5 else ""
+                item_type = vals[6] if len(vals) > 6 else ""
+
+            # Search filter - search across all text fields
+            if q:
+                searchable_fields = [
+                    str(drug).lower(),
+                    str(barcode).lower(),
+                    str(type_).lower(),
+                    str(dose_size).lower(),
+                    str(item_type).lower()
+                ]
+                if not any(q in field for field in searchable_fields):
+                    continue
+
+            # Low stock filter
+            if low_only:
+                try:
+                    amt = float(est_amount)
+                except Exception:
+                    # if amount not parseable, exclude from low-stock view
+                    continue
+                if amt > low_threshold:
+                    continue
+
+            # Expiration filters
+            exp_date = parse_date(exp_date_raw)
+            if mode == "Expired":
+                if not exp_date or exp_date >= now:
+                    continue
+            elif mode == "Expiring Soon":
+                if not exp_date:
+                    continue
+                delta = (exp_date - now).days
+                if delta < 0 or delta > 30:
+                    continue
+
+            # Display order: (drug, barcode, est_amount, exp_date, type_, dose_size, item_type)
+            display_row = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_type)
+            filtered_rows.append(display_row)
+
+        # Sort alphabetically by drug name (first column in display_row)
+        filtered_rows.sort(key=lambda x: str(x[0]).lower())
+
+        # Insert sorted rows into treeview
+        for display_row in filtered_rows:
+            self.tree.insert("", "end", values=display_row)
+
+    def admin(self, title, prompt="Enter admin code"):
+        code = 1234
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.transient(self)
+        dlg.resizable(False, False)
+
+        # --- create widgets ---
+        ctk.CTkLabel(dlg, text=prompt, font=("Arial", 22)).pack(padx=25, pady=(22,12))
+        entry_var = tk.StringVar()
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=400, height=55, font=("Arial", 20), show="*")
+        entry.pack(padx=25, pady=(0,22))
+
+        # --- numpad frame ---
+        button_frame = ctk.CTkFrame(dlg)
+        button_frame.pack(pady=(0,22))
+
+        buttons = [
+            ['7','8','9'],
+            ['4','5','6'],
+            ['1','2','3'],
+            ['C','0','<']
+        ]
+
+        def add_to_entry(value):
+            current = entry_var.get()
+            entry_var.set(current + str(value))
+
+        def clear_entry():
+            entry_var.set("")
+
+        def backspace():
+            entry_var.set(entry_var.get()[:-1])
+
+        for i, row in enumerate(buttons):
+            for j, btn_text in enumerate(row):
+                if btn_text == 'C':
+                    btn = ctk.CTkButton(button_frame, text=btn_text, width=110, height=110, font=("Arial", 26), command=clear_entry)
+                elif btn_text == '<':
+                    btn = ctk.CTkButton(button_frame, text=btn_text, width=110, height=110, font=("Arial", 26), command=backspace)
+                else:
+                    btn = ctk.CTkButton(button_frame, text=btn_text, width=110, height=110, font=("Arial", 26), command=lambda x=btn_text: add_to_entry(x))
+                btn.grid(row=i, column=j, padx=10, pady=10)
+
+        # --- OK / Cancel buttons ---
+        result = {"value": None}
+        btn_frame = ctk.CTkFrame(dlg)
+        btn_frame.pack(pady=(0,22), fill="x")
+        
+        def on_ok(event=None):
+            val = entry_var.get().strip()
+            if val != "":
+                result["value"] = val
+                dlg.destroy()
+
+        def on_cancel(event=None):
+            dlg.destroy()
+
+        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55, font=("Arial", 20)).pack(side="left", padx=12)
+        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55, font=("Arial", 20), fg_color="gray30").pack(side="right", padx=12)
+
+        entry.bind("<Return>", on_ok)
+        dlg.bind("<Escape>", on_cancel)
+
+        # --- force window to draw before grabbing ---
+        dlg.update_idletasks()
+        
+        # Center dialog (don't make it fullscreen)
+        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
+        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
+        dlg.geometry(f"+{x}+{y}")
+        
+        # Ensure dialog is on top and has focus
+        dlg.lift()
+        dlg.grab_set()
+        dlg.focus_force()
+        entry.focus_force()
+        try:
+            entry.select_range(0, "end")
+        except Exception:
+            pass
+
+        self.wait_window(dlg)
+
+        entered = result.get("value")
+        if entered is None:
+            return False
+        elif str(entered) != str(code):
+            self.show_error("Admin Access Denied", "Incorrect admin code.")
+            return False
+        return True
     
     def delete_selected(self):
         if not self.admin("Enter admin code to delete scans"):
@@ -454,7 +901,7 @@ class BarcodeViewer(tk.Tk):
         sel = self.tree.selection()
         
         if not sel:
-            messagebox.showinfo("Delete", "No row selected.")
+            self.show_popup("Delete", "No row selected.", "info")
             return
 
         # Get deletion reason
@@ -462,62 +909,96 @@ class BarcodeViewer(tk.Tk):
         if reason is None:  # User clicked Cancel
             return
         if not reason.strip():  # Empty or whitespace only
-            messagebox.showerror("Error", "A deletion reason is required.")
+            self.show_popup("Error", "A deletion reason is required.", "error")
             return
 
-        if not messagebox.askyesno("Confirm Delete", 
-            f"Delete {len(sel)} selected row(s)?\nReason: {reason}"):
+        if not self.show_confirm("Confirm Delete", f"Delete {len(sel)} selected row(s)?\nReason: {reason}"):
             return
 
         try:
             admin_user = "ADMIN"
             for item_id in sel:
                 values = self.tree.item(item_id)["values"]
-                self.db.delete_scan(*values, deleted_by=admin_user, reason=reason.strip())
+                # Barcode is now the second column in the Treeview (index 1)
+                barcode_value = values[1] if len(values) > 1 else values[0]
+                self.db.delete_entry(barcode=barcode_value, reason=reason)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to delete from database:\n{e}")
+            self.show_popup("Error", f"Failed to delete from database:\n{e}", "error")
             return
 
         self.load_data()
-        messagebox.showinfo("Deleted", f"Deleted {len(sel)} row(s).")
+        self.show_popup("Deleted", f"Deleted {len(sel)} row(s).", "info")
 
-    def show_deletion_history(self):
+    def show_history(self):
+
         """Show deletion history in a new window."""
-        if not self.admin("Enter admin code to view history"):
+        if not self.admin("View History"):
             return
 
-        history = tk.Toplevel(self)
-        history.title("Deletion History")
-        history.geometry("800x600")
+        history = ctk.CTkToplevel(self)
+        history.title("History")
+        
+        # Update idletasks to ensure window is ready
+        history.update_idletasks()
+        
+        # Get screen dimensions
+        screen_width = history.winfo_screenwidth()
+        screen_height = history.winfo_screenheight()
+        
+        # Try fullscreen first, with robust fallback
+        try:
+            history.attributes("-fullscreen", True)
+        except Exception:
+            # Fallback: explicitly set geometry to screen size
+            history.geometry(f"{screen_width}x{screen_height}+0+0")
+        
+        # Make window modal and ensure it gets focus
+        try:
+            history.transient(self)
+            history.lift()
+            history.focus_force()
+            
+            # Delay grab_set slightly to ensure window is visible
+            def do_grab():
+                try:
+                    history.grab_set()
+                except Exception as e:
+                    print(f"Could not grab focus: {e}")
+            history.after(100, do_grab)
+        except Exception as e:
+            print(f"Could not make history window modal: {e}")
+       
+        # NEW: top bar with close button
+        top_bar = ctk.CTkFrame(history, corner_radius=6)
+        top_bar.pack(fill="x", padx=18, pady=(18,0))
+        ctk.CTkButton(top_bar, text="Close", command=history.destroy, width=160, height=55, font=("Arial", 22)).pack(side="right", padx=18, pady=18)
+        history.bind("<Escape>", lambda e: history.destroy())
 
         # Create treeview for history
-        columns = ("deleted_at", "deleted_by", "original_timestamp", 
-                  "original_barcode", "original_user", "reason")
+        columns = ("barcode", "name_of_item", "amount_changed", "user", "type", "time", "reason")
         tree = ttk.Treeview(history, columns=columns, show="headings")
         
         # Configure columns
-        tree.heading("deleted_at", text="Deleted At")
-        tree.heading("deleted_by", text="Deleted By")
-        tree.heading("original_timestamp", text="Original Time")
-        tree.heading("original_barcode", text="Barcode")
-        tree.heading("original_user", text="Original User")
+        tree.heading("barcode", text="Barcode")
+        tree.heading("name_of_item", text="Name of Item")
+        tree.heading("amount_changed", text="Amount Changed")
+        tree.heading("type", text="Type of Change")
+        tree.heading("time", text="Time of Change")
         tree.heading("reason", text="Reason")
+        tree.heading("user", text="User")
 
         # Add scrollbar
         scroll = ttk.Scrollbar(history, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=scroll.set)
         
         # Pack widgets
-        tree.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
+        tree.pack(side="left", fill="both", expand=True, padx=(18,0), pady=18)
+        scroll.pack(side="right", fill="y", padx=(0,18), pady=18)
 
         # Load history data
-        for row in self.db.get_deletion_history():
+        for row in self.db.pull_data("drug_changes"):
             tree.insert("", "end", values=row)
 
-        # Close button
-        ttk.Button(history, text="Close", 
-                  command=history.destroy).pack(pady=10)
 
     def refresh_data(self):
         """Reload file periodically."""
@@ -526,9 +1007,144 @@ class BarcodeViewer(tk.Tk):
 
     def show_error(self, title="Error", message="An error occurred."):
         """Display an error window with the given title and message."""
-        messagebox.showerror(title, message)
+        self.show_popup(title, message, "error")
 
+    def _on_tree_click(self, event):
+        """
+        Toggle selection of the clicked row so multiple items can be selected
+        by clicking them one-by-one (no Ctrl/Shift needed).
+        Return "break" to suppress the default single-select behavior.
+        """
+        # Identify where the click occurred
+        region = self.tree.identify_region(event.x, event.y)
+        # Allow header/resize interactions to pass through to default handlers
+        if region not in ("cell", "tree"):
+            return None
 
-if __name__ == "__main__":
+        row = self.tree.identify_row(event.y)
+        if not row:
+            # Clicked empty area -> clear selection
+            try:
+                self.tree.selection_remove(self.tree.selection())
+            except Exception:
+                pass
+            return "break"
+
+        cur = list(self.tree.selection())
+        if row in cur:
+            # Deselect the clicked row
+            cur.remove(row)
+            self.tree.selection_set(tuple(cur))
+        else:
+            # Add clicked row to current selection
+            cur.append(row)
+            self.tree.selection_set(tuple(cur))
+
+        # Prevent default handling which would reset selection to a single item
+        return "break"
+
+    def _on_tree_configure(self, event):
+        """Handler for tree resize events: schedule adjusting visible column widths."""
+        try:
+            visible = [col for col, var in self.column_visibility.items() if var.get()]
+            # Debounce: cancel any pending width adjustment before scheduling a new one
+            try:
+                if hasattr(self, "_column_adjust_after_id"):
+                    self.after_cancel(self._column_adjust_after_id)
+            except Exception:
+                # If cancellation fails (e.g., ID already executed), ignore
+                pass
+            # schedule adjustment to avoid layout churn during configure bubbling
+            # Only adjust if tree is actually visible and has width
+            if self.tree.winfo_width() > 1:
+                self._column_adjust_after_id = self.after(
+                    100, lambda: self._adjust_column_widths(visible)
+                )
+        except Exception:
+            # Intentionally ignore resize-related errors to prevent UI crashes
+            pass
+
+    def _adjust_column_widths(self, visible_columns):
+        """Distribute available tree width across visible columns proportionally."""
+        try:
+            if not visible_columns:
+                return
+            
+            # Ensure widget is ready
+            if not self.tree.winfo_exists():
+                return
+                
+            self.tree.update_idletasks()
+            total_width = self.tree.winfo_width()
+            
+            if total_width <= 10:
+                # fallback to parent width if tree not yet mapped
+                try:
+                    total_width = self.tree.master.winfo_width()
+                except Exception:
+                    total_width = sum(self.column_configs[c]["width"] for c in visible_columns) or 600
+            
+            # Don't adjust if width is still too small (not ready yet)
+            if total_width < 100:
+                return
+
+            # Reserve small space for vertical scrollbar if present
+            scrollbar_reserve = 18
+            usable = max(100, total_width - scrollbar_reserve)
+
+            # Use configured widths as minima / weights
+            min_widths = [self.column_configs.get(c, {}).get("width", 100) for c in visible_columns]
+            sum_min = sum(min_widths) if min_widths else 1
+
+            # Distribute usable width proportionally across all columns, ensuring:
+            # - widths are non-negative
+            # - total width matches `usable`
+            # - proportions follow min_widths as weights
+            raw_widths = [usable * (wmin / sum_min) for wmin in min_widths]
+            widths = [int(w) for w in raw_widths]
+            current_total = sum(widths)
+            diff = usable - current_total
+
+            # Adjust for rounding so that sum(widths) == usable
+            i = 0
+            n = len(widths)
+            while diff != 0 and n > 0:
+                idx = i % n
+                if diff > 0:
+                    widths[idx] += 1
+                    diff -= 1
+                else:
+                    # Avoid negative widths when reducing
+                    if widths[idx] > 0:
+                        widths[idx] -= 1
+                        diff += 1
+                i += 1
+
+            for col, w in zip(visible_columns, widths):
+                try:
+                    self.tree.column(col, width=w, stretch=True)
+                except Exception:
+                    pass
+        except Exception as e:
+            # avoid crashing UI - silently ignore during startup
+            pass  # Don't print errors during initialization
+ 
+    def update_column_visibility(self):
+        """Update which columns are displayed in the treeview based on checkbox states."""
+        # Get list of visible columns
+        visible_columns = [col for col, var in self.column_visibility.items() if var.get()]
+        
+        # Update the displaycolumns property
+        if visible_columns:
+            self.tree.configure(displaycolumns=visible_columns)
+            # adjust widths after visibility change
+            self.after(50, lambda: self._adjust_column_widths(visible_columns))
+        else:
+            # If no columns selected, show at least the drug column
+            self.column_visibility["drug"].set(True)
+            self.tree.configure(displaycolumns=["drug"])
+            self.after(50, lambda: self._adjust_column_widths(["drug"]))
+
+if __name__=="__main__":
     app = BarcodeViewer()
     app.mainloop()
