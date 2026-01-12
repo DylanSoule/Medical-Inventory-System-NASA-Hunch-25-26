@@ -189,7 +189,7 @@ class BarcodeViewer(ctk.CTk):
         # Make sure it renders above the button
         self.status_indicator.tkraise()
 
-        
+        ctk.CTkButton(btns_frame, text="View Personal Database", command=self.Personal_db, width=350, height=60, font=("Arial", 22)).pack(pady=12)
         ctk.CTkButton(btns_frame, text="Delete Selected", command=self.delete_selected, width=350, height=60, font=("Arial", 22)).pack(pady=12)
         ctk.CTkButton(btns_frame, text="View History", command=self.show_history, width=350, height=60, font=("Arial", 22)).pack(pady=12)
         ctk.CTkButton(btns_frame, text="Quit", command=self.destroy, width=350, height=60, font=("Arial", 22), fg_color="#b22222").pack(pady=12)
@@ -224,7 +224,10 @@ class BarcodeViewer(ctk.CTk):
         # Initial column width adjustment after UI is fully loaded
         self.after(500, lambda: self._adjust_column_widths([c for c, v in self.column_visibility.items() if v.get()]))
         self.after(REFRESH_INTERVAL, self.refresh_data)
-
+    def personal_db(self):
+        """Open personal database viewer window"""
+        user=self.face_recognition()
+        
     def apply_search_filter(self, event=None):
         """
         Apply search and filter UI to the cached DB rows and populate the treeview.
@@ -423,7 +426,7 @@ class BarcodeViewer(ctk.CTk):
         
         self.wait_window(popup)
         return result["value"]
-    
+    # region ######################## Facial Recognition Preloading and Monitoring
     def _start_preloading(self):
         """Start preloading facial recognition in background"""
         import threading
@@ -478,7 +481,7 @@ class BarcodeViewer(ctk.CTk):
                     def show_error():
                         try:
                             self.show_popup("Initialization Error", error_msg, "error")
-                            self.log_scan_btn.configure(text="Log Scan", state="disabled")
+                            self.log_scan_btn.configure(text="Log Item Use", state="disabled")
                         except Exception as ui_error:
                             print(f"Failed to show error dialog: {ui_error}")
                     self.after(500, show_error)
@@ -489,7 +492,7 @@ class BarcodeViewer(ctk.CTk):
                 def show_error():
                     try:
                         self.show_popup("Initialization Error", error_msg, "error")
-                        self.log_scan_btn.configure(text="Log Scan", state="disabled")
+                        self.log_scan_btn.configure(text="Log Item Use", state="disabled")
                     except Exception as ui_error:
                         print(f"Failed to show error dialog: {ui_error}")
                         # Try again with longer delay
@@ -592,7 +595,7 @@ class BarcodeViewer(ctk.CTk):
         
         # Reset button and status
         if hasattr(self, 'log_scan_btn'):
-            self.log_scan_btn.configure(state="normal", text="Log Scan")
+            self.log_scan_btn.configure(state="normal", text="Log Item Use")
         
         if not result["completed"]:
             # Timeout occurred
@@ -663,7 +666,8 @@ class BarcodeViewer(ctk.CTk):
         # unexpected return type
         self.show_popup("Face Recognition", f"Unexpected result from recognizer: {result}", "error")
         return ""
-
+    #endregion
+    
     def face_recognition(self):
         # run face recognition and return a username (string) if available
         if self.fr_ready:
@@ -672,7 +676,7 @@ class BarcodeViewer(ctk.CTk):
             result = fr.main()  # Fallback
 
         return self.process_face_recognition_result(result)
-
+    
     def _prompt_for_barcode(self, prompt="Scan barcode and press Enter", title="Scan Barcode"):
         """
         Open a modal dialog with a single Entry focused. Return the scanned text
