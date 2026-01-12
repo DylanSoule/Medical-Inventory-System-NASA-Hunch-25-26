@@ -88,8 +88,13 @@ class BarcodeViewer(ctk.CTk):
 
         # Column visibility controls
         ctk.CTkLabel(sidebar, text="Show Columns", anchor="w", font=("Arial", 22)).pack(padx=25, pady=(18,10), fill="x")
-        
-        # Track column visibility
+
+    #region ######################## Column configs
+
+            # Create Treeview (table) with user column inside content frame
+        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_type", "item_loc")
+
+            # Track column visibility
         self.column_visibility = {
             "drug": tk.BooleanVar(value=True),
             "barcode": tk.BooleanVar(value=True),
@@ -97,21 +102,34 @@ class BarcodeViewer(ctk.CTk):
             "exp_date": tk.BooleanVar(value=True),
             "type_": tk.BooleanVar(value=True),
             "dose_size": tk.BooleanVar(value=True),
-            "item_type": tk.BooleanVar(value=True)
+            "item_type": tk.BooleanVar(value=True),
+            "item_loc": tk.BooleanVar(value=True)
         }
         
-        # Column labels for display
+            # Column labels for display
         column_labels = {
             "drug": "Drug",
             "barcode": "Barcode",
-            "est_amount": "Amount",
+            "est_amount": "Amt~",
             "exp_date": "Expiration",
             "type_": "Type",
             "dose_size": "Dose Size",
-            "item_type": "Item Type"
+            "item_type": "Item Type",
+            "item_loc": "Location"
         }
-        
-        # Create checkboxes for each column
+
+            # Store column configurations
+        self.column_configs = {
+            "drug": {"text": "Drug", "width": 220},
+            "barcode": {"text": "Barcode", "width": 170},
+            "est_amount": {"text": "Amt~", "width": 100},
+            "exp_date": {"text": "Expiration", "width": 140},
+            "type_": {"text": "Type", "width": 120},
+            "dose_size": {"text": "Dose Size", "width": 140},
+            "item_type": {"text": "Item Type", "width": 140},
+            "item_loc": {"text": "Location", "width": 100}
+        }
+            # Create checkboxes for each column
         columns_frame = ctk.CTkFrame(sidebar, corner_radius=6)
         columns_frame.pack(padx=25, pady=(0,18), fill="x")
         
@@ -124,7 +142,9 @@ class BarcodeViewer(ctk.CTk):
                 command=self.update_column_visibility
             ).pack(padx=12, pady=5, anchor="w")
 
-# Vertical button group in sidebar
+    #endregion
+    
+    # Vertical button group in sidebar
         btns_frame = ctk.CTkFrame(sidebar, corner_radius=6)
         btns_frame.pack(padx=25, pady=(25,25), fill="x")
 
@@ -178,21 +198,8 @@ class BarcodeViewer(ctk.CTk):
         content_frame = ctk.CTkFrame(main_frame, corner_radius=6)
         content_frame.pack(side="left", fill="both", expand=True, padx=(0,18), pady=18)
 
-        # Create Treeview (table) with user column inside content frame
-        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_type")
-        # keep extended selectmode but we intercept clicks to allow toggle-without-ctrl
+        #keep extended selectmode but we intercept clicks to allow toggle-without-ctrl
         self.tree = ttk.Treeview(content_frame, columns=columns, show="headings", selectmode="extended")
-        
-        # Store column configurations
-        self.column_configs = {
-            "drug": {"text": "Drug", "width": 220},
-            "barcode": {"text": "Barcode", "width": 170},
-            "est_amount": {"text": "Amount est", "width": 140},
-            "exp_date": {"text": "Expiration", "width": 140},
-            "type_": {"text": "Type", "width": 120},
-            "dose_size": {"text": "Dose Size", "width": 140},
-            "item_type": {"text": "Item Type", "width": 140}
-        }
         
         # Configure all columns initially
         for col_id, config in self.column_configs.items():
@@ -217,7 +224,115 @@ class BarcodeViewer(ctk.CTk):
         # Initial column width adjustment after UI is fully loaded
         self.after(500, lambda: self._adjust_column_widths([c for c, v in self.column_visibility.items() if v.get()]))
         self.after(REFRESH_INTERVAL, self.refresh_data)
-    
+
+    def apply_search_filter(self, event=None):
+        """
+        Apply search and filter UI to the cached DB rows and populate the treeview.
+        Filters available:
+         - search text (matches drug, barcode, type, dose_size, or item_type)
+         - filter_var: "All", "Expiring Soon", "Expired"
+         - low_stock_var checkbox (threshold)
+        Results are sorted alphabetically by drug name.
+        """
+        # clear view
+        self.tree.delete(*self.tree.get_children())
+
+        rows = getattr(self, "_all_rows", None)
+        if rows is None:
+            # fallback to pulling directly
+            try:
+                rows = list(self.db.pull_data("drugs_in_inventory"))
+            except Exception:
+                rows = []
+
+        q = (self.search_var.get() or "").strip().lower()
+        mode = (self.filter_var.get() or "All")
+        low_only = bool(self.low_stock_var.get())
+        low_threshold = 20  # example threshold for low stock
+        now = datetime.date.today()
+
+        def parse_date(d):
+            if not d:
+                return None
+            if isinstance(d, datetime.date):
+                return d
+            s = str(d).strip()
+            for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%d-%m-%Y", "%Y-%m-%d %H:%M:%S"):
+                try:
+                    return datetime.datetime.strptime(s, fmt).date()
+                except Exception:
+                    continue
+            # last resort: try ISO parse
+            try:
+                return datetime.date.fromisoformat(s)
+            except Exception:
+                return None
+
+        # Collect filtered rows before inserting
+        filtered_rows = []
+
+        for row in rows:
+            # Normalize DB row into (barcode, drug, est_amount, exp_date, type_, dose_size, item_type, item_loc)
+            try:
+                barcode, drug, est_amount, exp_date_raw, type_, dose_size, item_type, item_loc = row[0], row[1], row[2], row[3], row[4], row[6], row[5], row[7]
+            except Exception:
+                # fallback: use positional mapping if shape differs
+                vals = list(row)
+                barcode = vals[0] if len(vals) > 0 else ""
+                drug = vals[1] if len(vals) > 1 else ""
+                est_amount = vals[2] if len(vals) > 2 else ""
+                exp_date_raw = vals[3] if len(vals) > 3 else None
+                type_ = vals[4] if len(vals) > 4 else ""
+                dose_size = vals[5] if len(vals) > 5 else ""
+                item_type = vals[6] if len(vals) > 6 else ""
+                item_loc = vals[7] if len(vals) > 7 else ""
+
+            # Search filter - search across all text fields
+            if q:
+                searchable_fields = [
+                    str(drug).lower(),
+                    str(barcode).lower(),
+                    str(type_).lower(),
+                    str(dose_size).lower(),
+                    str(item_type).lower(),
+                    str(item_loc).lower()
+                ]
+                if not any(q in field for field in searchable_fields):
+                    continue
+
+            # Low stock filter
+            if low_only:
+                try:
+                    amt = float(est_amount)
+                except Exception:
+                    # if amount not parseable, exclude from low-stock view
+                    continue
+                if amt > low_threshold:
+                    continue
+
+            # Expiration filters
+            exp_date = parse_date(exp_date_raw)
+            if mode == "Expired":
+                if not exp_date or exp_date >= now:
+                    continue
+            elif mode == "Expiring Soon":
+                if not exp_date:
+                    continue
+                delta = (exp_date - now).days
+                if delta < 0 or delta > 30:
+                    continue
+
+            # Display order: (drug, barcode, est_amount, exp_date, type_, dose_size, item_type)
+            display_row = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_type, item_loc)
+            filtered_rows.append(display_row)
+
+        # Sort alphabetically by drug name (first column in display_row)
+        filtered_rows.sort(key=lambda x: str(x[0]).lower())
+
+        # Insert sorted rows into treeview
+        for display_row in filtered_rows:
+            self.tree.insert("", "end", values=display_row)
+
     def show_popup(self, title, message, popup_type="info"):
         """Show a custom CTk popup dialog matching the app's modern style.
         popup_type: 'info', 'error', or 'warning'
@@ -697,111 +812,7 @@ class BarcodeViewer(ctk.CTk):
         # Populate the tree according to current filters/search
         self.apply_search_filter()
     
-    def apply_search_filter(self, event=None):
-        """
-        Apply search and filter UI to the cached DB rows and populate the treeview.
-        Filters available:
-         - search text (matches drug, barcode, type, dose_size, or item_type)
-         - filter_var: "All", "Expiring Soon", "Expired"
-         - low_stock_var checkbox (threshold)
-        Results are sorted alphabetically by drug name.
-        """
-        # clear view
-        self.tree.delete(*self.tree.get_children())
-
-        rows = getattr(self, "_all_rows", None)
-        if rows is None:
-            # fallback to pulling directly
-            try:
-                rows = list(self.db.pull_data("drugs_in_inventory"))
-            except Exception:
-                rows = []
-
-        q = (self.search_var.get() or "").strip().lower()
-        mode = (self.filter_var.get() or "All")
-        low_only = bool(self.low_stock_var.get())
-        low_threshold = 20  # example threshold for low stock
-        now = datetime.date.today()
-
-        def parse_date(d):
-            if not d:
-                return None
-            if isinstance(d, datetime.date):
-                return d
-            s = str(d).strip()
-            for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%d-%m-%Y", "%Y-%m-%d %H:%M:%S"):
-                try:
-                    return datetime.datetime.strptime(s, fmt).date()
-                except Exception:
-                    continue
-            # last resort: try ISO parse
-            try:
-                return datetime.date.fromisoformat(s)
-            except Exception:
-                return None
-
-        # Collect filtered rows before inserting
-        filtered_rows = []
-
-        for row in rows:
-            # Normalize DB row into (barcode, drug, est_amount, exp_date, type_, dose_size, item_type)
-            try:
-                barcode, drug, est_amount, exp_date_raw, type_, dose_size, item_type = row[0], row[1], row[2], row[3], row[4], row[6], row[5]
-            except Exception:
-                # fallback: use positional mapping if shape differs
-                vals = list(row)
-                barcode = vals[0] if len(vals) > 0 else ""
-                drug = vals[1] if len(vals) > 1 else ""
-                est_amount = vals[2] if len(vals) > 2 else ""
-                exp_date_raw = vals[3] if len(vals) > 3 else None
-                type_ = vals[4] if len(vals) > 4 else ""
-                dose_size = vals[5] if len(vals) > 5 else ""
-                item_type = vals[6] if len(vals) > 6 else ""
-
-            # Search filter - search across all text fields
-            if q:
-                searchable_fields = [
-                    str(drug).lower(),
-                    str(barcode).lower(),
-                    str(type_).lower(),
-                    str(dose_size).lower(),
-                    str(item_type).lower()
-                ]
-                if not any(q in field for field in searchable_fields):
-                    continue
-
-            # Low stock filter
-            if low_only:
-                try:
-                    amt = float(est_amount)
-                except Exception:
-                    # if amount not parseable, exclude from low-stock view
-                    continue
-                if amt > low_threshold:
-                    continue
-
-            # Expiration filters
-            exp_date = parse_date(exp_date_raw)
-            if mode == "Expired":
-                if not exp_date or exp_date >= now:
-                    continue
-            elif mode == "Expiring Soon":
-                if not exp_date:
-                    continue
-                delta = (exp_date - now).days
-                if delta < 0 or delta > 30:
-                    continue
-
-            # Display order: (drug, barcode, est_amount, exp_date, type_, dose_size, item_type)
-            display_row = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_type)
-            filtered_rows.append(display_row)
-
-        # Sort alphabetically by drug name (first column in display_row)
-        filtered_rows.sort(key=lambda x: str(x[0]).lower())
-
-        # Insert sorted rows into treeview
-        for display_row in filtered_rows:
-            self.tree.insert("", "end", values=display_row)
+    
 
     def admin(self, title, prompt="Enter admin code"):
         code = 1234
