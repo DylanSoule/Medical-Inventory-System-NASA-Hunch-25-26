@@ -382,10 +382,10 @@ class PersonalDatabaseManager:
         conn.commit()
         conn.close()
 
-    def compare_history_with_prescription():
+    def compare_history_with_prescription(days_back):
         pass
 
-    def compare_log_with_prescription():
+    def compare_log_with_prescription(row):
         pass
 
     '''The following is an old function that is not in use but being kept around just in case'''
