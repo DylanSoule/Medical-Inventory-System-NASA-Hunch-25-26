@@ -1,0 +1,238 @@
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    width: 100%;
+}
+
+body {
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+}
+
+/* Header Section with Gradient */
+.header-section {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    padding: 40px 20px;
+    margin: -20px -20px 30px -20px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.header-section h1 {
+    color: white;
+    margin: 10px 0;
+    font-size: 3em;
+}
+
+.header-section p {
+    color: #e0e0e0;
+    max-width: 800px;
+    margin: 15px auto;
+    font-size: 1.1em;
+}
+
+.header-section img {
+    filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
+    transition: transform 0.3s ease;
+    width: 200px;
+    height: 200px;
+}
+
+
+/* Container Styles */
+.container {
+    display: flex;
+    gap: 40px;
+    max-width: 1200px;
+    margin: 0 auto 40px auto;
+    flex-wrap: wrap;
+}
+
+.column {
+    flex: 1;
+    min-width: 280px;
+    background: rgb(24, 26, 27);
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.column:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+}
+
+.column h3 {
+    margin-top: 0;
+    color: #4570bb;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.377);
+    margin: 20px auto;
+    box-shadow: none;
+}
+
+.column hr {
+    border: 1px solid #4774c0;
+    margin-left: 0;
+}
+
+/* Section Styles */
+.section {
+    background: rgba(24, 26, 27);
+    padding: 40px 20px;
+    margin: 30px auto;
+    max-width: 1200px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.section h2 {
+    color: #4774c0;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Table Styles */
+table {
+    background: rgba(24, 26, 27);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: none;
+}
+
+table th,
+table td {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: none;
+    border-top: none;
+    color: #e0e0e0;
+}
+
+table th:last-child,
+table td:last-child {
+    border-right: none;
+}
+
+table tr:last-child td {
+    border-bottom: none;
+}
+
+table th {
+    background: rgba(255, 255, 255, 0.05);
+    font-weight: bold;
+}
+
+table tr {
+    transition: background-color 0.3s ease;
+}
+
+table tr:hover {
+    background-color: #f0f0f044 !important;
+}
+
+/* Footer Styles */
+footer {
+    background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%) !important;
+    padding: 40px 20px !important;
+    text-align: center;
+    margin: 40px -20px -20px -20px;
+    color: white !important;
+}
+
+footer h3 {
+    color: white !important;
+}
+
+footer p {
+    color: #e0e0e0 !important;
+}
+
+footer a {
+    display: inline-block;
+    padding: 15px 30px;
+    background: white;
+    color: #2a5298 !important;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: bold;
+    margin: 10px 0;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+
+footer a:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    background: #f0f0f0;
+}
+
+/* Mobile Optimization */
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    body {
+        padding: 10px;
+    }
+    
+    .header-section {
+        margin: -10px -10px 20px -10px;
+        padding: 30px 15px;
+    }
+    
+    .header-section h1 {
+        font-size: 2em;
+    }
+    
+    .header-section p {
+        font-size: 1em;
+    }
+    
+    .section {
+        padding: 25px 15px;
+        margin: 20px auto;
+    }
+    
+    table {
+        font-size: 14px;
+    }
+    
+    footer {
+        margin: 30px -10px -10px -10px;
+        padding: 30px 15px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-section h1 {
+        font-size: 1.5em;
+    }
+    
+    .column {
+        padding: 15px;
+    }
+    
+    table {
+        font-size: 12px;
+    }
+    
+    table td, table th {
+        padding: 8px 5px !important;
+    }
+}
