@@ -4,21 +4,29 @@
         <title>Medical Inventory System</title>
         <link rel="icon" href="../assets/transparent_logo.png" />
         <style>
-            body {
+            * {
+                box-sizing: border-box;
+            }
+            html, body {
                 margin: 0;
+                padding: 0;
+                overflow-x: hidden;
+                width: 100%;
+            }
+            body {
                 padding: 20px;
                 font-family: Arial, sans-serif;
             }
             .container {
                 display: flex;
-                gap: 100px;
+                gap: 40px;
                 max-width: 1200px;
                 margin: 0 auto;
                 flex-wrap: wrap;
             }
             .column {
                 flex: 1;
-                min-width: 300px;
+                min-width: 280px;
             }
             .column h3 {
                 margin-top: 0;
@@ -30,6 +38,10 @@
             @media (max-width: 768px) {
                 .container {
                     flex-direction: column;
+                    gap: 20px;
+                }
+                body {
+                    padding: 10px;
                 }
             }
         </style>
@@ -64,7 +76,6 @@
             </div>
         </div>
 
-        <!-- Roadmap Section -->
         <br><br>
         <h2 align="center">Project Timeline</h2>
         <hr width="80%">
@@ -96,34 +107,68 @@
             <tr>
                 <td align="center"><b>Oct 2025</b></td>
                 <td><b>PDR</b></td>
-                <td>Showcase of current project status and progress to NASA stakeholders.</td>
+                <td>Showcase of current project status and progress to NASA engineers.</td>
             <tr>
+            <tr bgcolor="#f4f4f4">
                 <td align="center"><b>Nov 2025</b></td>
                 <td><b>Repo Reorganization</b></td>
                 <td>Restructured codebase into organized directories (src/, tests/, scripts/, docs/, assets/) for better maintainability.</td>
             </tr>
-            <tr bgcolor="#f4f4f4">
+
                 <td align="center"><b>Nov 2025</b></td>
                 <td><b>Deletion & log System</b></td>
                 <td>Built comprehensive deletion tracking with mandatory admin PIN, and persistent log trail.</td>
             </tr>
             <tr>
+            <tr bgcolor="#f4f4f4">
                 <td align="center"><b>Dec 2025</b></td>
                 <td><b>Raspberry Pi Deployment</b></td>
                 <td>Configured system for Raspberry Pi 4 with auto-start capabilities, fullscreen kiosk mode, and deployment documents.</td>
             </tr>
-            <tr bgcolor="#f4f4f4">
+
                 <td align="center"><b>Jan 2026</b></td>
                 <td><b>UI/UX Polish</b></td>
                 <td>Reworked UI layout, enhanced admin controls, and improved user experience.</td>
             </tr>
             <tr>
+            <tr bgcolor="#f4f4f4">
                 <td align="center"><b>Jan 2026</b></td>
                 <td><b>Documentation & Website</b></td>
                 <td>Created documentation, project website, and materials for NASA Hunch CDR presentation.</td>
             </tr>
         </table>
         <br><br>
+
+
+        <h2 align="center">About NASA HUNCH</h2>
+        <hr width="80%">
+        <br>
+        <p align="center" style="max-width: 900px; margin-left: auto; margin-right: auto;">
+            NASA HUNCH (High School Students United with NASA to Create Hardware) is a program that gives high school students 
+            the opportunity to participate in the design and creation of real products for NASA. Through this program, students work 
+            on projects that support the International Space Station (ISS), Orion, Gateway, and other NASA missions. 
+            H.E.L.I.O.S is being developed as part of the 2025-2026 NASA HUNCH program, addressing the need for accurate 
+            medical inventory tracking in space.
+        </p>
+        <br><br>
+
+
+
+        <hr width="100%">
+        <footer style="background-color: #f4f4f4; padding: 30px; text-align: center;">
+            <h3>View Our Project on GitHub</h3>
+            <p>Check out the source code, documentation, and contribute to the H.E.L.I.O.S project.</p>
+            <a href="https://github.com/DylanSoule/Medical-Inventory-System-NASA-Hunch-25-26" 
+                target="_blank" 
+                style="display: inline-block; padding: 15px 30px; background-color: #333; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 10px 0;">
+                Visit GitHub Repository
+            </a>
+            <br><br>
+            <p style="color: #666; font-size: 14px;">
+                2025-2026 H.E.L.I.O.S Team | NASA HUNCH Program<br>
+                Dylan Soule • Lucca Townsend • Brody Barnes • Zach Stelman
+            </p>
+        </footer>
         
     </body>
 </html>
