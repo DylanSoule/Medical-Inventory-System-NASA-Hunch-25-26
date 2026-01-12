@@ -281,8 +281,3 @@ class PersonalDatabaseManager:
 
         conn.commit()
         conn.close()
-
-
-test = DatabaseManager('Database/inventory.db')
-# print(test.pull_data('drugs'))
-test.add_to_inventory('1','brody')
