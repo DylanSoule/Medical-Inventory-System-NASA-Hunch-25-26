@@ -461,12 +461,12 @@ if __name__ == "__main__":
 
     # print(str(read1.pull_data('drug_changes')).replace('),',')\n'))
     # print(str(read.pull_data('history')).replace('),',')\n'))
-    # a1 = datetime.strptime("2026-1-8 13:00:00", time_format)
-    # a2 = datetime.strptime("2026-1-1 14:00:00", time_format)
-    # print(a1)
-    # print(a2)
-    # print((a2-a1))
-    # print((a1-a2).seconds)
+    a1 = datetime.strptime("2026-1-1 13:00:00", time_format)
+    a2 = datetime.strptime("2026-1-8 14:00:00", time_format)
+    print(a1)
+    print(a2)
+    print((a2-a1).days)
+    print((a2-a1).seconds)
     # time_format = "%Y-%m-%d %H:%M:%S"
 
 # self, barcode, dname, amount, expiration_date, Type, item_type, dose_size
