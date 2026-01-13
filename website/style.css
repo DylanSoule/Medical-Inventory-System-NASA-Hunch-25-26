@@ -16,7 +16,7 @@ body {
     background-attachment: fixed;
 }
 
-/* Header Section with Gradient */
+
 .header-section {
     background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
     padding: 40px 20px;
@@ -164,7 +164,7 @@ footer p {
 footer a {
     display: inline-block;
     padding: 15px 30px;
-    background: white;
+    background: rgb(56, 54, 54);
     color: #2a5298 !important;
     text-decoration: none;
     border-radius: 25px;
