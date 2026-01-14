@@ -165,8 +165,8 @@ class BarcodeViewer(ctk.CTk):
         )
         self.log_scan_btn.pack()
 
-        # CLEAN status indicator (no square, no border, no background)
-        self.status_indicator = ctk.CTkFrame(
+        # Status indicator for Log Scan button
+        self.log_scan_indicator = ctk.CTkFrame(
                 btn_container,
                 width=18,
                 height=18,
@@ -174,22 +174,22 @@ class BarcodeViewer(ctk.CTk):
                 fg_color="#94a3b8",        # circle color
                 bg_color="#1f538d",
         )
-        self.status_indicator.pack_propagate(False)
+        self.log_scan_indicator.pack_propagate(False)
 
         # Place it over the right edge of the button
-        self.status_indicator.place(relx=1.0, rely=0.5, anchor="e", x=-12)
+        self.log_scan_indicator.place(in_=self.log_scan_btn, relx=1.0, rely=0.5, anchor="e", x=-12)
 
         # Change indicator color on button hover
-        def on_enter(_):
-            self.status_indicator.configure(bg_color="#14375e")
-        def on_leave(_):
-            self.status_indicator.configure(bg_color="#1f538d")
+        def on_enter_log(_):
+            self.log_scan_indicator.configure(bg_color="#14375e")
+        def on_leave_log(_):
+            self.log_scan_indicator.configure(bg_color="#1f538d")
 
-        self.log_scan_btn.bind("<Enter>", on_enter)
-        self.log_scan_btn.bind("<Leave>", on_leave)
+        self.log_scan_btn.bind("<Enter>", on_enter_log)
+        self.log_scan_btn.bind("<Leave>", on_leave_log)
 
         # Make sure it renders above the button
-        self.status_indicator.tkraise()
+        self.log_scan_indicator.tkraise()
     #endregion
 
     #region ######################## personal DB Button with Status Indicator
@@ -203,8 +203,9 @@ class BarcodeViewer(ctk.CTk):
             font=("Arial", 22)
         )
         self.personal_db_btn.pack(pady=12)
-        # CLEAN status indicator (no square, no border, no background)
-        self.status_indicator= ctk.CTkFrame(
+        
+        # Status indicator for Personal DB button
+        self.personal_db_indicator = ctk.CTkFrame(
                 btn_container,
                 width=18,
                 height=18,
@@ -212,21 +213,22 @@ class BarcodeViewer(ctk.CTk):
                 fg_color="#94a3b8",        # circle color
                 bg_color="#1f538d",
         )
-        self.status_indicator.pack_propagate(False)
+        self.personal_db_indicator.pack_propagate(False)
 
         # Place it over the right edge of the button
-        self.status_indicator.place(relx=1.0, rely=0.5, anchor="e", x=-5)
+        self.personal_db_indicator.place(in_=self.personal_db_btn, relx=1.0, rely=0.5, anchor="e", x=-12)
+        
         # Change indicator color on button hover
-        def on_enter(_):
-            self.status_indicator.configure(bg_color="#14375e")
-        def on_leave(_):
-            self.status_indicator.configure(bg_color="#1f538d")
+        def on_enter_personal(_):
+            self.personal_db_indicator.configure(bg_color="#14375e")
+        def on_leave_personal(_):
+            self.personal_db_indicator.configure(bg_color="#1f538d")
 
-        self.personal_db_btn.bind("<Enter>", on_enter)
-        self.personal_db_btn.bind("<Leave>", on_leave)
+        self.personal_db_btn.bind("<Enter>", on_enter_personal)
+        self.personal_db_btn.bind("<Leave>", on_leave_personal)
 
         # Make sure it renders above the button
-        self.status_indicator.tkraise()
+        self.personal_db_indicator.tkraise()
     #endregion
 
         ctk.CTkButton(btns_frame, text="Delete Selected", command=self.delete_selected, width=350, height=60, font=("Arial", 22)).pack(pady=12)
@@ -263,14 +265,14 @@ class BarcodeViewer(ctk.CTk):
         # Initial column width adjustment after UI is fully loaded
         self.after(500, lambda: self._adjust_column_widths([c for c, v in self.column_visibility.items() if v.get()]))
         self.after(REFRESH_INTERVAL, self.refresh_data)
-    
+    #region ######################## Personal DB
     def personal_db(self):
         """Placeholder for personal database viewing functionality (WIP)"""
         user=self.scan_face(scan_text="access personal database", btn="personal_db_btn", btn_text="View Personal Database")
         if user is None or user == "":
             return
         pass
-        
+    #endregion
     def apply_search_filter(self, event=None):
         """
         Apply search and filter UI to the cached DB rows and populate the treeview.
@@ -493,7 +495,10 @@ class BarcodeViewer(ctk.CTk):
                             try:
                                 if hasattr(self, 'log_scan_btn'):
                                     self.log_scan_btn.configure(text="Log Item Use", state="normal")
-                                self.set_status_indicator("#22c55e")
+                                if hasattr(self, 'personal_db_btn'):
+                                    self.personal_db_btn.configure(text="View Personal Database", state="normal")
+                                self.set_status_indicator("#22c55e", "log_scan_indicator")
+                                self.set_status_indicator("#22c55e", "personal_db_indicator")
                             except Exception as e:
                                 print(f"Error enabling UI: {e}")
                         self.after(0, enable_ui)
@@ -502,7 +507,10 @@ class BarcodeViewer(ctk.CTk):
                             try:
                                 if hasattr(self, 'log_scan_btn'):
                                     self.log_scan_btn.configure(text="Log Item Use", state="disabled")
-                                self.set_status_indicator("#94a3b8")
+                                if hasattr(self, 'personal_db_btn'):
+                                    self.personal_db_btn.configure(text="View Personal Database", state="disabled")
+                                self.set_status_indicator("#94a3b8", "log_scan_indicator")
+                                self.set_status_indicator("#94a3b8", "personal_db_indicator")
                             except Exception as e:
                                 print(f"Error disabling UI: {e}")
                         self.after(0, disable_ui)
@@ -568,7 +576,10 @@ class BarcodeViewer(ctk.CTk):
                                 try:
                                     if hasattr(self, 'log_scan_btn'):
                                         self.log_scan_btn.configure(state="normal")
-                                    self.set_status_indicator("#22c55e")
+                                    if hasattr(self, 'personal_db_btn'):
+                                        self.personal_db_btn.configure(state="normal")
+                                    self.set_status_indicator("#22c55e", "log_scan_indicator")
+                                    self.set_status_indicator("#22c55e", "personal_db_indicator")
                                     print("Camera recovered successfully!")
                                 except Exception as e:
                                     print(f"Error updating UI after camera recovery: {e}")
@@ -591,12 +602,17 @@ class BarcodeViewer(ctk.CTk):
         monitor_thread = threading.Thread(target=camera_monitor, daemon=True)
         monitor_thread.start()
 
-    def set_status_indicator(self, color):
-        """Update the status indicator color - the colored dot to the right of Log Scan button"""
+    def set_status_indicator(self, color, indicator_name="log_scan_indicator"):
+        """Update a status indicator color by name
+        
+        Args:
+            color: hex color string (e.g., "#22c55e")
+            indicator_name: name of the indicator attribute (default: "log_scan_indicator")
+        """
         try:
-            if hasattr(self, 'status_indicator'):
-                self.status_indicator.configure(fg_color=color)
-                self.status_indicator.update()  # Force immediate update
+            if hasattr(self, indicator_name):
+                getattr(self, indicator_name).configure(fg_color=color)
+                getattr(self, indicator_name).update()  # Force immediate update
         except Exception as e:
             # Silently ignore if status_indicator doesn't exist
             pass
@@ -606,10 +622,13 @@ class BarcodeViewer(ctk.CTk):
         import threading
         import time
         
+        # Determine which indicator to use based on button name
+        indicator_name = "log_scan_indicator" if btn == "log_scan_btn" else "personal_db_indicator"
+        
         # Set status to scanning (amber/yellow)
-        self.set_status_indicator("#f59e0b")
+        self.set_status_indicator("#f59e0b", indicator_name)
         if hasattr(self, btn):
-            self.btn.configure(state="disabled", text="Scanning...")
+            getattr(self, btn).configure(state="disabled", text="Scanning...")
         
         result = {"value": None, "completed": False}
         
@@ -642,41 +661,44 @@ class BarcodeViewer(ctk.CTk):
         
         if not result["completed"]:
             # Timeout occurred
-            self.set_status_indicator("#dc2626")
+            self.set_status_indicator("#dc2626", indicator_name)
             default_status = "#22c55e" if self.fr_ready else "#94a3b8"
-            self.after(2000, lambda: self.set_status_indicator(default_status))
+            self.after(2000, lambda: self.set_status_indicator(default_status, indicator_name))
             return "timeout"
         else:
             # Completed normally - reset status to defaultmake face id work with the new ui,
 
             default_status = "#22c55e" if self.fr_ready else "#94a3b8"
-            self.set_status_indicator(default_status)
+            self.set_status_indicator(default_status, indicator_name)
             return result["value"]
 
     def process_face_recognition_result(self, btn, result= None):
         """Process face recognition result and return username"""
+        
+        # Determine which indicator to use based on button name
+        indicator_name = "log_scan_indicator" if btn == "log_scan_btn" else "personal_db_indicator"
         
         # Handle FaceRecognitionError enum types
         if isinstance(result, FaceRecognitionError):
             if result == FaceRecognitionError.CAMERA_ERROR:
                 self.show_popup("Camera Error", "Camera could not be initialized.", "error")
                 self.camera_ready = False
-                self.set_status_indicator("#dc2626")
+                self.set_status_indicator("#dc2626", indicator_name)
                 if hasattr(self, btn):
                     getattr(self, btn).configure(state="disabled")
             elif result == FaceRecognitionError.CAMERA_DISCONNECTED:
                 self.show_popup("Camera Disconnected", "Camera was disconnected. Please reconnect and try again.", "error")
-                self.set_status_indicator("#dc2626")
+                self.set_status_indicator("#dc2626", indicator_name)
                 self.camera_ready = False
                 # Attempt to reinitialize camera
                 if fr.reinitialize_camera():
                     self.camera_ready = True
                     self.show_popup("Camera Reconnected", "Camera has been reconnected!", "info")
-                    if hasattr(self, 'log_scan_btn'):
-                        self.log_scan_btn.configure(state="normal")
+                    if hasattr(self, btn):
+                        getattr(self, btn).configure(state="normal")
                 else:
                     if hasattr(self, btn):
-                        self.btn.configure(state="disabled")
+                        getattr(self, btn).configure(state="disabled")
             elif result == FaceRecognitionError.REFERENCE_FOLDER_ERROR:
                 self.show_popup("Reference Folder Error", "Reference images folder not found. Please add face images to assets/references/", "error")
             elif result == FaceRecognitionError.FRAME_CAPTURE_FAILED:
@@ -753,7 +775,7 @@ class BarcodeViewer(ctk.CTk):
             self.show_popup("Error", f"Face recognition failed: {user_result}", "error")
             return
         
-        user = self.process_face_recognition_result(btn, user_result, btn_text)
+        user = self.process_face_recognition_result(btn, user_result)
         
         if not user:
             self.show_popup("Authentication Required", f"Face recognition must be successful to {scan_text}.", "error")
