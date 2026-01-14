@@ -16,6 +16,15 @@ body {
     background-attachment: fixed;
 }
 
+.logo {
+    width: 150px;
+    height: 150px;
+    text-decoration: none;
+}
+
+.logo img:hover {
+    transform: scale(1.05);
+}
 
 .header-section {
     background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
