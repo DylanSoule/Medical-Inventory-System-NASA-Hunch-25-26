@@ -326,7 +326,7 @@ class PersonalDatabaseManager:
             frequency - how often they take the drug in days(eg. 1 means every day, 2 is every other day, 4 is every 4 days, and 7 is weekly)
             time - if they have one, when they should take the medication(Not needed for database)(in HH:MM:SS)
             leeway - how long they have before or after to take the drug before alert is raised(in minutes)
-            start_date - when they first started taking the medication, or a day that they were supposed to take it, used to calculate when they should take it in the future(in %Y-%m-%d)
+            start_date - when they first started taking the medication, or a day that they were supposed to take it, used to calculate when they should take it in the future(in %Y-%m-%d %H:%M:%S)
             end_date - when they stop taking their prescription(Not needed for database to work)
         
         history table:
@@ -382,7 +382,7 @@ class PersonalDatabaseManager:
         conn.commit()
         conn.close()
 
-    def compare_history_with_prescription(self, days_back):
+    def compare_history_with_prescription(self, days_back=7):
         pass
 
     def compare_most_recent_log_with_prescription(self):
@@ -394,10 +394,14 @@ class PersonalDatabaseManager:
         c.execute(f"SELECT * FROM prescription WHERE barcode = {last_taken[0]}")
         matching_prescriptions = c.fetchall()
 
-        date_taken = datetime.strptime(last_taken[3], time_format)
+        date_taken = datetime.strptime(last_taken[2], time_format)
 
         for prescription in matching_prescriptions:
-            prescription_date = prescription[3]
+            prescription_start_date = datetime.strptime(prescription[6], '%Y-%m-%d')
+            difference = (date_taken - prescription_start_date).total_seconds()
+            if (difference % (prescription[3]*86400)) < (prescription[5] * 3600) and (last_taken[3] == prescription[2]):
+                return True
+        return False
             
 
 
@@ -453,20 +457,16 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    read = PersonalDatabaseManager('Database/dylan_records.db')
-    read1 = DatabaseManager('Database/inventory.db')
+    # read = PersonalDatabaseManager('Database/dylan_records.db')
+    # read1 = DatabaseManager('Database/inventory.db')
 
     
-    #  def log_access_to_inventory_with_mutable_date(self, barcode, change, user, date_time): # FOR TESTING ONLY
+    # print(read.compare_most_recent_log_with_prescription())
+    # print(str(read.pull_data('prescription')).replace('),',')\n'))
 
-    # print(str(read1.pull_data('drug_changes')).replace('),',')\n'))
-    # print(str(read.pull_data('history')).replace('),',')\n'))
-    a1 = datetime.strptime("2026-1-1 13:00:00", time_format)
-    a2 = datetime.strptime("2026-1-8 14:00:00", time_format)
-    print(a1)
-    print(a2)
-    print((a2-a1).days)
-    print((a2-a1).seconds)
-    # time_format = "%Y-%m-%d %H:%M:%S"
+    # UPDATE table_name SET column_name = new_value WHERE condition
 
-# self, barcode, dname, amount, expiration_date, Type, item_type, dose_size
+    conn = sqlite3.connect('Database/dylan_records.db')
+    c = conn.cursor()
+
+    c.execute('UPDATE prescriptions SET start_date = new_value WHERE condition')
