@@ -386,6 +386,15 @@ class PersonalDatabaseManager:
         pass
 
     def compare_most_recent_log_with_prescription(self):
+        """
+        Docstring for compare_most_recent_log_with_prescription
+
+        function compares most recent log by the person who's inventory is being accessed with their prescriptions
+        
+        :param self: pulls inventory path to personal database from class call
+
+        return True or False based on if match is found or not
+        """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
@@ -394,12 +403,16 @@ class PersonalDatabaseManager:
         c.execute(f"SELECT * FROM prescription WHERE barcode = {last_taken[0]}")
         matching_prescriptions = c.fetchall()
 
+        if matching_prescriptions == []:
+            return False
         date_taken = datetime.strptime(last_taken[2], time_format)
 
         for prescription in matching_prescriptions:
-            prescription_start_date = datetime.strptime(prescription[6], '%Y-%m-%d')
+            if prescription[8] == True:
+                return True
+            prescription_start_date = datetime.strptime(prescription[6], time_format)
             difference = (date_taken - prescription_start_date).total_seconds()
-            if (difference % (prescription[3]*86400)) < (prescription[5] * 3600) and (last_taken[3] == prescription[2]):
+            if (86400 - (difference % (prescription[3]*86400))) <= float(prescription[5] * 3600) and (int(last_taken[3]) == prescription[2]):
                 return True
         return False
             
@@ -457,16 +470,11 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    # read = PersonalDatabaseManager('Database/dylan_records.db')
-    # read1 = DatabaseManager('Database/inventory.db')
+    read = PersonalDatabaseManager('Database/dylan_records.db')
+    read1 = DatabaseManager('Database/inventory.db')
 
     
-    # print(read.compare_most_recent_log_with_prescription())
+    print(read.compare_most_recent_log_with_prescription())
     # print(str(read.pull_data('prescription')).replace('),',')\n'))
 
     # UPDATE table_name SET column_name = new_value WHERE condition
-
-    conn = sqlite3.connect('Database/dylan_records.db')
-    c = conn.cursor()
-
-    c.execute('UPDATE prescriptions SET start_date = new_value WHERE condition')
