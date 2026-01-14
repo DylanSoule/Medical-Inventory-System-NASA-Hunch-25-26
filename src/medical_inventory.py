@@ -380,7 +380,7 @@ class BarcodeViewer(ctk.CTk):
         # Insert sorted rows into treeview
         for display_row in filtered_rows:
             self.tree.insert("", "end", values=display_row)
-
+#
     def show_popup(self, title, message, popup_type="info"):
         """Show a custom CTk popup dialog matching the app's modern style.
         popup_type: 'info', 'error', or 'warning'
