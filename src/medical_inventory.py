@@ -780,7 +780,8 @@ class BarcodeViewer(ctk.CTk):
         if not user:
             self.show_popup("Authentication Required", f"Face recognition must be successful to {scan_text}.", "error")
             return
-
+        
+        return user
     
     def _prompt_for_barcode(self, prompt="Scan barcode and press Enter", title="Scan Barcode"):
         """
@@ -1012,7 +1013,7 @@ class BarcodeViewer(ctk.CTk):
 
         result = {"value": None}
 
-        def on_ok(event=None):
+        def on_ok_del(event=None):
             val = entry_var.get().strip()
             if val == "":
                 # ignore empty submit
@@ -1024,7 +1025,7 @@ class BarcodeViewer(ctk.CTk):
                 pass
             dlg.destroy()
 
-        def on_cancel(event=None):
+        def on_cancel_del(event=None):
             try:
                 dlg.grab_release()
             except:
@@ -1034,14 +1035,14 @@ class BarcodeViewer(ctk.CTk):
         # Buttons
         btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
         btn_frame.pack(pady=(0, 22), padx=18, fill="x")
-        ok_btn = ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55, font=("Arial", 20))
+        ok_btn = ctk.CTkButton(btn_frame, text="OK", command=on_ok_del, width=160, height=55, font=("Arial", 20))
         ok_btn.pack(side="left", padx=12, pady=12)
-        cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55, font=("Arial", 20), fg_color="gray30")
+        cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel_del, width=160, height=55, font=("Arial", 20), fg_color="gray30")
         cancel_btn.pack(side="left", padx=12, pady=12)
 
         # Bind Enter to OK and Escape to cancel
-        entry.bind("<Return>", on_ok)
-        dlg.bind("<Escape>", on_cancel)
+        entry.bind("<Return>", on_ok_del)
+        dlg.bind("<Escape>", on_cancel_del)
 
         # Center dialog over parent
         self.update_idletasks()
