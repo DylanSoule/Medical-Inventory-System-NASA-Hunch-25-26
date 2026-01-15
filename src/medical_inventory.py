@@ -781,7 +781,8 @@ class BarcodeViewer(ctk.CTk):
         if not user:
             self.show_popup("Authentication Required", f"Face recognition must be successful to {scan_text}.", "error")
             return
-
+        
+        return user
     
     def _prompt_for_barcode(self, prompt="Scan barcode and press Enter", title="Scan Barcode"):
         """
@@ -989,7 +990,7 @@ class BarcodeViewer(ctk.CTk):
             return False
         return True
     
-    def delete_selected(self):
+    def delete_selected(self, prompt="Enter reason for deletion", title="Delete Scans"):
         if not self.admin("Enter admin code to delete scans"):
             return
         sel = self.tree.selection()
@@ -999,7 +1000,70 @@ class BarcodeViewer(ctk.CTk):
             return
 
         # Get deletion reason
-        reason = simpledialog.askstring("Delete", "Enter reason for deletion (required):")
+        # Use CTkToplevel for a consistent modern dialog
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.transient(self)
+        dlg.resizable(False, False)
+
+        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
+
+        entry_var = tk.StringVar()
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=600, height=55, font=("Arial", 20))
+        entry.pack(padx=25, pady=(0, 22))
+
+        result = {"value": None}
+
+        def on_ok_del(event=None):
+            val = entry_var.get().strip()
+            if val == "":
+                # ignore empty submit
+                return
+            result["value"] = val
+            try:
+                dlg.grab_release()
+            except:
+                pass
+            dlg.destroy()
+
+        def on_cancel_del(event=None):
+            try:
+                dlg.grab_release()
+            except:
+                pass
+            dlg.destroy()
+
+        # Buttons
+        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
+        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
+        ok_btn = ctk.CTkButton(btn_frame, text="OK", command=on_ok_del, width=160, height=55, font=("Arial", 20))
+        ok_btn.pack(side="left", padx=12, pady=12)
+        cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel_del, width=160, height=55, font=("Arial", 20), fg_color="gray30")
+        cancel_btn.pack(side="left", padx=12, pady=12)
+
+        # Bind Enter to OK and Escape to cancel
+        entry.bind("<Return>", on_ok_del)
+        dlg.bind("<Escape>", on_cancel_del)
+
+        # Center dialog over parent
+        self.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() // 2) - (dlg.winfo_reqwidth() // 2)
+        y = self.winfo_rooty() + (self.winfo_height() // 2) - (dlg.winfo_reqheight() // 2)
+        dlg.geometry(f"+{x}+{y}")
+        
+        # Delay grab_set and focus until window is viewable
+        def do_grab():
+            try:
+                dlg.grab_set()
+                entry.focus_set()
+            except:
+                pass
+        dlg.after(50, do_grab)
+
+        # Wait for user (modal)
+        self.wait_window(dlg)
+        reason = result["value"]
+    
         if reason is None:  # User clicked Cancel
             return
         if not reason.strip():  # Empty or whitespace only
