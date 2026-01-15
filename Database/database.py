@@ -396,7 +396,9 @@ class PersonalDatabaseManager:
         flags = []
 
         for log in history:
+            print(log)
             result = self.compare_with_prescription(log)
+            print(result)
             flags.append((result[0], result[1], log[0], log[2]))
 
         return flags
