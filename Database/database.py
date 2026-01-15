@@ -91,12 +91,12 @@ class DatabaseManager:
 
         try:
             c.execute('''
-                INSERT INTO drugs_in_inventory (barcode, dname, estimated_amount, expiration_date)
-                VALUES (?, ?, ?, ?)
-            ''', (drug[0], drug[1], drug[2], drug[3]))
-        except (sqlite3.IntegrityError):
-            conn.close()
-            return IndexError
+                INSERT INTO drugs_in_inventory (barcode, dname, estimated_amount, expiration_date, type, item_type, dose_size)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (drug[0], drug[1], drug[2], drug[3], drug[4], drug[5], drug[6]))
+        # except (sqlite3.IntegrityError):
+        #     conn.close()
+        #     return IndexError
         except Exception as e:
             conn.close()
             return e
