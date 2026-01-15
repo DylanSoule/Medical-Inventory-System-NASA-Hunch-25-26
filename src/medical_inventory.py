@@ -5,6 +5,7 @@ import os
 import sys
 from tkinter import simpledialog
 import datetime
+
 # Add parent directory to path for imports from Database and src
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
