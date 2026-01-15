@@ -300,6 +300,3 @@ class PersonalDatabaseManager:
 
         conn.commit()
         conn.close()
-
-read = DatabaseManager('Database/inventory.db')
-print(read.pull_data('drugs_in_inventory'))
