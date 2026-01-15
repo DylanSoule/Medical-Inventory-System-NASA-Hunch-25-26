@@ -1,9 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
+from unittest import result
 import customtkinter as ctk
 import os
 import sys
-from tkinter import simpledialog
 import datetime
 
 # Add parent directory to path for imports from Database and src
@@ -159,7 +159,7 @@ class BarcodeViewer(ctk.CTk):
                 btn_container,
                 text="Log Item Use (WIP)",
                 state="enabled",
-                command=self.log_scan,
+                command=self.log_item_use,
                 width=350,
                 height=60,
                 font=("Arial", 22)
@@ -799,7 +799,7 @@ class BarcodeViewer(ctk.CTk):
         ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
 
         entry_var = tk.StringVar()
-        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=600, height=55, font=("Arial", 20))
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=400, height=55, font=("Arial", 20))
         entry.pack(padx=25, pady=(0, 22))
 
         result = {"value": None}
@@ -822,6 +822,40 @@ class BarcodeViewer(ctk.CTk):
             except:
                 pass
             dlg.destroy()
+
+        # --- numpad frame ---
+        numpad_frame = ctk.CTkFrame(dlg)
+        numpad_frame.pack(pady=(0, 18))
+
+        buttons = [
+            ['7', '8', '9'],
+            ['4', '5', '6'],
+            ['1', '2', '3'],
+            ['C', '0', '<']
+        ]
+
+        def add_to_entry(value):
+            current = entry_var.get()
+            entry_var.set(current + str(value))
+
+        def clear_entry():
+            entry_var.set("")
+
+        def backspace():
+            entry_var.set(entry_var.get()[:-1])
+
+        for i, row in enumerate(buttons):
+            for j, btn_text in enumerate(row):
+                if btn_text == 'C':
+                    btn = ctk.CTkButton(numpad_frame, text=btn_text, width=110, height=110, 
+                                       font=("Arial", 26), command=clear_entry)
+                elif btn_text == '<':
+                    btn = ctk.CTkButton(numpad_frame, text=btn_text, width=110, height=110, 
+                                       font=("Arial", 26), command=backspace)
+                else:
+                    btn = ctk.CTkButton(numpad_frame, text=btn_text, width=110, height=110, 
+                                       font=("Arial", 26), command=lambda x=btn_text: add_to_entry(x))
+                btn.grid(row=i, column=j, padx=10, pady=10)
 
         # Buttons
         btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
@@ -853,21 +887,254 @@ class BarcodeViewer(ctk.CTk):
         # Wait for user (modal)
         self.wait_window(dlg)
         return result["value"]
-
-    def log_scan(self):
-        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        """Wait for a barcode to be scanned (or typed) and log current date/time + barcode."""
+    
+    def log_item_use(self, title="Log Item Use"):
+        """Show dialog to select action type: Restock, Use Item, or Cancel
+        Returns: 'restock', 'use', or None
+        """
         user = self.scan_face(scan_text="log item use", btn="log_scan_btn", btn_text="Log Item Use")
         if user is None or user == "":
             return
         
+         # Use CTkToplevel for a consistent modern dialog 
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.transient(self)
+        dlg.resizable(False, False)
+
+        result = {"value": None}
+
+        # Title/prompt
+        ctk.CTkLabel(dlg, text="Select Action Type", font=("Arial", 24, "bold")).pack(padx=40, pady=(30, 20))
+        
+        # Description
+        ctk.CTkLabel(dlg, text="Choose whether to restock an item or log usage:", 
+                    font=("Arial", 18), wraplength=400, justify="center").pack(padx=40, pady=(0, 30))
+        
+        def on_restock():
+            result["value"] = "restock"
+            dlg.destroy()
+            
+        def on_use():
+            result["value"] = "use"
+            dlg.destroy()
+            
+        def on_cancel():
+            try:
+                dlg.grab_release()
+            except:
+                pass
+            dlg.destroy()
+
+        # Buttons
+        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
+        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
+        
+        # Restock button (green)
+        restock_btn = ctk.CTkButton(btn_frame, text="Restock", command=on_restock, 
+                                    width=160, height=55, font=("Arial", 20), 
+                                    fg_color="#22c55e")
+        restock_btn.pack(side="left", padx=12, pady=12)
+        
+        # Use Item button (blue)
+        use_btn = ctk.CTkButton(btn_frame, text="Use Item", command=on_use, 
+                               width=160, height=55, font=("Arial", 20))
+        use_btn.pack(side="left", padx=12, pady=12)
+        
+        # Cancel button (gray)
+        cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, 
+                                  width=160, height=55, font=("Arial", 20), 
+                                  fg_color="gray50")
+        cancel_btn.pack(side="left", padx=12, pady=12)
+        
+        # Bind Escape to cancel
+        dlg.bind("<Escape>", lambda e: on_cancel())
+        
+        # Center dialog over parent
+        dlg.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
+        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
+        dlg.geometry(f"+{x}+{y}")
+        
+        # Grab focus
+        dlg.lift()
+        dlg.grab_set()
+        dlg.focus_force()
+        
+        # Wait for user choice
+        self.wait_window(dlg)
+
+        if result["value"] is None:
+            return None
+        
+        if result["value"] == "restock":
+            self.log_scan(user=user)
+        elif result["value"] == "use":
+            self.use_item(user=user)
+    
+    def use_item(self, user=None):
+        """Log item usage with barcode and amount used"""
+        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+        # Get barcode
+        barcode = self._prompt_for_barcode(prompt="Scan item barcode", title="Item Usage - Scan Barcode")
+        if barcode is None or barcode.strip() == "":
+            return
+        else 
+        if self.db.check_if_barcode_exists(barcode) is False:
+            self.show_popup("Invalid Barcode", f"Barcode {barcode} not found in inventory.", "error")
+            return
+        
+        # Get amount used
+        amount = self._prompt_for_amount(prompt="Enter amount used", title="Item Usage - Amount")
+        if amount is None:
+            return
+        
+        try:
+            self.db.log_access_to_inventory(barcode=barcode, change=amount, user=user)
+            self.show_popup("Item Used", f"Logged usage:\n{amount} of item {barcode}\nat {time} by {user}", "info")
+            
+        except Exception as e:
+            self.show_popup("Error", f"Failed to log item usage:\n{e}", "error")
+            return
+        
+        self.load_data()
+
+    def _prompt_for_amount(self, prompt="Enter amount", title="Enter Amount"):
+        """
+        Open a modal dialog to enter a numeric amount.
+        Returns the amount as a string, or None if canceled.
+        """
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.transient(self)
+        dlg.resizable(False, False)
+
+        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
+
+        entry_var = tk.StringVar()
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=400, height=55, font=("Arial", 20))
+        entry.pack(padx=25, pady=(0, 22))
+
+        result = {"value": None}
+
+        def on_ok(event=None):
+            val = entry_var.get().strip()
+            if val == "":
+                return
+            # Validate that it's a number
+            try:
+                float(val)
+                result["value"] = val
+                try:
+                    dlg.grab_release()
+                except:
+                    pass
+                dlg.destroy()
+            except ValueError:
+                # Invalid number - show error and don't close
+                self.show_popup("Invalid Amount", "Please enter a valid number.", "error")
+
+        def on_cancel(event=None):
+            try:
+                dlg.grab_release()
+            except:
+                pass
+            dlg.destroy()
+
+        # --- numpad frame ---
+        numpad_frame = ctk.CTkFrame(dlg)
+        numpad_frame.pack(pady=(0, 18))
+
+        buttons = [
+            ['7', '8', '9'],
+            ['4', '5', '6'],
+            ['1', '2', '3'],
+            ['C', '0', '.']
+        ]
+
+        def add_to_entry(value):
+            current = entry_var.get()
+            # Only allow one decimal point
+            if value == '.' and '.' in current:
+                return
+            entry_var.set(current + str(value))
+
+        def clear_entry():
+            entry_var.set("")
+
+        def backspace():
+            entry_var.set(entry_var.get()[:-1])
+
+        for i, row in enumerate(buttons):
+            for j, btn_text in enumerate(row):
+                if btn_text == 'C':
+                    btn = ctk.CTkButton(numpad_frame, text=btn_text, width=110, height=110, 
+                                       font=("Arial", 26), command=clear_entry)
+                else:
+                    btn = ctk.CTkButton(numpad_frame, text=btn_text, width=110, height=110, 
+                                       font=("Arial", 26), command=lambda x=btn_text: add_to_entry(x))
+                btn.grid(row=i, column=j, padx=10, pady=10)
+        
+        # Add backspace button
+        backspace_btn = ctk.CTkButton(numpad_frame, text="<", width=110, height=110, 
+                                      font=("Arial", 26), command=backspace)
+        backspace_btn.grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
+
+        # Buttons
+        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
+        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
+        ok_btn = ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55, font=("Arial", 20))
+        ok_btn.pack(side="left", padx=12, pady=12)
+        cancel_btn = ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55, 
+                                  font=("Arial", 20), fg_color="gray30")
+        cancel_btn.pack(side="left", padx=12, pady=12)
+
+        # Bind Enter to OK and Escape to cancel
+        entry.bind("<Return>", on_ok)
+        dlg.bind("<Escape>", on_cancel)
+
+        # Center dialog over parent
+        dlg.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() // 2) - (dlg.winfo_reqwidth() // 2)
+        y = self.winfo_rooty() + (self.winfo_height() // 2) - (dlg.winfo_reqheight() // 2)
+        dlg.geometry(f"+{x}+{y}")
+        
+        # Delay grab_set and focus until window is viewable
+        def do_grab():
+            try:
+                dlg.grab_set()
+                entry.focus_set()
+            except:
+                pass
+        dlg.after(50, do_grab)
+
+        # Wait for user (modal)
+        self.wait_window(dlg)
+
+        result = int(result["value"])
+        result = result * -1
+        print(result)
+        return result
+        
+    def log_scan(self, user=None):
+        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        """Wait for a barcode to be scanned (or typed) and log current date/time + barcode."""
+
+        if user is None or user == "":
+            return
+
         barcode = self._prompt_for_barcode()
         if barcode is None:
             return
+                
+        log = self.db.add_to_inventory(barcode, user)
 
         try:
             # Add scan to database
-            log = self.db.add_to_inventory(barcode, user)
+            if not barcode or barcode.strip() == "":
+                self.show_popup("Error", "No barcode scanned.", "error")
+                return
             if log == LookupError:
                 self.show_popup("Error", f"No drug found with barcode: {barcode}", "error")
                 return
@@ -880,7 +1147,8 @@ class BarcodeViewer(ctk.CTk):
             return
 
         self.load_data()
-        self.show_popup("Logged", f"Logged {barcode} at {time} by {user}", "info")
+        action_text = "Restocked"
+        self.show_popup("Logged", f"{action_text} {barcode} at {time} by {user}", "info")
 
     def load_data(self):
         """Read from database and load rows into the table."""
@@ -1286,7 +1554,7 @@ class BarcodeViewer(ctk.CTk):
         except Exception as e:
             # avoid crashing UI - silently ignore during startup
             pass  # Don't print errors during initialization
- 
+
     def update_column_visibility(self):
         """Update which columns are displayed in the treeview based on checkbox states."""
         # Get list of visible columns
