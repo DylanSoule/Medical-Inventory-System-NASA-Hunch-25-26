@@ -387,16 +387,16 @@ class PersonalDatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-        deadline = (datetime.today() + timedelta(days=-5))
+        deadline = (datetime.today() + timedelta(days=-5)).strftime(time_format)
 
 
-        c.execute("SELECT * FROM history WHERE when_taken > ?" (deadline,))
+        c.execute("SELECT * FROM history WHERE when_taken > ?", (deadline,))
         history = c.fetchall()
-
+        print(history)
         flags = []
 
-        for log in history():
-            result = self.compare_with_prescription()
+        for log in history:
+            result = self.compare_with_prescription(log)
             flags.append((result[0], result[1], log[0], log[2]))
 
         return flags
@@ -417,6 +417,7 @@ class PersonalDatabaseManager:
 
         c.execute("SELECT * FROM history ORDER BY rowid DESC LIMIT 1")
         last_taken = c.fetchone()
+        print(last_taken)
         result = self.compare_with_prescription(last_taken)
         
         conn.close()
@@ -502,9 +503,9 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
-    
-    read.compare_history_with_prescription()
-    # print(read.compare_most_recent_log_with_prescription())
+    # print(read.pull_data('history'))
+    print(read.compare_history_with_prescription())
+    print(read.compare_most_recent_log_with_prescription())
     # print(str(read.pull_data('prescription')).replace('),',')\n'))
 
     # UPDATE table_name SET column_name = new_value WHERE condition
