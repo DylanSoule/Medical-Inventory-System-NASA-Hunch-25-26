@@ -980,7 +980,7 @@ class BarcodeViewer(ctk.CTk):
         barcode = self._prompt_for_barcode(prompt="Scan item barcode", title="Item Usage - Scan Barcode")
         if barcode is None or barcode.strip() == "":
             return
-        else 
+        
         if self.db.check_if_barcode_exists(barcode) is False:
             self.show_popup("Invalid Barcode", f"Barcode {barcode} not found in inventory.", "error")
             return

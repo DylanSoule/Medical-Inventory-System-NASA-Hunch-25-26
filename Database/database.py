@@ -176,7 +176,7 @@ class DatabaseManager:
             conn.close()
             return False
         conn.close()
-        return check[1]
+        return True, check[1]
 
 
     def delete_entry(self, barcode, reason):
