@@ -159,6 +159,25 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
+    def check_if_barcode_exists(self, barcode):
+        """
+        Check if a barcode is in the inventory
+        
+        :param self: class path to inventory
+        :param barcode: barcode being checked
+        """
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        check = c.fetchall()
+
+        if not check:
+            conn.close()
+            return False
+        conn.close()
+        return True
+
 
     def delete_entry(self, barcode, reason):
         """
@@ -281,3 +300,6 @@ class PersonalDatabaseManager:
 
         conn.commit()
         conn.close()
+
+read = DatabaseManager('Database/inventory.db')
+print(read.pull_data('drugs_in_inventory'))
