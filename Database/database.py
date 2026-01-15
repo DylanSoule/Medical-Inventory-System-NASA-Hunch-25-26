@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 """
@@ -183,7 +183,7 @@ class DatabaseManager:
             c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
             c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
         except Exception as e:
-            print("Error:",e)
+            return("Error:",e)
         
         conn.commit()
         conn.close()
@@ -195,7 +195,7 @@ class DatabaseManager:
         try:
             c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change)))
         except Exception as e:
-            print("Error:",e)
+            return("Error:",e)
 
         conn.commit()
         conn.close()
@@ -345,7 +345,7 @@ class PersonalDatabaseManager:
                 frequency INTEGER,
                 time TIME,
                 leeway INTEGER,
-                start_date DATE,
+                start_date DATETIME,
                 end_date DATE,
                 as_needed BOOLEAN
             )
@@ -382,8 +382,25 @@ class PersonalDatabaseManager:
         conn.commit()
         conn.close()
 
+
     def compare_history_with_prescription(self, days_back=7):
-        pass
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        deadline = (datetime.today() + timedelta(days=-5))
+
+
+        c.execute("SELECT * FROM history WHERE when_taken > ?" (deadline,))
+        history = c.fetchall()
+
+        flags = []
+
+        for log in history():
+            result = self.compare_with_prescription()
+            flags.append((result[0], result[1], log[0], log[2]))
+
+        return flags
+
 
     def compare_most_recent_log_with_prescription(self):
         """
@@ -400,22 +417,34 @@ class PersonalDatabaseManager:
 
         c.execute("SELECT * FROM history ORDER BY rowid DESC LIMIT 1")
         last_taken = c.fetchone()
-        c.execute(f"SELECT * FROM prescription WHERE barcode = {last_taken[0]}")
+        result = self.compare_with_prescription(last_taken)
+        
+        conn.close()
+        return(result)
+    
+    def compare_with_prescription(self, log):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        
+        c.execute(f"SELECT * FROM prescription WHERE barcode = {log[0]}")
         matching_prescriptions = c.fetchall()
 
         if matching_prescriptions == []:
-            return False
-        date_taken = datetime.strptime(last_taken[2], time_format)
+            conn.close()
+            return False, "No Matches Found"
+        date_taken = datetime.strptime(log[2], time_format)
 
         for prescription in matching_prescriptions:
             if prescription[8] == True:
-                return True
+                conn.close()
+                return True, "As needed"
             prescription_start_date = datetime.strptime(prescription[6], time_format)
             difference = (date_taken - prescription_start_date).total_seconds()
-            if (86400 - (difference % (prescription[3]*86400))) <= float(prescription[5] * 3600) and (int(last_taken[3]) == prescription[2]):
-                return True
-        return False
-            
+            if (86400 - (difference % (prescription[3]*86400))) <= float(prescription[5] * 3600) and (int(log[3]) == prescription[2]):
+                conn.close()
+                return True, "Matches Prescription"
+        conn.close()
+        return False, "No Time Match"
 
 
 
@@ -474,7 +503,8 @@ if __name__ == "__main__":
     read1 = DatabaseManager('Database/inventory.db')
 
     
-    print(read.compare_most_recent_log_with_prescription())
+    read.compare_history_with_prescription()
+    # print(read.compare_most_recent_log_with_prescription())
     # print(str(read.pull_data('prescription')).replace('),',')\n'))
 
     # UPDATE table_name SET column_name = new_value WHERE condition
