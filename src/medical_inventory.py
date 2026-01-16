@@ -981,10 +981,16 @@ class BarcodeViewer(ctk.CTk):
         if barcode is None or barcode.strip() == "":
             return
         
-        if self.db.check_if_barcode_exists(barcode) is False:
+        exists = self.db.check_if_barcode_exists(barcode)
+
+        if not exists:
             self.show_popup("Invalid Barcode", f"Barcode {barcode} not found in inventory.", "error")
             return
         
+        else:
+            barcode = exists[1]
+            pass
+
         # Get amount used
         amount = self._prompt_for_amount(prompt="Enter amount used", title="Item Usage - Amount")
         if amount is None:
@@ -1114,7 +1120,6 @@ class BarcodeViewer(ctk.CTk):
 
         result = int(result["value"])
         result = result * -1
-        print(result)
         return result
         
     def log_scan(self, user=None):
