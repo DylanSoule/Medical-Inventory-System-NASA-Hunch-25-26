@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime, timedelta
+import math
 
 
 """
@@ -387,18 +388,18 @@ class PersonalDatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-        deadline = (datetime.today() + timedelta(days=-5)).strftime(time_format)
+        deadline = (datetime.today() + timedelta(days=(days_back*-1))).strftime(time_format)
 
 
         c.execute("SELECT * FROM history WHERE when_taken > ?", (deadline,))
         history = c.fetchall()
-        print(history)
+        # print(history)
         flags = []
 
         for log in history:
-            print(log)
+            # print(log)
             result = self.compare_with_prescription(log)
-            print(result)
+            # print(result)
             flags.append((result[0], result[1], log[0], log[2]))
 
         return flags
@@ -435,15 +436,19 @@ class PersonalDatabaseManager:
         if matching_prescriptions == []:
             conn.close()
             return False, "No Matches Found"
-        date_taken = datetime.strptime(log[2], time_format)
+        try:
+            date_taken = datetime.strptime(log[2], time_format)
+        except TypeError:
+            for prescription in matching_prescriptions:
+                if prescription[8] == True:
+                    conn.close()
+                    return True, "As needed"
+            return False, "Datetime"
 
         for prescription in matching_prescriptions:
-            if prescription[8] == True:
-                conn.close()
-                return True, "As needed"
             prescription_start_date = datetime.strptime(prescription[6], time_format)
             difference = (date_taken - prescription_start_date).total_seconds()
-            if (86400 - (difference % (prescription[3]*86400))) <= float(prescription[5] * 3600) and (int(log[3]) == prescription[2]):
+            if (86400 - (difference % (prescription[3]*86400))) <= float(prescription[5] * 3600) or (difference % (prescription[3]*86400)) <= float(prescription[5] * 3600) and (int(log[3]) == prescription[2]):
                 conn.close()
                 return True, "Matches Prescription"
         conn.close()
@@ -506,8 +511,11 @@ if __name__ == "__main__":
     read1 = DatabaseManager('Database/inventory.db')
 
     # print(read.pull_data('history'))
-    print(read.compare_history_with_prescription())
-    print(read.compare_most_recent_log_with_prescription())
+    # print(read.compare_history_with_prescription(days_back=60))
+    # print(read.compare_most_recent_log_with_prescription())
+
+
     # print(str(read.pull_data('prescription')).replace('),',')\n'))
+
 
     # UPDATE table_name SET column_name = new_value WHERE condition
