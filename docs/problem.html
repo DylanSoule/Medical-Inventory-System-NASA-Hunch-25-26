@@ -2,7 +2,7 @@
 <html>
     <head>
         <title>The Problem</title>
-        <link rel="icon" href="/Medical-Inventory-System-NASA-Hunch-25-26/assets/transparent_logo.png" />
+        <link rel="icon" href="./transparent_logo.png" />
         <link rel="stylesheet" href="style.css" />
     </head>
     <body>
@@ -13,7 +13,16 @@
             <h1>The Problem</h1>
             <p>Understanding the challenges we aim to solve with H.E.L.I.O.S</p>
         </div>
-        <p>
-            Astronauts aboard the International Space Station (ISS) often utilize medical supplies without properly logging their usage. This oversight can lead to inaccurate inventory counts, which poses significant risks during long-duration missions where resupply opportunities are limited. NASA requires a user-friendly system that can accurately track medical supplies in real-time and transmit this data back to Earth. Such a system is essential for effective resupply planning and ensuring that astronauts have access to necessary medical resources when needed.
-        </p>
+        <div class="container">
+            <div class="problem-text">
+                <p>
+                    In microgravity and crowded spacecraft interiors it's surprisingly easy to misplace small but critical items. Tools, medical supplies, and personal gear can drift, be tucked into unexpected compartments, or be moved during busy operations — and when every minute counts, searching for missing equipment wastes crew time and increases risk. We evaluated common tracking options and found trade-offs: passive RFID tags provide useful range but couldn't be made to reliably interrupt or integrate with other onboard processes for immediate, event-driven alerts; NFC works well for intentional, hands-on checks but its read range (a few centimetres) is too short for quick inventory sweeps; camera-based approaches add privacy and lighting challenges. H.E.L.I.O.S. aims to bridge these gaps with a system that reduces search time while fitting into constrained spaceflight workflows.
+                </p>
+            </div>
+            <div class="problem-text rfid">
+                <p>
+                    RFID (Radio Frequency Identification) technology uses electromagnetic fields to automatically identify and track tags attached to objects. In the context of space missions, passive RFID tags can be affixed to medical supplies and equipment, allowing astronauts to quickly scan and log items without direct line-of-sight. This technology offers a balance between range and ease of use, enabling efficient inventory management while minimizing the need for manual data entry. However, challenges such as interference from spacecraft materials and the need for specialized readers must be addressed to ensure reliable performance in the unique environment of space.
+                </p>
+            </div>
+        </div>
 </html>
