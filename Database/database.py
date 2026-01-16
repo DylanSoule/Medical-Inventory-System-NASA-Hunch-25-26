@@ -170,7 +170,7 @@ class DatabaseManager:
         c = conn.cursor()
 
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
-        check = c.fetchall()
+        check = c.fetchone()
 
         if not check:
             conn.close()
