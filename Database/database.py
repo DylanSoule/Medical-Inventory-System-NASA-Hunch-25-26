@@ -17,12 +17,9 @@ class DatabaseManager:
         self.create_inventory()
 
 
-
-
     def create_inventory(self):
         """
         This function just creates the inventory database, realistically it doesn't ever need to be used if the database is already created, will likely be deleted eventually, but keeping just in case for now
-
 
         It initializes the two tables for what we have and what drugs are possible, so you can pull based on barcodes.
         """
@@ -40,7 +37,6 @@ class DatabaseManager:
             )
         ''')
 
-
         c.execute('''
             CREATE TABLE IF NOT EXISTS drugs(
                 barcode TEXT PRIMARY KEY NOT NULL UNIQUE,
@@ -52,7 +48,6 @@ class DatabaseManager:
                 dose_size TEXT NOT NULL
             )
         ''')
-
 
         c.execute('''
             CREATE TABLE IF NOT EXISTS drug_changes (
@@ -66,22 +61,17 @@ class DatabaseManager:
                 )
         ''')
 
-
         conn.commit()
         conn.close()
-
-
 
 
     def add_to_inventory(self, barcode, user):
         """
         Adds a drug to the inventory if it exists in the drugs database and logs the change.
 
-
         Parameters:
             barcode (str): The barcode of the drug to add.
             user (str): The user performing the addition.
-
 
         Returns:
             LookupError: If no drug is found with the given barcode.
@@ -89,29 +79,25 @@ class DatabaseManager:
             Exception: Any other exception encountered during insertion.
             None: On successful addition.
 
-
         Note:
             This method does not raise exceptions; instead, it returns exception types or instances on error.
         """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-
         c.execute("SELECT * FROM drugs WHERE barcode = ?", (barcode,))
         drug = c.fetchone()
-
 
         if not drug:
             print("No drug found with that barcode in database")
             conn.close()
             return LookupError
 
-
         try:
             c.execute('''
-                INSERT INTO drugs_in_inventory (barcode, dname, estimated_amount, expiration_date)
-                VALUES (?, ?, ?, ?)
-            ''', (drug[0], drug[1], drug[2], drug[3]))
+                INSERT INTO drugs_in_inventory (barcode, dname, estimated_amount, expiration_date, type, item_type, dose_size)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (drug[0], drug[1], drug[2], drug[3], drug[4], drug[5], drug[6]))
         except (sqlite3.IntegrityError):
             conn.close()
             return IndexError
@@ -119,20 +105,15 @@ class DatabaseManager:
             conn.close()
             return e
 
-
         c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug[1], drug[2], user, 'New Entry', datetime.now().strftime(time_format)))
-
 
         conn.commit()
         conn.close()
 
 
-
-
     def add_to_drugs_database(self, barcode, dname, amount, expiration_date, Type, item_type, dose_size):
         """
         Add a new drug to the drugs reference table.
-
 
         Parameters:
             barcode (str): The barcode of the drug.
@@ -143,7 +124,6 @@ class DatabaseManager:
             item_type(str): the method the drug is taken(Pill, Eye Drop, Ointment, etc.)
             dose_size(str): The dose size of the drug
 
-
         Effects:
             Inserts a new drug into the drugs table in the database.
         """
@@ -152,30 +132,24 @@ class DatabaseManager:
         
         c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date, type, item_type, dose_size) VALUES (?,?,?,?,?,?,?)", (barcode, dname, amount, expiration_date,Type,item_type, dose_size))
 
-
         conn.commit()
         conn.close()
-
-
 
 
     def log_access_to_inventory(self, barcode, change, user):
         """
         Log changes to drug inventory amounts.
 
-
         Parameters:
             barcode (str): The barcode of the drug whose inventory is being updated.
             change (int): The amount to change the inventory by (positive or negative).
             user (str): The user making the change.
-
 
         Side effects:
             Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
         """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
-
 
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
         drug_info = c.fetchone()
@@ -188,7 +162,6 @@ class DatabaseManager:
         
         conn.commit()
         conn.close()
-
 
         conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
         c = conn.cursor()
@@ -220,7 +193,6 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
         drug_info = c.fetchone()
         
@@ -246,15 +218,34 @@ class DatabaseManager:
         conn.close()
 
   
+
+    def check_if_barcode_exists(self, barcode):
+        """
+        Check if a barcode is in the inventory
+        
+        :param self: class path to inventory
+        :param barcode: barcode being checked
+        """
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        check = c.fetchone()
+
+        if not check:
+            conn.close()
+            return False
+        conn.close()
+        return True, check[1]
+
+
     def delete_entry(self, barcode, reason):
         """
         Deletes an entry from the inventory and logs the deletion in the drug_changes history.
 
-
         Parameters:
             barcode (str): The barcode of the drug to delete from inventory.
             reason (str): The reason for deleting the entry.
-
 
         Side effects:
             Removes the entry from the drugs_in_inventory table and adds a record to the drug_changes table.
@@ -262,34 +253,26 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
         drug_info = c.fetchone()
 
-
         c.execute("DELETE FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
 
-
         c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time, reason) VALUES (?,?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.now().strftime(time_format), reason,))
-
 
         conn.commit()
         conn.close()
       
 
-
     def pull_data(self, table):
         """
         Retrieve all records from a specified table in the database.
 
-
         Parameters:
             table (str): Name of the table to query.
 
-
         Returns:
             list of tuples: Each tuple contains the records from the specified table.
-
 
         Security Considerations:
             The table name is interpolated directly into the SQL query, which can lead to SQL injection
@@ -299,14 +282,11 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-
         c.execute(f"SELECT * FROM {table}")
         table = c.fetchall()
         
         conn.close()
         return table
-
-
 
 
 class PersonalDatabaseManager:
@@ -318,7 +298,6 @@ class PersonalDatabaseManager:
     def create_personal_database(self):
         """
         This function just creates the changes database, and checks that it exists every time the class is called
-
 
         prescription table:
             barcode - same as in inventory db, and is used as identifier
@@ -361,7 +340,6 @@ class PersonalDatabaseManager:
                 dose TEXT NOT NULL
             )
         ''')
-
 
         conn.commit()
         conn.close()
