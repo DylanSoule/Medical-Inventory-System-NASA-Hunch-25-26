@@ -1,10 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
-from unittest import result
+#from unittest import result
 import customtkinter as ctk
 import os
 import sys
 import datetime
+import tkcalendar as cal
 
 # Add parent directory to path for imports from Database and src
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -266,21 +267,58 @@ class BarcodeViewer(ctk.CTk):
         # Initial column width adjustment after UI is fully loaded
         self.after(500, lambda: self._adjust_column_widths([c for c, v in self.column_visibility.items() if v.get()]))
         self.after(REFRESH_INTERVAL, self.refresh_data)
+    
+    def window_loader(self, title):
+        window = ctk.CTkToplevel(self)
+        window.title(title)
+        
+        # Update idletasks to ensure window is ready
+        window.update_idletasks()
+        
+        # Get screen dimensions
+        screen_width = window.winfo_screenwidth()
+        screen_height = window.winfo_screenheight()
+        
+        # Try fullscreen first, with robust fallback
+        try:
+            window .attributes("-fullscreen", True)
+        except Exception:
+            # Fallback: explicitly set geometry to screen size
+            window.geometry(f"{screen_width}x{screen_height}+0+0")
+        
+        # Make window modal and ensure it gets focus
+        try:
+            window.transient(self)
+            window.lift()
+            window.focus_force()
+            
+            # Delay grab_set slightly to ensure window is visible
+            def do_grab():
+                try:
+                    window.grab_set()
+                except Exception as e:
+                    print(f"Could not grab focus: {e}")
+            window.after(100, do_grab)
+        except Exception as e:
+            print(f"Could not make {title} window modal: {e}")
+       
+        # NEW: top bar with close button
+        top_bar = ctk.CTkFrame(window, corner_radius=6)
+        top_bar.pack(fill="x", padx=18, pady=(18,0))
+        ctk.CTkButton(top_bar, text="Close", command=window.destroy, width=160, height=55, font=("Arial", 22)).pack(side="right", padx=18, pady=18)
+        window.bind("<Escape>", lambda e: window.destroy())
+
     #region ######################## Personal DB
     def personal_db(self):
         """Placeholder for personal database viewing functionality (WIP)"""
         user=self.scan_face(scan_text="access personal database", btn="personal_db_btn", btn_text="View Personal Database")
         if user is None or user == "":
             return
-        pass
-
-    def personal_db_app(self):
-        """Placeholder for personal database application (WIP)"""
-        pass
-
+        
+        
     def calendar_app(self):
         """Placeholder for calendar application (WIP)"""
-        
+
         pass
     #endregion
 
