@@ -91,12 +91,12 @@ class DatabaseManager:
 
         try:
             c.execute('''
-                INSERT INTO drugs_in_inventory (barcode, dname, estimated_amount, expiration_date)
-                VALUES (?, ?, ?, ?)
-            ''', (drug[0], drug[1], drug[2], drug[3]))
-        except (sqlite3.IntegrityError):
-            conn.close()
-            return IndexError
+                INSERT INTO drugs_in_inventory (barcode, dname, estimated_amount, expiration_date, type, item_type, dose_size)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (drug[0], drug[1], drug[2], drug[3], drug[4], drug[5], drug[6]))
+        # except (sqlite3.IntegrityError):
+        #     conn.close()
+        #     return IndexError
         except Exception as e:
             conn.close()
             return e
@@ -158,6 +158,25 @@ class DatabaseManager:
         
         conn.commit()
         conn.close()
+
+    def check_if_barcode_exists(self, barcode):
+        """
+        Check if a barcode is in the inventory
+        
+        :param self: class path to inventory
+        :param barcode: barcode being checked
+        """
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        check = c.fetchone()
+
+        if not check:
+            conn.close()
+            return False
+        conn.close()
+        return True, check[1]
 
 
     def delete_entry(self, barcode, reason):
