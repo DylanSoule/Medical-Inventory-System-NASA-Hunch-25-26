@@ -1,11 +1,15 @@
 import sqlite3
-import datetime
+from datetime import datetime, timedelta
+import math
+
 
 """
-Python file to access databases for project, functions can access different databases, such as the inventory database and the personal databases for all people 
+Python file to access databases for project, functions can access different databases, such as the inventory database and the personal databases for all people
 """
+
 
 time_format = "%Y-%m-%d %H:%M:%S"
+
 
 class DatabaseManager:
     def __init__(self, path_to_db):
@@ -94,14 +98,14 @@ class DatabaseManager:
                 INSERT INTO drugs_in_inventory (barcode, dname, estimated_amount, expiration_date, type, item_type, dose_size)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (drug[0], drug[1], drug[2], drug[3], drug[4], drug[5], drug[6]))
-        # except (sqlite3.IntegrityError):
-        #     conn.close()
-        #     return IndexError
+        except (sqlite3.IntegrityError):
+            conn.close()
+            return IndexError
         except Exception as e:
             conn.close()
             return e
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug[1], drug[2], user, 'New Entry', datetime.datetime.now().strftime(time_format)))
+        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug[1], drug[2], user, 'New Entry', datetime.now().strftime(time_format)))
 
         conn.commit()
         conn.close()
@@ -152,12 +156,68 @@ class DatabaseManager:
         
         try:
             c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.datetime.now().strftime(time_format)))
+            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
+        except Exception as e:
+            return("Error:",e)
+        
+        conn.commit()
+        conn.close()
+
+        conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
+        c = conn.cursor()
+        
+        try:
+            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change)))
+        except Exception as e:
+            return("Error:",e)
+
+        conn.commit()
+        conn.close()
+
+    
+
+    def log_access_to_inventory_with_mutable_date(self, barcode, change, user, date_time): # FOR TESTING ONLY DELETE BEFORE FINAL PRODUCT
+        """
+        Log changes to drug inventory amounts.
+
+
+        Parameters:
+            barcode (str): The barcode of the drug whose inventory is being updated.
+            change (int): The amount to change the inventory by (positive or negative).
+            user (str): The user making the change.
+
+
+        Side effects:
+            Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
+        """
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        drug_info = c.fetchone()
+        
+        try:
+            c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
+            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', date_time))
         except Exception as e:
             print("Error:",e)
         
         conn.commit()
         conn.close()
+
+
+        conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
+        c = conn.cursor()
+        
+        try:
+            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], date_time, abs(change)))
+        except Exception as e:
+            print("Error:",e)
+
+        conn.commit()
+        conn.close()
+
+  
 
     def check_if_barcode_exists(self, barcode):
         """
@@ -198,11 +258,11 @@ class DatabaseManager:
 
         c.execute("DELETE FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time, reason) VALUES (?,?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.datetime.now().strftime(time_format), reason,))
+        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time, reason) VALUES (?,?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.now().strftime(time_format), reason,))
 
         conn.commit()
         conn.close()
-        
+      
 
     def pull_data(self, table):
         """
@@ -230,13 +290,14 @@ class DatabaseManager:
 
 
 class PersonalDatabaseManager:
-    def __init__(self, path_to_database):
-        self.db_path = path_to_database
+    def __init__(self, path_to_person_database):
+        self.db_path = path_to_person_database
         self.create_personal_database()
+
 
     def create_personal_database(self):
         """
-        This function just creates the changes database, rand checks that it exists every time the class is called
+        This function just creates the changes database, and checks that it exists every time the class is called
 
         prescription table:
             barcode - same as in inventory db, and is used as identifier
@@ -244,7 +305,8 @@ class PersonalDatabaseManager:
             dosage - their dose for the prescription in number of eg. pills, or a normal dose
             frequency - how often they take the drug in days(eg. 1 means every day, 2 is every other day, 4 is every 4 days, and 7 is weekly)
             time - if they have one, when they should take the medication(Not needed for database)(in HH:MM:SS)
-            start_date - when they first started taking the medication, or a day that they were supposed to take it, used to calculate when they should take it in the future(in %Y-%m-%d)
+            leeway - how long they have before or after to take the drug before alert is raised(in minutes)
+            start_date - when they first started taking the medication, or a day that they were supposed to take it, used to calculate when they should take it in the future(in %Y-%m-%d %H:%M:%S)
             end_date - when they stop taking their prescription(Not needed for database to work)
         
         history table:
@@ -257,19 +319,22 @@ class PersonalDatabaseManager:
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS prescription(
-                barcode TEXT PRIMARY KEY NOT NULL UNIQUE,
+                barcode TEXT NOT NULL,
                 dname TEXT NOT NULL,
                 dosage INTEGER NOT NULL,
-                frequency INTEGER NOT NULL,
+                frequency INTEGER,
                 time TIME,
-                start_date DATE NOT NULL,
-                end_date DATE
+                leeway INTEGER,
+                start_date DATETIME,
+                end_date DATE,
+                as_needed BOOLEAN
             )
         ''')
 
+
         c.execute('''
             CREATE TABLE IF NOT EXISTS history(
-                barcode TEXT PRIMARY KEY,
+                barcode TEXT,
                 dname TEXT NOT NULL,
                 when_taken DATETIME NOT NULL,
                 dose TEXT NOT NULL
@@ -278,25 +343,157 @@ class PersonalDatabaseManager:
 
         conn.commit()
         conn.close()
+  
+    def add_prescription_med(self, barcode, dose, frequency, start_date, leeway=None, end_date=None, time=None, drug_name=None, as_needed=False):
+        if drug_name == None:
+            conn = sqlite3.connect('Database/inventory.db')
+            cur = conn.cursor()
+            cur.execute(f"SELECT dname FROM drugs WHERE barcode = {barcode}")
+            drug_name = cur.fetchone()[0]
+            conn.close()
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+
+        c.execute("INSERT INTO prescription (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed) VALUES (?,?,?,?,?,?,?,?,?)", (barcode, drug_name, dose, frequency, time, leeway, start_date, end_date, as_needed))
+
+
+        conn.commit()
+        conn.close()
+
+
+    def compare_history_with_prescription(self, days_back=7):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        deadline = (datetime.today() + timedelta(days=(days_back*-1))).strftime(time_format)
+
+
+        c.execute("SELECT * FROM history WHERE when_taken > ?", (deadline,))
+        history = c.fetchall()
+        # print(history)
+        flags = []
+
+        for log in history:
+            # print(log)
+            result = self.compare_with_prescription(log)
+            # print(result)
+            flags.append((result[0], result[1], log[0], log[2]))
+
+        return flags
+
+
+    def compare_most_recent_log_with_prescription(self):
+        """
+        Docstring for compare_most_recent_log_with_prescription
+
+        function compares most recent log by the person who's inventory is being accessed with their prescriptions
+        
+        :param self: pulls inventory path to personal database from class call
+
+        return True or False based on if match is found or not
+        """
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        c.execute("SELECT * FROM history ORDER BY rowid DESC LIMIT 1")
+        last_taken = c.fetchone()
+        print(last_taken)
+        result = self.compare_with_prescription(last_taken)
+        
+        conn.close()
+        return(result)
     
-    def add_prescription_med(self, barcode, dose, frequency, start_date, end_date=None, time=None, drug_name=None):
-        if drug_name == None:
-            pass
+    def compare_with_prescription(self, log):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        
+        c.execute(f"SELECT * FROM prescription WHERE barcode = {log[0]}")
+        matching_prescriptions = c.fetchall()
+
+        if matching_prescriptions == []:
+            conn.close()
+            return False, "No Matches Found"
+        try:
+            date_taken = datetime.strptime(log[2], time_format)
+        except TypeError:
+            for prescription in matching_prescriptions:
+                if prescription[8] == True:
+                    conn.close()
+                    return True, "As needed"
+            return False, "Datetime"
+
+        for prescription in matching_prescriptions:
+            prescription_start_date = datetime.strptime(prescription[6], time_format)
+            difference = (date_taken - prescription_start_date).total_seconds()
+            if (86400 - (difference % (prescription[3]*86400))) <= float(prescription[5] * 3600) or (difference % (prescription[3]*86400)) <= float(prescription[5] * 3600) and (int(log[3]) == prescription[2]):
+                conn.close()
+                return True, "Matches Prescription"
+        conn.close()
+        return False, "No Time Match"
+
+
+
+
+    '''The following is an old function that is not in use but being kept around just in case'''
+    # def log_access(self, barcode, dose, drug_name=None):
+    #     if drug_name == None:
+    #         conn = sqlite3.connect('Database/inventory.db')
+    #         cur = conn.cursor()
+    #         cur.execute(f"SELECT dname FROM drugs WHERE barcode = {barcode}")
+    #         drug_name = cur.fetchone()[0]
+    #         conn.close()
+    #     conn = sqlite3.connect(self.db_path)
+    #     c = conn.cursor()
+
+
+   #     c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (barcode, drug_name, datetime.now().strftime(time_format), dose))
+
+
+   #     conn.commit()
+   #     conn.close()
+
+
+    def pull_data(self, table):
+        """
+        Retrieve all records from a specified table in the database.
+
+
+        Parameters:
+            table (str): Name of the table to query.
+
+
+        Returns:
+            list of tuples: Each tuple contains the records from the specified table.
+
+
+        Security Considerations:
+            The table name is interpolated directly into the SQL query, which can lead to SQL injection
+            if the table name is not properly validated. Ensure that the table name is validated against
+            a whitelist of expected table names before calling this function.
+        """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-        c.execute("INSERT INTO prescription (barcode, dname, dosage, frequency, time, start_date, end_date) VALUES (?,?,?,?,?,?,?)", (barcode, drug_name, dose, frequency, time, start_date, end_date))
 
-        conn.commit()
+        c.execute(f"SELECT * FROM {table}")
+        table = c.fetchall()
+        
         conn.close()
+        return table
+  
 
-    def log_access(self, barcode, dose, drug_name=None):
-        if drug_name == None:
-            pass
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
 
-        c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (barcode, drug_name, datetime.datetime.now().strftime(time_format), dose))
+if __name__ == "__main__":
+    read = PersonalDatabaseManager('Database/dylan_records.db')
+    read1 = DatabaseManager('Database/inventory.db')
 
-        conn.commit()
-        conn.close()
+    # print(read.pull_data('history'))
+    # print(read.compare_history_with_prescription(days_back=60))
+    # print(read.compare_most_recent_log_with_prescription())
+
+
+    # print(str(read.pull_data('prescription')).replace('),',')\n'))
+
+
+    # UPDATE table_name SET column_name = new_value WHERE condition
