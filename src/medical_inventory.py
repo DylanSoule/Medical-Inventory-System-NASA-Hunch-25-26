@@ -5,14 +5,15 @@ import customtkinter as ctk
 import os
 import sys
 import datetime
-import tkcalendar as cal
 
 # Add parent directory to path for imports from Database and src
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import facial_recognition as fr
+import personal_window_loader as pwl
 from Database.database import DatabaseManager
 from facial_recognition import FaceRecognitionError
+from personal_window_loader import PersonalWindowLoader
 
 # Database file path - store in parent directory
 DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Database/inventory.db")
@@ -314,12 +315,8 @@ class BarcodeViewer(ctk.CTk):
         user=self.scan_face(scan_text="access personal database", btn="personal_db_btn", btn_text="View Personal Database")
         if user is None or user == "":
             return
+        pwl.PersonalWindowLoader(self)
         
-        
-    def calendar_app(self):
-        """Placeholder for calendar application (WIP)"""
-
-        pass
     #endregion
 
     def apply_search_filter(self, event=None):
