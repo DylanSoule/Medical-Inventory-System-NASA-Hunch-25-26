@@ -157,7 +157,7 @@ class BarcodeViewer(ctk.CTk):
         # Log Scan button (exact width 350px)
         self.log_scan_btn = ctk.CTkButton(
                 btn_container,
-                text="Log Item Use (WIP)",
+                text="Log Item Use",
                 state="enabled",
                 command=self.log_item_use,
                 width=350,
@@ -273,7 +273,17 @@ class BarcodeViewer(ctk.CTk):
         if user is None or user == "":
             return
         pass
+
+    def personal_db_app(self):
+        """Placeholder for personal database application (WIP)"""
+        pass
+
+    def calendar_app(self):
+        """Placeholder for calendar application (WIP)"""
+        
+        pass
     #endregion
+
     def apply_search_filter(self, event=None):
         """
         Apply search and filter UI to the cached DB rows and populate the treeview.
@@ -1575,6 +1585,7 @@ class BarcodeViewer(ctk.CTk):
             self.column_visibility["drug"].set(True)
             self.tree.configure(displaycolumns=["drug"])
             self.after(50, lambda: self._adjust_column_widths(["drug"]))
+
 
 if __name__=="__main__":
     app = BarcodeViewer()
