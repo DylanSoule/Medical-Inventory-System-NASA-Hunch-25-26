@@ -24,9 +24,6 @@ body {
     text-decoration: none;
 }
 
-.logo img:hover {
-    transform: scale(1.05);
-}
 
 .nav-line {
     border: 10px solid rgba(255, 255, 255, 0.2);
@@ -224,6 +221,72 @@ body {
     padding: 25px;
     border-radius: 10px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+/* Expandable list styles */
+.expandable-list {
+    list-style: none;
+    padding: 0;
+}
+
+.expandable-list > li {
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.expandable-list > li:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.expandable-list > li > strong {
+    display: block;
+    font-size: 1.1em;
+    color: #667eea;
+    margin-bottom: 10px;
+}
+
+.sub-bullets {
+    list-style: disc;
+    margin-left: 20px;
+    padding-left: 20px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 1s ease, opacity 0.5s ease, margin-top 1s ease;
+    margin-top: 0;
+}
+
+.expandable-list > li:hover .sub-bullets {
+    max-height: 1000px;
+    opacity: 1;
+    margin-top: 10px;
+}
+
+.sub-bullets li {
+    margin: 8px 0;
+    color: #e0e0e0;
+    line-height: 1.5em;
+}
+
+.sub-bullets li strong {
+    color: #764ba2;
+}
+
+.nested-sub-bullets {
+    list-style: circle;
+    margin-left: 20px;
+    padding-left: 15px;
+    margin-top: 5px;
+}
+
+.nested-sub-bullets li {
+    margin: 5px 0;
+    color: #c0c0c0;
+    font-size: 0.95em;
 }
 
 .container {
