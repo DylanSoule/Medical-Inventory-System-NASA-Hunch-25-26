@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>The Problem</title>
         <link rel="icon" href="./transparent_logo_cropped.png" alt ="HELIOS logo"/>
-        <link rel="stylesheet" href="style.css" />
+        <link rel="stylesheet" href="style.css?v=4" />
     </head>
     <body>
         <div class="hamburger-menu" id="hamburger" onclick="toggleMenu()">
@@ -87,6 +88,24 @@
                     if (!menu.contains(event.target) && !hamburger.contains(event.target)) {
                         menu.classList.remove('active');
                         hamburger.classList.remove('active');
+                    }
+                });
+
+                // Add click functionality for expandable bullets on mobile
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Check if mobile
+                    function isMobile() {
+                        return window.innerWidth <= 480;
+                    }
+                    
+                    if (isMobile()) {
+                        document.querySelectorAll('.expandable-list > li').forEach(function(item) {
+                            item.style.cursor = 'pointer';
+                            item.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                this.classList.toggle('expanded');
+                            });
+                        });
                     }
                 });
             </script>
