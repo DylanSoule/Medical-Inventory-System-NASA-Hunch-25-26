@@ -151,10 +151,10 @@ body {
 .nav-menu {
     position: fixed;
     top: 0;
+    bottom: 0;
     left: -250px;
     width: 170px;
-    height: 300vh;
-    min-height: 100%;
+    min-height: 100vh;
 
     background: rgb(63, 67, 69);
     padding: 40px 20px 20px 0px;
