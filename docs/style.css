@@ -84,7 +84,6 @@ body {
     animation: outBtm 0.8s forwards;
 }
 
-/* Hamburger Animation Keyframes */
 @-webkit-keyframes inM {
     50% { -webkit-transform: rotate(0deg); }
     100% { -webkit-transform: rotate(45deg); }
@@ -154,7 +153,8 @@ body {
     top: 0;
     left: -250px;
     width: 170px;
-    height: 100%;
+    height: 100vh;
+    min-height: 100%;
 
     background: rgb(63, 67, 69);
     padding: 40px 20px 20px 0px;
@@ -222,7 +222,6 @@ body {
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
-/* Expandable list styles */
 .expandable-list {
     list-style: none;
     padding: 0;
@@ -497,7 +496,6 @@ footer a:hover {
         overflow: hidden !important;
     }
     
-    /* Fix team list overflow on mobile */
     .column ul {
         max-width: 100% !important;
     }
@@ -529,12 +527,16 @@ footer a:hover {
     }
     
     .expandable-list > li:hover {
-        background: none !important;
+        background: rgba(255, 255, 255, 0.05) !important;
     }
     
     .expandable-list > li {
-        -webkit-tap-highlight-color: transparent !important;
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
         -webkit-touch-callout: none !important;
+    }
+    
+    .expandable-list > li:active {
+        background: rgba(255, 255, 255, 0.05) !important;
     }
     
     .expandable-list > li:hover .sub-bullets {
