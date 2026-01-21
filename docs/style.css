@@ -151,10 +151,10 @@ body {
 
 .nav-menu {
     position: fixed;
-    top: 0vh;
+    top: 0;
     left: -250px;
     width: 170px;
-    height: 100vh;
+    height: 100%;
 
     background: rgb(63, 67, 69);
     padding: 40px 20px 20px 0px;
@@ -164,8 +164,7 @@ body {
 }
 
 .nav-menu.active {
-    left: 0vh;
-    top: 0vh;
+    left: 0;
 }
 
 .nav-menu a {
@@ -494,23 +493,33 @@ footer a:hover {
         width: 100% !important;
         max-width: 100% !important;
         min-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
     }
     
-    /* Make timeline section full width on mobile */
+    /* Fix team list overflow on mobile */
+    .column ul {
+        max-width: 100% !important;
+    }
+    
+    
     .section {
         max-width: 100% !important;
         width: 100% !important;
         padding: 25px 10px !important;
     }
     
-    /* Fix team photo container on mobile */
     .section > div {
         width: 100% !important;
         max-width: 100% !important;
         height: auto !important;
     }
     
-    /* Make problem page boxes stack on mobile */
+    .section > div > img {
+        width: 100% !important;
+        height: auto !important;
+    }
+    
     .problem-text,
     .problem-image {
         width: 100% !important;
@@ -519,9 +528,13 @@ footer a:hover {
         margin: 10px 0 !important;
     }
     
-    /* Change expandable bullets to click-to-toggle on mobile instead of hover */
     .expandable-list > li:hover {
         background: none !important;
+    }
+    
+    .expandable-list > li {
+        -webkit-tap-highlight-color: transparent !important;
+        -webkit-touch-callout: none !important;
     }
     
     .expandable-list > li:hover .sub-bullets {
