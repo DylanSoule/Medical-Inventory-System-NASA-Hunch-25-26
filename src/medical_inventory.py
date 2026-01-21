@@ -5,15 +5,13 @@ import customtkinter as ctk
 import os
 import sys
 import datetime
-
+import tkcalendar as tkcal
 # Add parent directory to path for imports from Database and src
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import facial_recognition as fr
-import personal_window_loader as pwl
 from Database.database import DatabaseManager
 from facial_recognition import FaceRecognitionError
-from personal_window_loader import PersonalWindowLoader
 
 # Database file path - store in parent directory
 DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Database/inventory.db")
@@ -118,7 +116,7 @@ class BarcodeViewer(ctk.CTk):
             "type_": "Type",
             "dose_size": "Dose Size",
             "item_type": "Item Type",
-            "item_loc": "Location (WIP)"
+            "item_loc": "Location"
         }
 
             # Store column configurations
@@ -130,7 +128,7 @@ class BarcodeViewer(ctk.CTk):
             "type_": {"text": "Type", "width": 120},
             "dose_size": {"text": "Dose Size", "width": 140},
             "item_type": {"text": "Item Type", "width": 140},
-            "item_loc": {"text": "Location (WIP)", "width": 100}
+            "item_loc": {"text": "Location", "width": 100}
         }
             # Create checkboxes for each column
         columns_frame = ctk.CTkFrame(sidebar, corner_radius=6)
@@ -198,8 +196,8 @@ class BarcodeViewer(ctk.CTk):
     #region ######################## personal DB Button with Status Indicator
         self.personal_db_btn = ctk.CTkButton(
             btn_container,
-            text="View Personal Database (WIP)",
-            command=self.personal_db,
+            text="View Personal Database",
+            command=lambda: self.personal_run(),
             state="enabled",
             width=350,
             height=60,
@@ -269,6 +267,12 @@ class BarcodeViewer(ctk.CTk):
         self.after(500, lambda: self._adjust_column_widths([c for c, v in self.column_visibility.items() if v.get()]))
         self.after(REFRESH_INTERVAL, self.refresh_data)
     
+    def personal_run(self):
+        user=self.scan_face(scan_text="access personal database", btn="personal_db_btn", btn_text="View Personal Database")
+        if user is None or user == "":
+            return
+        Personal_db_window(self, user)
+
     def window_loader(self, title):
         window = ctk.CTkToplevel(self)
         window.title(title)
@@ -309,15 +313,6 @@ class BarcodeViewer(ctk.CTk):
         ctk.CTkButton(top_bar, text="Close", command=window.destroy, width=160, height=55, font=("Arial", 22)).pack(side="right", padx=18, pady=18)
         window.bind("<Escape>", lambda e: window.destroy())
 
-    #region ######################## Personal DB
-    def personal_db(self):
-        """Placeholder for personal database viewing functionality (WIP)"""
-        user=self.scan_face(scan_text="access personal database", btn="personal_db_btn", btn_text="View Personal Database")
-        if user is None or user == "":
-            return
-        pwl.PersonalWindowLoader(self)
-        
-    #endregion
 
     def apply_search_filter(self, event=None):
         """
@@ -1232,7 +1227,6 @@ class BarcodeViewer(ctk.CTk):
         # --- numpad frame ---
         button_frame = ctk.CTkFrame(dlg)
         button_frame.pack(pady=(0,22))
-
         buttons = [
             ['7','8','9'],
             ['4','5','6'],
@@ -1621,7 +1615,46 @@ class BarcodeViewer(ctk.CTk):
             self.tree.configure(displaycolumns=["drug"])
             self.after(50, lambda: self._adjust_column_widths(["drug"]))
 
+class Personal_db_window(ctk.CTkToplevel):
+    
+    def __init__(self, parent, user):
+        super().__init__(parent)
+        self.title("Personal Database Manager")
+        self.transient(parent)
+        try:
+            self.attributes("-fullscreen", True)
+        except Exception:
+            # Fallback: explicitly set geometry to screen size
+            try:
+               self.state("zoomed")
+            except Exception:
+                screen_width = self.winfo_screenwidth()
+                screen_height = self.winfo_screenheight()
+                self.geometry(f"{screen_width}x{screen_height}+0+0")
+        else:
+            self.geometry("1200x800")
+        # Wait for window to be viewable before grabbing focus
+        self.update_idletasks()
+        
+        # Lift window and ensure it's visible
+        self.lift()
+        self.focus_force()
+        
+        # Delay grab_set until window is fully rendered
+        def do_grab():
+            try:
+                self.grab_set()
+            except Exception as e:
+                print(f"Could not grab focus: {e}")
+        self.after(100, do_grab)
 
+        
+        ctk.CTkLabel(self, text=f"{user}'s Personal Database", font=("Arial", 24)).pack(pady=20)
+        ctk.CTkFrame(self).pack(fill="x", padx=20, pady=10)
+        
+        ctk.CTkButton(self, text="Close", command=self.destroy, width=160, height=55, font=("Arial", 20)).pack(pady=20)
+        tkcal.Calendar(self, selectmode="day").pack(pady=20)
+        
 if __name__=="__main__":
     app = BarcodeViewer()
     app.mainloop()
