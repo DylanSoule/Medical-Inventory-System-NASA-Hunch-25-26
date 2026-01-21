@@ -150,14 +150,13 @@ body {
 
 .nav-menu {
     position: fixed;
-    top: 0;
-    bottom: 0;
+    top: -100vh;
     left: -250px;
     width: 170px;
-    min-height: 100vh;
+    height: 300vh;
 
     background: rgb(63, 67, 69);
-    padding: 40px 20px 20px 0px;
+    padding: calc(100vh + 40px) 20px 20px 0px;
     transition: left 0.3s ease;
     z-index: 1000;
     box-shadow: 2px 0 10px rgba(0,0,0,0.3);
