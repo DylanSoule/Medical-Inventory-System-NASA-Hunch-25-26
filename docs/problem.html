@@ -25,17 +25,16 @@
             <h1>The Problem</h1>
             <p>Understanding the challenges we aim to solve with H.E.L.I.O.S</p>
         </div>
-        <div class="container">
-            <div class="problem-text">
-                <h2>Challenges</h2>
-                <ul class="expandable-list">
+        
+        <div class="section" style="max-width: 900px; margin: 40px auto;">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">Mission Challenges</h2>
+            <ul class="expandable-list">
                     <li><strong>Microgravity Creates Unique Problems</strong>
                         <ul class="sub-bullets">
                             <li>Small but critical items (tools, medical supplies, personal gear) can easily drift in microgravity</li>
                             <li>Items get tucked into unexpected compartments during busy operations</li>
-                            <li>Searching for missing equipment wastes valuable crew time and increases mission risk</li>
                             <li>Crowded spacecraft interiors make organization difficult</li>
-                            <li>Every minute spent searching reduces time for critical mission tasks</li>
+                            <li>Every minute spent searching reduces time for important mission tasks</li>
                         </ul>
                     </li>
                     <li><strong>Current Inventory Methods Are Inadequate</strong>
@@ -44,7 +43,6 @@
                             <li>Astronauts may forget to log items during emergencies or busy periods</li>
                             <li>No real-time tracking of supply usage</li>
                             <li>Ground control lacks immediate visibility into inventory status</li>
-                            <li>Resupply planning depends on accurate, up-to-date records</li>
                         </ul>
                     </li>
                     <li><strong>Existing Tracking Solutions Have Limitations</strong>
@@ -54,12 +52,11 @@
                                     <li>Requires powered readers and can't operate independently</li>
                                 </ul>
                             </li>
-                            <li><strong>NFC:</strong> Works well for intentional checks, but read range (few centimeters) is too short for quick inventory sweeps
+                            <li><strong>NFC:</strong> Works well for intentional checks, but read range (few centimeters) is too short for quick inventory changes
                                 <ul class="nested-sub-bullets">
                                     <li>Requires very close proximity, impractical for overhead storage or hard-to-reach areas</li>
                                 </ul>
                             </li>
-                            <li><strong>Barcode systems:</strong> Require line-of-sight and manual scanning of each item</li>
                         </ul>
                     </li>
                     <li><strong>Medical Supply Management Is Critical</strong>
@@ -72,8 +69,9 @@
                         </ul>
                     </li>
                 </ul>
-            </div>
-            <script>
+        </div>
+        
+        <script>
                 function toggleMenu() {
                     const menu = document.getElementById('navMenu');
                     const hamburger = document.getElementById('hamburger');
@@ -110,4 +108,15 @@
             </script>
         </div>
         
+        <footer>
+            <h3>Learn More About H.E.L.I.O.S</h3>
+            <p>View the project source code</p>
+            <a href="https://github.com/ltl902/Medical-Invintory-System-NASA-Hunch-25-26-" style="display: inline-block; padding: 15px 30px; background-color: #333; color: rgb(255, 255, 255); text-decoration: none; border-radius: 5px; font-weight: bold; margin: 10px 0;" target="_blank">Visit GitHub Repository</a>
+            <a href="index.html" style="display: inline-block; padding: 15px 30px; background-color: #333; color: rgb(255, 255, 255); text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0;">Back to Home</a>
+            <br><br>
+            <p style="color: #666; font-size: 14px;">
+                2025-2026 H.E.L.I.O.S Team | NASA HUNCH Program<br>
+                Lucca Townsend • Dylan Soule • Brody Barnes
+            </p>
+        </footer>
 </html>

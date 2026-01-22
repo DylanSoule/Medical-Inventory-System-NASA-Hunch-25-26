@@ -9,6 +9,7 @@ html, body {
     padding: 0;
     overflow-x: hidden;
     width: 100%;
+    scroll-behavior: smooth;
 }
 
 body {
@@ -16,6 +17,78 @@ body {
     font-family: Arial, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     background-attachment: fixed;
+    position: relative;
+}
+
+#particles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.star {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle 3s infinite;
+}
+
+@keyframes twinkle {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes logoFloat {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+}
+
+.slide-up {
+    opacity: 1;
+    animation: slideUp 0.6s ease-out;
+}
+
+
+
+.timeline-section {
+    opacity: 0;
+    animation: fadeIn 0.8s ease-out forwards;
 }
 
 .logo {
@@ -292,6 +365,8 @@ body {
     max-width: 1200px;
     margin: 0 auto 40px auto;
     flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
 }
 
 .column {
@@ -308,6 +383,11 @@ body {
 .column:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+}
+
+.team-member:hover {
+    transform: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
 .column h3 {
@@ -336,6 +416,8 @@ hr {
     max-width: 1200px;
     border-radius: 10px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    position: relative;
+    z-index: 1;
 }
 
 .section h2 {
@@ -380,48 +462,67 @@ table th {
 
 table tr {
     background: #1a1d1f;
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
+    transform: translateX(0);
 }
 
 table td {
     color: #e0e0e0;
+    transition: all 0.3s ease;
 }
 
 table tr:hover {
-    background-color: #252829 !important;
+    background-color: #2a3235 !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+table tr:nth-child(even) {
+    background: #212426;
+}
+
+table tr:nth-child(even):hover {
+    background-color: #2a3235 !important;
 }
 
 
 footer {
     background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%) !important;
-    padding: 40px 20px !important;
+    padding: 25px 20px 20px 20px !important;
     text-align: center;
-    margin: 40px -20px -20px -20px;
+    margin: 40px -20px -20px -20px !important;
     color: white !important;
+    width: calc(100% + 40px) !important;
+    margin-left: -20px !important;
+    margin-right: -20px !important;
+    margin-bottom: -20px !important;
 }
 
 footer h3 {
     color: white !important;
+    font-size: 1.3em;
+    margin-bottom: 10px;
 }
 
 footer p {
     color: #e0e0e0 !important;
+    font-size: 0.9em;
+    margin: 5px 0;
 }
 
 footer a {
     display: inline-block;
-    padding: 15px 30px;
+    padding: 12px 24px;
     background: linear-gradient(to right, #2a2a2a 0%, #383838 50%, #2a2a2a 100%);
     background-size: 500%;
     background-position: 0% 50%;
     color: #fff !important;
     text-decoration: none;
-    border-radius: 5rem;
+    border-radius: 5px;
     font-family: 'Raleway', sans-serif;
     font-weight: bold;
-    font-size: 1.1em;
+    font-size: 0.95em;
     letter-spacing: 0.05em;
-    margin: 10px 0;
+    margin: 8px 5px;
     border: none;
     outline: none;
     cursor: pointer;
@@ -447,6 +548,9 @@ footer a:hover {
         gap: 20px;
     }
     
+    .nav-menu {
+        height: 200vh;
+    }
     body {
         padding: 10px;
     }
@@ -485,7 +589,10 @@ footer a:hover {
         flex-direction: column !important;
     }
     
+    .nav-menu {
+        height: 250vh;
 
+    }
     .column {
         padding: 15px;
         width: 100% !important;
@@ -536,6 +643,13 @@ footer a:hover {
     
     .expandable-list > li:active {
         background: rgba(255, 255, 255, 0.05) !important;
+    }
+    
+    .sub-bullets {
+        max-height: 0 !important;
+        opacity: 0 !important;
+        margin-top: 0 !important;
+        overflow: hidden !important;
     }
     
     .expandable-list > li:hover .sub-bullets {
