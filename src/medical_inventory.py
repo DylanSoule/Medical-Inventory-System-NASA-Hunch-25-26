@@ -1621,18 +1621,19 @@ class Personal_db_window(ctk.CTkToplevel):
         super().__init__(parent)
         self.title("Personal Database Manager")
         self.transient(parent)
+        
+        # Set fullscreen with fallbacks
         try:
             self.attributes("-fullscreen", True)
         except Exception:
-            # Fallback: explicitly set geometry to screen size
             try:
-               self.state("zoomed")
+                self.state("zoomed")
             except Exception:
+                # Get screen dimensions for fallback
                 screen_width = self.winfo_screenwidth()
                 screen_height = self.winfo_screenheight()
                 self.geometry(f"{screen_width}x{screen_height}+0+0")
-        else:
-            self.geometry("1200x800")
+        
         # Wait for window to be viewable before grabbing focus
         self.update_idletasks()
         
@@ -1648,13 +1649,35 @@ class Personal_db_window(ctk.CTkToplevel):
                 print(f"Could not grab focus: {e}")
         self.after(100, do_grab)
 
-        
+        # Title
         ctk.CTkLabel(self, text=f"{user}'s Personal Database", font=("Arial", 24)).pack(pady=20)
-        ctk.CTkFrame(self).pack(fill="x", padx=20, pady=10)
         
+        # Calendar frame - fill entire window
+        cal_frame = ctk.CTkFrame(self)
+        cal_frame.pack(fill="both", expand=True, padx=20, pady=(10, 20))
+
+        # Calendar - fill the frame
+        calendar = tkcal.Calendar(
+            cal_frame,
+            selectmode="day",
+            font=("Arial", 20),
+            headersforeground="black",
+            normalforeground="black",
+            normalbackground="white",
+            weekendforeground="red",
+            othermonthforeground="gray",
+            selectforeground="white",
+            selectbackground="#5F84C8",
+            date_pattern="yyyy-mm-dd"
+        )
+        calendar.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # Close button at bottom
         ctk.CTkButton(self, text="Close", command=self.destroy, width=160, height=55, font=("Arial", 20)).pack(pady=20)
-        tkcal.Calendar(self, selectmode="day").pack(pady=20)
         
-if __name__=="__main__":
+        # Allow ESC to close
+        self.bind("<Escape>", lambda e: self.destroy())
+
+if __name__ == "__main__":
     app = BarcodeViewer()
     app.mainloop()
