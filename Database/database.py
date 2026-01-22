@@ -398,7 +398,6 @@ class PersonalDatabaseManager:
 
         c.execute("SELECT * FROM history ORDER BY rowid DESC LIMIT 1")
         last_taken = c.fetchone()
-        print(last_taken)
         result = self.compare_with_prescription(last_taken)
         
         conn.close()
@@ -489,7 +488,7 @@ if __name__ == "__main__":
     read1 = DatabaseManager('Database/inventory.db')
 
     # print(read.pull_data('history'))
-    # print(read.compare_history_with_prescription(days_back=60))
+    # print(str(read.compare_history_with_prescription(days_back=40)).replace('),',')\n'))
     # print(read.compare_most_recent_log_with_prescription())
 
 
