@@ -377,18 +377,59 @@ body {
     padding: 25px;
     border-radius: 10px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: all 0.3s ease;
+    border: 3px solid rgba(69, 112, 187, 0.7);
+    position: relative;
+}
+
+.column a[href], a.column {
+    cursor: pointer;
+}
+
+
+.column a[href]::before, a.column::before {
+    content: "";
+    position: absolute;
+    right: 15px;
+    top: 15px;
+    width: 24px;
+    height: 24px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: 0.6;
+    transition: all 0.3s ease;
 }
 
 .column:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+    box-shadow: 0 8px 15px rgba(69, 112, 187, 0.4);
+    border-color: rgb(59, 47, 172);
+    background: rgb(28, 30, 32);
 }
 
-.team-member:hover {
-    transform: none;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+.column:hover a[href]::before, a.column:hover::before {
+    opacity: 1;
+    transform: scale(1.1);
 }
+
+
+.column.team-member {
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    cursor: default;
+}
+
+.column.team-member:hover {
+    transform: none;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgb(24, 26, 27);
+}
+
+.column.team-member a[href]::before {
+    display: none;
+}
+
+
 
 .column h3 {
     margin-top: 0;
