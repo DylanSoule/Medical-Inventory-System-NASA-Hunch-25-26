@@ -3,6 +3,10 @@
 # Ubuntu/Debian: sudo apt-get install python3-tk
 # Fedora/RHEL: sudo dnf install python3-tkinter
 
+# Kivy Framework (for Kivy version)
+kivy>=2.2.0
+kivy-garden>=0.1.5
+
 # Computer Vision and Image Processing
 opencv-python>=4.8.0
 numpy>=1.24.0
