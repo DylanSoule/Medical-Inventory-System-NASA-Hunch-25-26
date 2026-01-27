@@ -144,6 +144,10 @@
         </footer>
         
         <script>
+            // Fix mobile scroll issues - ensure passive event listeners
+            document.addEventListener('touchstart', function(){}, {passive: true});
+            document.addEventListener('touchmove', function(){}, {passive: true});
+            
             function toggleMenu() {
                 const menu = document.getElementById('navMenu');
                 const hamburger = document.getElementById('hamburger');
@@ -162,9 +166,11 @@
                 }
             });
 
-            // Generate particles/stars
+            // Generate particles/stars - fewer on mobile for performance
             const particlesContainer = document.getElementById('particles');
-            for(let i = 0; i < 80; i++) {
+            const isMobile = window.innerWidth <= 768;
+            const starCount = isMobile ? 25 : 80;
+            for(let i = 0; i < starCount; i++) {
                 const star = document.createElement('div');
                 star.className = 'star';
                 star.style.left = Math.random() * 100 + '%';
