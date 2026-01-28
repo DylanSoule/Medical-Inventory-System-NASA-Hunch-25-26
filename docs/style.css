@@ -7,17 +7,7 @@
 html, body {
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
     width: 100%;
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    min-height: 100%;
-}
-
-html {
-    height: 100%;
 }
 
 body {
@@ -26,7 +16,6 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     background-attachment: fixed;
     position: relative;
-    min-height: 100dvh;
 }
 
 #particles {
@@ -37,7 +26,7 @@ body {
     height: 100%;
     pointer-events: none;
     touch-action: none;
-    z-index: 0;
+    z-index: -1;
 }
 
 .star {
@@ -47,69 +36,10 @@ body {
     pointer-events: none;
     background: white;
     border-radius: 50%;
-    animation: twinkle 3s infinite;
-    will-change: opacity;
-}
-
-@keyframes twinkle {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 1; }
-}
-
-/* Disable star animations on mobile for better scroll performance */
-@media (max-width: 768px) {
-    .star {
-        animation: none;
-        opacity: 0.5;
-    }
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes logoFloat {
-    0%, 100% {
-        transform: translateY(0px);
-    }
-    50% {
-        transform: translateY(-10px);
-    }
-}
-
-.fade-in {
-    animation: fadeIn 0.6s ease-out forwards;
-}
-
-.slide-up {
-    opacity: 0;
-    animation: slideUp 0.6s ease-out forwards;
+    opacity: 0.6;
 }
 
 
-
-.timeline-section {
-    opacity: 0;
-    animation: fadeIn 0.8s ease-out forwards;
-}
 
 .logo {
     width: 150px;
@@ -615,10 +545,6 @@ footer a:hover {
     .container {
         flex-direction: column;
         gap: 20px;
-    }
-    
-    html, body {
-        scroll-behavior: auto; /* Disable smooth scroll on mobile - can cause jank */
     }
     
     body {
