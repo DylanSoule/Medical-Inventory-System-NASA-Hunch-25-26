@@ -166,6 +166,8 @@ class DatabaseManager:
         conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
         c = conn.cursor()
         
+        compare = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
+        
         try:
             c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change)))
         except Exception as e:
@@ -431,6 +433,16 @@ class PersonalDatabaseManager:
                 return True, "Matches Prescription"
         conn.close()
         return False, "No Time Match"
+
+
+    def get_personal_data(self, date):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        c.execute('SELECT * FROM history WHERE when_taken = ?',(date,))
+        logs = c.fetchall()
+        
+        for i in range(len(logs)):
 
 
 
