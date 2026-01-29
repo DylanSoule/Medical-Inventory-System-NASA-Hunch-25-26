@@ -120,6 +120,20 @@ class BarcodeViewer(ctk.CTk):
         style.configure("TButton", font=("Arial", 24), padding=20)
         style.configure("Treeview", font=("Arial", 22), rowheight=55)
         style.configure("Treeview.Heading", font=("Arial", 24, "bold"))
+        
+        # Configure scrollbar thickness
+        style.configure("Vertical.TScrollbar", width=30)  # Make vertical scrollbar 30 pixels wide
+        style.configure("Horizontal.TScrollbar", width=30)  # Make horizontal scrollbar 30 pixels tall
+        
+        # Optional: Customize scrollbar colors for better visibility
+        style.map("Vertical.TScrollbar",
+            background=[("active", "#5F84C8"), ("!active", "#4a4a4a")],
+            troughcolor=[("", "#2b2b2b")]
+        )
+        style.map("Horizontal.TScrollbar",
+            background=[("active", "#5F84C8"), ("!active", "#4a4a4a")],
+            troughcolor=[("", "#2b2b2b")]
+        )
     #endregion
 
     # ========================================================================
@@ -213,16 +227,43 @@ class BarcodeViewer(ctk.CTk):
         
         ctk.CTkLabel(frame, text="Search", anchor="w", font=("Arial", 22)).pack(fill="x", pady=(0, 10))
         
+        # Entry with button frame
+        entry_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        entry_frame.pack(fill="x")
+        
         self.search_var = tk.StringVar()
         search_entry = ctk.CTkEntry(
-            frame,
+            entry_frame,
             textvariable=self.search_var,
             placeholder_text="Search all fields...",
             height=50,
             font=("Arial", 20)
         )
-        search_entry.pack(fill="x")
+        search_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         search_entry.bind("<KeyRelease>", self.apply_search_filter)
+        
+        # Keyboard button
+        ctk.CTkButton(
+            entry_frame,
+            text="⌨",
+            command=lambda: self._show_search_keyboard(),
+            width=60,
+            height=50,
+            font=("Arial", 24)
+        ).pack(side="left")
+
+    def _show_search_keyboard(self):
+        """Show virtual keyboard for search"""
+        current_text = self.search_var.get()
+        result = VirtualKeyboard.get_input(
+            self,
+            title="Search Keyboard",
+            prompt="Enter search terms:",
+            initial_text=current_text
+        )
+        if result is not None:
+            self.search_var.set(result)
+            self.apply_search_filter()
 
     def _create_filter_section_grid(self, parent, row):
         """Create filter controls with grid"""
@@ -906,63 +947,13 @@ class BarcodeViewer(ctk.CTk):
             self.show_popup("Delete", "No row selected.", "info")
             return
         
-        # Get deletion reason
-        dlg = ctk.CTkToplevel(self)
-        dlg.title(title)
-        dlg.transient(self)
-        dlg.resizable(False, False)
-        
-        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
-        
-        entry_var = tk.StringVar()
-        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=600, height=55, font=("Arial", 20))
-        entry.pack(padx=25, pady=(0, 22))
-        
-        result = {"value": None}
-        
-        def on_ok_del(event=None):
-            val = entry_var.get().strip()
-            if val == "":
-                return
-            result["value"] = val
-            try:
-                dlg.grab_release()
-            except:
-                pass
-            dlg.destroy()
-        
-        def on_cancel_del(event=None):
-            try:
-                dlg.grab_release()
-            except:
-                pass
-            dlg.destroy()
-        
-        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
-        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
-        ctk.CTkButton(btn_frame, text="OK", command=on_ok_del, width=160, height=55, 
-                     font=("Arial", 20)).pack(side="left", padx=12, pady=12)
-        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel_del, width=160, height=55, 
-                     font=("Arial", 20), fg_color="gray30").pack(side="left", padx=12, pady=12)
-        
-        entry.bind("<Return>", on_ok_del)
-        dlg.bind("<Escape>", on_cancel_del)
-        
-        self.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width() // 2) - (dlg.winfo_reqwidth() // 2)
-        y = self.winfo_rooty() + (self.winfo_height() // 2) - (dlg.winfo_reqheight() // 2)
-        dlg.geometry(f"+{x}+{y}")
-        
-        def do_grab():
-            try:
-                dlg.grab_set()
-                entry.focus_set()
-            except:
-                pass
-        dlg.after(50, do_grab)
-        
-        self.wait_window(dlg)
-        reason = result["value"]
+        # Get deletion reason using virtual keyboard
+        reason = VirtualKeyboard.get_input(
+            self,
+            title=title,
+            prompt=prompt,
+            initial_text=""
+        )
         
         if reason is None:
             return
@@ -1880,6 +1871,261 @@ class Personal_db_window(ctk.CTkToplevel):
         self.current_date = datetime.date.today()
         self.date_label.configure(text=self.current_date.strftime("%A, %B %d, %Y"))
         self.load_timeline_data()
+#endregion
+
+# ============================================================================
+# VIRTUAL KEYBOARD
+# ============================================================================
+#region virtual keyboard
+class VirtualKeyboard(ctk.CTkToplevel):
+    """Virtual keyboard for touch screen input"""
+    
+    def __init__(self, parent, title="Virtual Keyboard", prompt="Enter text:", initial_text=""):
+        super().__init__(parent)
+        self.title(title)
+        self.transient(parent)
+        self.resizable(False, False)
+        
+        self.result = {"value": None}
+        self.shift_active = False
+        self.caps_lock = False
+        
+        self._setup_ui(prompt, initial_text)
+        self._center_window(parent)
+        
+        self.grab_set()
+        self.focus_force()
+    
+    def _setup_ui(self, prompt, initial_text):
+        """Setup keyboard UI"""
+        # Prompt label
+        ctk.CTkLabel(
+            self, 
+            text=prompt, 
+            anchor="w", 
+            font=("Arial", 22)
+        ).pack(padx=25, pady=(22, 12))
+        
+        # Text entry
+        self.entry_var = tk.StringVar(value=initial_text)
+        self.entry = ctk.CTkEntry(
+            self,
+            textvariable=self.entry_var,
+            width=800,
+            height=60,
+            font=("Arial", 20)
+        )
+        self.entry.pack(padx=25, pady=(0, 15))
+        self.entry.focus_set()
+        
+        # Keyboard frame
+        keyboard_frame = ctk.CTkFrame(self, corner_radius=6)
+        keyboard_frame.pack(padx=25, pady=(0, 15), fill="both", expand=True)
+        
+        # Define keyboard layout (QWERTY)
+        self.keys_layout = [
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='],
+            ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']'],
+            ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', "'"],
+            ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/']
+        ]
+        
+        # Special keys shifted versions
+        self.shift_map = {
+            '1': '!', '2': '@', '3': '#', '4': '$', '5': '%',
+            '6': '^', '7': '&', '8': '*', '9': '(', '0': ')',
+            '-': '_', '=': '+', '[': '{', ']': '}', ';': ':',
+            "'": '"', ',': '<', '.': '>', '/': '?'
+        }
+        
+        # Create keyboard rows
+        for row_idx, row in enumerate(self.keys_layout):
+            row_frame = ctk.CTkFrame(keyboard_frame, fg_color="transparent")
+            row_frame.pack(pady=5)
+            
+            # Add shift for third row
+            if row_idx == 2:
+                shift_btn = ctk.CTkButton(
+                    row_frame,
+                    text="⇧ Shift",
+                    command=self.toggle_shift,
+                    width=90,
+                    height=65,
+                    font=("Arial", 16)
+                )
+                shift_btn.pack(side="left", padx=3)
+                self.shift_btn = shift_btn
+            
+            # Add keys for this row
+            for key in row:
+                btn = ctk.CTkButton(
+                    row_frame,
+                    text=key.upper() if self.caps_lock or self.shift_active else key,
+                    command=lambda k=key: self.key_press(k),
+                    width=65,
+                    height=65,
+                    font=("Arial", 18, "bold")
+                )
+                btn.pack(side="left", padx=3)
+            
+            # Add backspace for first row
+            if row_idx == 0:
+                backspace_btn = ctk.CTkButton(
+                    row_frame,
+                    text="⌫",
+                    command=self.backspace,
+                    width=90,
+                    height=65,
+                    font=("Arial", 20),
+                    fg_color="#dc2626"
+                )
+                backspace_btn.pack(side="left", padx=3)
+        
+        # Bottom row with special keys
+        bottom_frame = ctk.CTkFrame(keyboard_frame, fg_color="transparent")
+        bottom_frame.pack(pady=5)
+        
+        ctk.CTkButton(
+            bottom_frame,
+            text="Caps",
+            command=self.toggle_caps,
+            width=90,
+            height=65,
+            font=("Arial", 16)
+        ).pack(side="left", padx=3)
+        
+        ctk.CTkButton(
+            bottom_frame,
+            text="Space",
+            command=lambda: self.key_press(' '),
+            width=400,
+            height=65,
+            font=("Arial", 18)
+        ).pack(side="left", padx=3)
+        
+        ctk.CTkButton(
+            bottom_frame,
+            text="Clear",
+            command=self.clear_all,
+            width=90,
+            height=65,
+            font=("Arial", 16),
+            fg_color="#f59e0b"
+        ).pack(side="left", padx=3)
+        
+        # Action buttons
+        action_frame = ctk.CTkFrame(self, corner_radius=6)
+        action_frame.pack(pady=(0, 22), padx=25, fill="x")
+        
+        ctk.CTkButton(
+            action_frame,
+            text="OK",
+            command=self.on_ok,
+            width=180,
+            height=60,
+            font=("Arial", 20),
+            fg_color="#22c55e"
+        ).pack(side="left", padx=12, pady=12)
+        
+        ctk.CTkButton(
+            action_frame,
+            text="Cancel",
+            command=self.on_cancel,
+            width=180,
+            height=60,
+            font=("Arial", 20),
+            fg_color="gray30"
+        ).pack(side="right", padx=12, pady=12)
+        
+        # Bind Enter and Escape
+        self.entry.bind("<Return>", lambda e: self.on_ok())
+        self.bind("<Escape>", lambda e: self.on_cancel())
+    
+    def key_press(self, key):
+        """Handle key press"""
+        current = self.entry_var.get()
+        
+        # Check if we need to use shifted version
+        if (self.shift_active or self.caps_lock) and key in self.shift_map:
+            key = self.shift_map[key]
+        elif self.shift_active or self.caps_lock:
+            key = key.upper()
+        
+        self.entry_var.set(current + key)
+        
+        # Reset shift after key press (but not caps lock)
+        if self.shift_active:
+            self.shift_active = False
+            self._update_key_display()
+    
+    def backspace(self):
+        """Remove last character"""
+        current = self.entry_var.get()
+        self.entry_var.set(current[:-1])
+    
+    def clear_all(self):
+        """Clear entire entry"""
+        self.entry_var.set("")
+    
+    def toggle_shift(self):
+        """Toggle shift state"""
+        self.shift_active = not self.shift_active
+        self._update_key_display()
+    
+    def toggle_caps(self):
+        """Toggle caps lock"""
+        self.caps_lock = not self.caps_lock
+        self.shift_active = False
+        self._update_key_display()
+    
+    def _update_key_display(self):
+        """Update keyboard key labels based on shift/caps state"""
+        # This would update all key button texts - simplified for now
+        # In a full implementation, you'd store references to all key buttons
+        # and update their text here
+        pass
+    
+    def on_ok(self):
+        """Handle OK button"""
+        self.result["value"] = self.entry_var.get().strip()
+        try:
+            self.grab_release()
+        except:
+            pass
+        self.destroy()
+    
+    def on_cancel(self):
+        """Handle Cancel button"""
+        self.result["value"] = None
+        try:
+            self.grab_release()
+        except:
+            pass
+        self.destroy()
+    
+    def _center_window(self, parent):
+        """Center window on parent"""
+        self.update_idletasks()
+        
+        parent_x = parent.winfo_rootx()
+        parent_y = parent.winfo_rooty()
+        parent_width = parent.winfo_width()
+        parent_height = parent.winfo_height()
+        
+        window_width = self.winfo_reqwidth()
+        window_height = self.winfo_reqheight()
+        
+        x = parent_x + (parent_width - window_width) // 2
+        y = parent_y + (parent_height - window_height) // 2
+        
+        self.geometry(f"+{x}+{y}")
+    
+    @staticmethod
+    def get_input(parent, title="Virtual Keyboard", prompt="Enter text:", initial_text=""):
+        """Static method to show keyboard and get input"""
+        keyboard = VirtualKeyboard(parent, title, prompt, initial_text)
+        parent.wait_window(keyboard)
+        return keyboard.result["value"]
 #endregion
 
 # ============================================================================
