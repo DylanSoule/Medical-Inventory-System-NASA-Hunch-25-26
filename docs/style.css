@@ -716,7 +716,7 @@ footer a:hover {
 .timeline ul li > div {
     position: relative;
     bottom: 0;
-    width: 610px;
+    width: 600px;
     padding: 25px;
     background: rgb(24, 26, 27);
     box-shadow: 4px 13px 30px 1px rgba(69, 112, 187, 0.3);
@@ -755,8 +755,8 @@ footer a:hover {
 }
 
 .timeline-image {
-    width: 180px;
-    height: 140px;
+    width: 260px;
+    height: 200px;
     background: rgba(69, 112, 187, 0.2);
     border-radius: 8px;
     display: flex;
@@ -805,7 +805,6 @@ footer a:hover {
     max-height: 90%;
     object-fit: contain;
     border-radius: 10px;
-    box-shadow: 0 0 30px rgba(69, 112, 187, 0.5);
 }
 
 .lightbox-close {
@@ -842,7 +841,7 @@ footer a:hover {
 }
 
 .timeline ul li:nth-of-type(even) > div {
-    left: -655px;
+    left: -640px;
 }
 
 
@@ -869,16 +868,17 @@ footer a:hover {
 
 @media screen and (max-width: 900px) {
     .timeline ul li > div {
-        width: 400px;
+        width: 95vw;
+        max-width: 99vw;
     }
-    
     .timeline-images {
         justify-content: center;
     }
-    
     .timeline-image {
-        width: 150px;
-        height: 120px;
+        width: 45vw;
+        max-width: 99vw;
+        height: 28vw;
+        max-height: 60vw;
     }
     
     .timeline ul li:nth-of-type(even) > div {
