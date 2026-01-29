@@ -26,7 +26,7 @@ body {
     height: 100%;
     pointer-events: none;
     touch-action: none;
-    z-index: -1;
+    z-index: 0;
 }
 
 .star {
@@ -184,8 +184,7 @@ body {
     transition: left 0.3s ease, visibility 0s 0.3s;
     z-index: 1000;
     box-shadow: 2px 0 10px rgba(0,0,0,0.3);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
     visibility: hidden;
     pointer-events: none;
 }
@@ -219,6 +218,8 @@ body {
     margin: -20px -20px 30px -20px;
     text-align: center;
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 1;
 }
 
 .header-section h1 {
@@ -335,9 +336,9 @@ body {
     padding: 25px;
     border-radius: 10px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    transition: all 0.3s ease;
     border: 3px solid rgba(69, 112, 187, 0.7);
     position: relative;
+    transition: all 0.3s ease;
 }
 
 .column a[href], a.column {
@@ -359,10 +360,10 @@ body {
 }
 
 .column:hover {
-    transform: translateY(-5px);
+
     box-shadow: 0 8px 15px rgba(69, 112, 187, 0.4);
     border-color: rgb(59, 47, 172);
-    background: rgb(28, 30, 32);
+    background: rgb(32, 34, 36);
 }
 
 .column:hover a[href]::before, a.column:hover::before {
@@ -494,6 +495,8 @@ footer {
     margin-left: -20px !important;
     margin-right: -20px !important;
     margin-bottom: -20px !important;
+    position: relative;
+    z-index: 1;
 }
 
 footer h3 {
@@ -526,7 +529,7 @@ footer a {
     outline: none;
     cursor: pointer;
     box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    transition: transform 0.3s ease, background-position 2s ease;
+    transition: background-position 2s ease;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -537,7 +540,7 @@ footer a {
 
 footer a:hover {
     background-position: 100% 50%;
-    transform: scale(1.02);
+
 }
 
 
@@ -681,5 +684,223 @@ footer a:hover {
     
     table td, table th {
         padding: 8px 5px !important;
+    }
+}
+
+/* Timeline Styles */
+.timeline ul {
+    padding: 0;
+}
+
+.timeline ul li {
+    list-style-type: none;
+    position: relative;
+    width: 6px;
+    margin: 0 auto;
+    padding-top: 50px;
+    background: #fff;
+}
+
+.timeline ul li::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%) rotate(45deg);
+    width: 20px;
+    height: 20px;
+    z-index: 2;
+    background: #4570bb;
+}
+
+.timeline ul li > div {
+    position: relative;
+    bottom: 0;
+    width: 610px;
+    padding: 25px;
+    background: rgb(24, 26, 27);
+    box-shadow: 4px 13px 30px 1px rgba(69, 112, 187, 0.3);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    border: 2px solid rgba(69, 112, 187, 0.5);
+}
+
+.timeline ul li > div time {
+    position: absolute;
+    background: #4570bb;
+    color: white;
+    width: 100px;
+    height: 35px;
+    top: -17px;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    letter-spacing: 1px;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.timeline-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.timeline-images {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.timeline-image {
+    width: 180px;
+    height: 140px;
+    background: rgba(69, 112, 187, 0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.timeline-image img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
+.timeline-image span {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 12px;
+}
+
+
+.lightbox {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+.lightbox.active {
+    display: flex;
+}
+
+.lightbox img {
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 0 30px rgba(69, 112, 187, 0.5);
+}
+
+.lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    color: white;
+    font-size: 40px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+
+
+.timeline-text {
+    flex: 1;
+}
+
+.timeline-text h2 {
+    color: #4570bb;
+    font-size: 20px;
+    margin: 0 0 10px 0;
+}
+
+.timeline-text p {
+    color: #e0e0e0;
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.timeline ul li:nth-of-type(odd) > div {
+    left: 55px;
+}
+
+.timeline ul li:nth-of-type(even) > div {
+    left: -655px;
+}
+
+
+.timeline ul li > div {
+    visibility: hidden;
+    opacity: 0;
+    transition: all 0.5s ease-in-out;
+}
+
+.timeline ul li:nth-of-type(odd) > div {
+    transform: translate3d(100px, -10px, 0) rotate(10deg);
+}
+
+.timeline ul li:nth-of-type(even) > div {
+    transform: translate3d(-100px, -10px, 0) rotate(10deg);
+}
+
+.timeline ul li.in-view > div {
+    transform: none;
+    visibility: visible;
+    opacity: 1;
+}
+
+
+@media screen and (max-width: 900px) {
+    .timeline ul li > div {
+        width: 400px;
+    }
+    
+    .timeline-images {
+        justify-content: center;
+    }
+    
+    .timeline-image {
+        width: 150px;
+        height: 120px;
+    }
+    
+    .timeline ul li:nth-of-type(even) > div {
+        left: -439px;
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .timeline ul li {
+        margin-left: 20px;
+    }
+    
+    .timeline ul li > div {
+        width: calc(100vw - 91px);
+    }
+    
+    .timeline-image {
+        width: 100%;
+        height: 150px;
+    }
+    
+    .timeline ul li:nth-of-type(even) > div {
+        left: 55px;
     }
 }
