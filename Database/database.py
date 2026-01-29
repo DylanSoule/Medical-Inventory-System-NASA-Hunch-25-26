@@ -166,8 +166,12 @@ class DatabaseManager:
         conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
         c = conn.cursor()
         
+        prescription_check = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
+        log = (drug_info[0],drug_info[1], drug_info[0], drug_info[1], date_time, abs(change))
+        prescription= prescription_check.compare_with_prescription(log)[0]
+
         try:
-            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change)))
+            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change), prescription,))
         except Exception as e:
             return("Error:",e)
 
@@ -207,9 +211,13 @@ class DatabaseManager:
 
         conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
         c = conn.cursor()
+
+        prescription_check = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
+        log = (drug_info[0],drug_info[1], drug_info[0], drug_info[1], date_time, abs(change))
+        prescription= prescription_check.compare_with_prescription(log)[0]
         
         try:
-            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], date_time, abs(change)))
+            c.execute("INSERT INTO history (barcode, dname, when_taken, dose, prescription_match) VALUES (?,?,?,?,?)", (drug_info[0], drug_info[1], date_time, abs(change),prescription,))
         except Exception as e:
             print("Error:",e)
 
@@ -444,7 +452,6 @@ class PersonalDatabaseManager:
 
         c.execute("SELECT * FROM history ORDER BY rowid DESC LIMIT 1")
         last_taken = c.fetchone()
-        print(last_taken)
         result = self.compare_with_prescription(last_taken)
         
         conn.close()
