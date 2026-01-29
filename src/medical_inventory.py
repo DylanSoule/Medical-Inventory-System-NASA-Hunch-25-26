@@ -1534,33 +1534,59 @@ class Personal_db_window(ctk.CTkToplevel):
         self.current_date = datetime.date.today()
         self.zoom_level = 1.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
         self.db = DatabaseManager(DB_FILE)
-        
-        # Set fullscreen
-        try:
-            self.attributes("-fullscreen", True)
-        except Exception:
-            try:
-                self.state("zoomed")
-            except Exception:
-                screen_width = self.winfo_screenwidth()
-                screen_height = self.winfo_screenheight()
-                self.geometry(f"{screen_width}x{screen_height}+0+0")
-        
-        self.update_idletasks()
-        self.lift()
-        self.focus_force()
-        
-        def do_grab():
-            try:
-                self.grab_set()
-            except Exception as e:
-                print(f"Could not grab focus: {e}")
-        self.after(100, do_grab)
-        
-        self._setup_ui()
-        self.bind("<Escape>", lambda e: self.destroy())
-        self.load_timeline_data()
     
+        # Initialize personal database
+        personal_db_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            f"Database/{user.lower()}_records.db"
+        )
+        
+        # Import PersonalDatabaseManager at the top if not already imported
+        from Database.database import PersonalDatabaseManager
+        
+        try:
+            self.personal_db = PersonalDatabaseManager(personal_db_path)
+        except Exception as e:
+            print(f"Error loading personal database: {e}")
+            self.personal_db = None
+
+    # Set fullscreen FIRST
+    try:
+        self.attributes("-fullscreen", True)
+    except Exception:
+        try:
+            self.state("zoomed")
+        except Exception:
+            screen_width = self.winfo_screenwidth()
+            screen_height = self.winfo_screenheight()
+            self.geometry(f"{screen_width}x{screen_height}+0+0")
+    
+    # Force geometry update
+    self.update_idletasks()
+    
+    # Setup UI
+    self._setup_ui()
+    self.bind("<Escape>", lambda e: self.destroy())
+    
+    # Wait for window to be fully rendered before loading timeline
+    self.after(100, self._initialize_window)
+
+def _initialize_window(self):
+    """Initialize window after it's fully rendered"""
+    self.update_idletasks()
+    self.lift()
+    self.focus_force()
+    
+    def do_grab():
+        try:
+            self.grab_set()
+        except Exception as e:
+            print(f"Could not grab focus: {e}")
+    self.after(50, do_grab)
+    
+    # Load timeline data after window is fully sized
+    self.load_timeline_data()
+
     def _setup_ui(self):
         """Setup the personal database UI"""
         # Configure grid
@@ -1654,20 +1680,6 @@ class Personal_db_window(ctk.CTkToplevel):
             height=55,
             font=("Arial", 18)
         ).pack(side="left", padx=10)
-        
-        ctk.CTkButton(
-            controls_frame,
-            text="Reset Zoom",
-            command=self.reset_zoom,
-            width=140,
-            height=55,
-            font=("Arial", 18)
-        ).pack(side="left", padx=10)
-        
-        ctk.CTkButton(
-            controls_frame,
-            text="Today",
-            command=self.goto_today,
             width=140,
             height=55,
             font=("Arial", 18),
@@ -1685,22 +1697,15 @@ class Personal_db_window(ctk.CTkToplevel):
         ).pack(side="right", padx=(10, 40))
     
     def load_timeline_data(self):
-        """Load user's activity data for the selected date"""
+        """Load user's activity data and prescriptions for the selected date"""
         self.activities = []
+        self.prescriptions = []
         
+        # Load actual usage history
         try:
-            # Query database for user's activities on selected date
-            query = """
-                SELECT barcode, name_of_item, amount_changed, time, type
-                FROM drug_changes
-                WHERE user = ? AND date(time) = ?
-                ORDER BY time
-            """
-            date_str = self.current_date.strftime("%Y-%m-%d")
-            
-            for row in self.db.pull_data("drug_changes"):
+            for row in self.db.get_personal_data(self.current_date):
                 if len(row) >= 5:
-                    barcode, name, amount, timestamp, user, type_ = row[0], row[1], row[2], row[5], row[3], row[4]
+                    barcode, name, frequency, timestamp, user, type_ = row[0], row[1], row[2], row[5], row[3], row[4]
                     
                     if user != self.user:
                         continue
@@ -1712,7 +1717,7 @@ class Personal_db_window(ctk.CTkToplevel):
                             self.activities.append({
                                 'time': dt.time(),
                                 'name': name,
-                                'amount': amount,
+                                'dosage': frequency,
                                 'type': type_,
                                 'barcode': barcode
                             })
@@ -1722,10 +1727,75 @@ class Personal_db_window(ctk.CTkToplevel):
         except Exception as e:
             print(f"Error loading timeline data: {e}")
         
+        # Load prescription schedule
+        if self.personal_db:
+            try:
+                prescriptions = self.personal_db.pull_data("prescription")
+                
+                for prescription in prescriptions:
+                    # prescription format: (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed)
+                    if len(prescription) < 9:
+                        continue
+                    
+                    barcode, dname, dosage, frequency, time_str, leeway, start_date_str, end_date_str, as_needed = prescription
+                    
+                    # Skip as-needed medications
+                    if as_needed:
+                        continue
+                    
+                    # Parse start date
+                    try:
+                        start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d %H:%M:%S")
+                    except:
+                        continue
+                    
+                    # Check if prescription is active on current date
+                    if start_date.date() > self.current_date:
+                        continue
+                    
+                    if end_date_str:
+                        try:
+                            end_date = datetime.datetime.strptime(end_date_str, "%Y-%m-%d")
+                            if end_date.date() < self.current_date:
+                                continue
+                        except:
+                            pass
+                    
+                    # Calculate if medication should be taken on this day
+                    days_since_start = (self.current_date - start_date.date()).days
+                    
+                    if frequency and days_since_start % frequency == 0:
+                        # This medication should be taken today
+                        if time_str:
+                            try:
+                                # Parse time (HH:MM:SS format)
+                                time_parts = time_str.split(':')
+                                scheduled_time = datetime.time(
+                                    int(time_parts[0]),
+                                    int(time_parts[1]),
+                                    int(time_parts[2]) if len(time_parts) > 2 else 0
+                                )
+                            except:
+                                # Default to 9 AM if time parsing fails
+                                scheduled_time = datetime.time(9, 0, 0)
+                        else:
+                            # Default to 9 AM if no time specified
+                            scheduled_time = datetime.time(9, 0, 0)
+                        
+                        self.prescriptions.append({
+                            'time': scheduled_time,
+                            'name': dname,
+                            'dosage': dosage,
+                            'barcode': barcode,
+                            'leeway': leeway if leeway else 60  # Default 60 minutes leeway
+                        })
+            except Exception as e:
+                print(f"Error loading prescriptions: {e}")
+        
         self.draw_timeline()
     
     def draw_timeline(self):
-        """Draw the 24-hour timeline with activities"""
+        """Draw the 24-hour timeline with activities and prescriptions"""
         self.timeline_canvas.delete("all")
         
         canvas_width = self.timeline_canvas.winfo_width()
@@ -1771,7 +1841,60 @@ class Personal_db_window(ctk.CTkToplevel):
             width=4
         )
         
-        # Draw activities
+        # Draw prescription markers (below timeline)
+        for prescription in self.prescriptions:
+            time_obj = prescription['time']
+            hour = time_obj.hour
+            minute = time_obj.minute
+            
+            # Calculate x position
+            x = (hour + minute / 60.0) * hour_width
+            
+            # Draw prescription window (leeway area)
+            leeway_minutes = prescription['leeway']
+            leeway_width = (leeway_minutes / 60.0) * hour_width
+            
+            # Draw leeway rectangle
+            self.timeline_canvas.create_rectangle(
+                x - leeway_width / 2, timeline_y + 40,
+                x + leeway_width / 2, timeline_y + 90,
+                fill="#3b82f6",
+                outline="#60a5fa",
+                width=2,
+                stipple="gray25"
+            )
+            
+            # Draw prescription marker
+            marker_size = 12 * min(self.zoom_level, 2.0)
+            self.timeline_canvas.create_rectangle(
+                x - marker_size, timeline_y + 55,
+                x + marker_size, timeline_y + 75,
+                fill="#3b82f6",
+                outline="white",
+                width=2
+            )
+            
+            # Draw Rx symbol
+            self.timeline_canvas.create_text(
+                x, timeline_y + 65,
+                text="Rx",
+                fill="white",
+                font=("Arial", int(10 * min(self.zoom_level, 2.0)), "bold")
+            )
+            
+            # Draw prescription info
+            if self.zoom_level >= 0.8:
+                info_text = f"{prescription['name']}\n{prescription['dosage']} dose"
+                self.timeline_canvas.create_text(
+                    x, timeline_y + 105,
+                    text=info_text,
+                    fill="#60a5fa",
+                    font=("Arial", int(10 * min(self.zoom_level, 1.5))),
+                    justify="center",
+                    width=hour_width * 0.8
+                )
+    
+        # Draw actual usage activities (above timeline)
         for activity in self.activities:
             time_obj = activity['time']
             hour = time_obj.hour
@@ -1791,11 +1914,25 @@ class Personal_db_window(ctk.CTkToplevel):
                 color = "#f59e0b"
                 symbol = "−"
             
+            # Check if this usage matches a prescription
+            matched_prescription = False
+            for prescription in self.prescriptions:
+                # Calculate time difference in minutes
+                presc_minutes = prescription['time'].hour * 60 + prescription['time'].minute
+                activity_minutes = time_obj.hour * 60 + time_obj.minute
+                time_diff = abs(activity_minutes - presc_minutes)
+                
+                # Check if within leeway window and same medication
+                if time_diff <= prescription['leeway'] and activity['name'] == prescription['name']:
+                    matched_prescription = True
+                    color = "#22c55e"  # Green for matched
+                    break
+            
             # Draw activity marker
             marker_size = 15 * min(self.zoom_level, 2.0)
             self.timeline_canvas.create_oval(
-                x - marker_size, timeline_y - marker_size,
-                x + marker_size, timeline_y + marker_size,
+                x - marker_size, timeline_y - marker_size - 40,
+                x + marker_size, timeline_y + marker_size - 40,
                 fill=color,
                 outline="white",
                 width=2
@@ -1803,17 +1940,26 @@ class Personal_db_window(ctk.CTkToplevel):
             
             # Draw symbol
             self.timeline_canvas.create_text(
-                x, timeline_y,
+                x, timeline_y - 40,
                 text=symbol,
                 fill="white",
                 font=("Arial", int(12 * min(self.zoom_level, 2.0)), "bold")
             )
             
+            # Draw checkmark if matched prescription
+            if matched_prescription:
+                self.timeline_canvas.create_text(
+                    x + marker_size + 5, timeline_y - 40 - marker_size - 5,
+                    text="✓",
+                    fill="#22c55e",
+                    font=("Arial", int(14 * min(self.zoom_level, 2.0)), "bold")
+                )
+            
             # Draw activity info
             if self.zoom_level >= 1.0:
-                info_text = f"{activity['name']}\n{activity['amount']}"
+                info_text = f"{activity['name']}\n{abs(int(activity['amount']))} used"
                 self.timeline_canvas.create_text(
-                    x, timeline_y - marker_size - 40,
+                    x, timeline_y - marker_size - 80,
                     text=info_text,
                     fill="white",
                     font=("Arial", int(11 * min(self.zoom_level, 1.5))),
@@ -1824,11 +1970,62 @@ class Personal_db_window(ctk.CTkToplevel):
                 # Draw time
                 time_str = time_obj.strftime("%H:%M")
                 self.timeline_canvas.create_text(
-                    x, timeline_y + marker_size + 80,
+                    x, timeline_y - marker_size - 110,
                     text=time_str,
                     fill="#94a3b8",
                     font=("Arial", int(10 * min(self.zoom_level, 1.5)))
                 )
+    
+        # Draw legend
+        legend_y = 30
+        legend_x_start = 20
+        
+        self.timeline_canvas.create_text(
+            legend_x_start, legend_y,
+            text="Legend:",
+            fill="white",
+            font=("Arial", 12, "bold"),
+            anchor="w"
+        )
+        
+        # Prescription indicator
+        self.timeline_canvas.create_rectangle(
+            legend_x_start + 70, legend_y - 8,
+            legend_x_start + 90, legend_y + 8,
+            fill="#3b82f6",
+            outline="white"
+        )
+        self.timeline_canvas.create_text(
+            legend_x_start + 100, legend_y,
+            text="Scheduled Medication",
+            fill="#60a5fa",
+            font=("Arial", 11),
+            anchor="w"
+        )
+        
+        # Usage indicator
+        self.timeline_canvas.create_oval(
+            legend_x_start + 260, legend_y - 8,
+            legend_x_start + 280, legend_y + 8,
+            fill="#f59e0b",
+            outline="white"
+        )
+        self.timeline_canvas.create_text(
+            legend_x_start + 290, legend_y,
+            text="Actual Usage",
+            fill="white",
+            font=("Arial", 11),
+            anchor="w"
+        )
+        
+        # Matched indicator
+        self.timeline_canvas.create_text(
+            legend_x_start + 420, legend_y,
+            text="✓ = Matches Prescription",
+            fill="#22c55e",
+            font=("Arial", 11, "bold"),
+            anchor="w"
+        )
     
     def _on_mousewheel(self, event):
         """Handle mouse wheel scrolling"""
