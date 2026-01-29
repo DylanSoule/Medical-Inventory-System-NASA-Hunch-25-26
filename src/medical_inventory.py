@@ -15,6 +15,7 @@ import datetime
 import tkcalendar as tkcal
 import threading
 import time
+import tkinter.font as tkfont
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -1531,12 +1532,17 @@ class BarcodeViewer(ctk.CTk):
 # ============================================================================
 #region personal database window
 class Personal_db_window(ctk.CTkToplevel):
-    """Personal database management window"""
+    """Personal database management window with zoomable timeline"""
     
     def __init__(self, parent, user):
         super().__init__(parent)
         self.title("Personal Database Manager")
         self.transient(parent)
+        self.parent = parent
+        self.user = user
+        self.current_date = datetime.date.today()
+        self.zoom_level = 1.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
+        self.db = DatabaseManager(DB_FILE)
         
         # Set fullscreen
         try:
@@ -1560,34 +1566,320 @@ class Personal_db_window(ctk.CTkToplevel):
                 print(f"Could not grab focus: {e}")
         self.after(100, do_grab)
         
-        # Title
-        ctk.CTkLabel(self, text=f"{user}'s Personal Database", font=("Arial", 24)).pack(pady=20)
-        
-        # Calendar frame
-        cal_frame = ctk.CTkFrame(self)
-        cal_frame.pack(fill="both", expand=True, padx=20, pady=(10, 20))
-        
-        # Calendar
-        calendar = tkcal.Calendar(
-            cal_frame,
-            selectmode="day",
-            font=("Arial", 20),
-            headersforeground="black",
-            normalforeground="black",
-            normalbackground="white",
-            weekendforeground="red",
-            othermonthforeground="gray",
-            selectforeground="white",
-            selectbackground="#5F84C8",
-            date_pattern="yyyy-mm-dd"
-        )
-        calendar.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Close button
-        ctk.CTkButton(self, text="Close", command=self.destroy, width=160, height=55, 
-                     font=("Arial", 20)).pack(pady=20)
-        
+        self._setup_ui()
         self.bind("<Escape>", lambda e: self.destroy())
+        self.load_timeline_data()
+    
+    def _setup_ui(self):
+        """Setup the personal database UI"""
+        # Configure grid
+        self.grid_rowconfigure(0, weight=0)  # Title
+        self.grid_rowconfigure(1, weight=0)  # Date selector
+        self.grid_rowconfigure(2, weight=1)  # Timeline
+        self.grid_rowconfigure(3, weight=0)  # Controls
+        self.grid_columnconfigure(0, weight=1)
+        
+        # Title
+        ctk.CTkLabel(
+            self, 
+            text=f"{self.user}'s Personal Database", 
+            font=("Arial", 32, "bold")
+        ).grid(row=0, column=0, pady=(20, 10), sticky="ew")
+        
+        # Date selector frame
+        date_frame = ctk.CTkFrame(self, fg_color="transparent")
+        date_frame.grid(row=1, column=0, pady=10, sticky="ew")
+        
+        ctk.CTkButton(
+            date_frame,
+            text="◄ Previous Day",
+            command=self.previous_day,
+            width=180,
+            height=50,
+            font=("Arial", 18)
+        ).pack(side="left", padx=(40, 10))
+        
+        self.date_label = ctk.CTkLabel(
+            date_frame,
+            text=self.current_date.strftime("%A, %B %d, %Y"),
+            font=("Arial", 22, "bold")
+        )
+        self.date_label.pack(side="left", expand=True)
+        
+        ctk.CTkButton(
+            date_frame,
+            text="Next Day ►",
+            command=self.next_day,
+            width=180,
+            height=50,
+            font=("Arial", 18)
+        ).pack(side="right", padx=(10, 40))
+        
+        # Timeline frame
+        timeline_frame = ctk.CTkFrame(self, corner_radius=10)
+        timeline_frame.grid(row=2, column=0, sticky="nsew", padx=40, pady=20)
+        timeline_frame.grid_rowconfigure(0, weight=1)
+        timeline_frame.grid_columnconfigure(0, weight=1)
+        
+        # Canvas with scrollbar for timeline
+        self.timeline_canvas = tk.Canvas(
+            timeline_frame,
+            bg="#2b2b2b",
+            highlightthickness=0
+        )
+        scrollbar = ttk.Scrollbar(
+            timeline_frame,
+            orient="horizontal",
+            command=self.timeline_canvas.xview
+        )
+        self.timeline_canvas.configure(xscrollcommand=scrollbar.set)
+        
+        self.timeline_canvas.grid(row=0, column=0, sticky="nsew", padx=20, pady=(20, 5))
+        scrollbar.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
+        
+        # Bind mouse wheel for scrolling
+        self.timeline_canvas.bind("<MouseWheel>", self._on_mousewheel)
+        self.timeline_canvas.bind("<Button-4>", self._on_mousewheel)  # Linux scroll up
+        self.timeline_canvas.bind("<Button-5>", self._on_mousewheel)  # Linux scroll down
+        
+        # Control buttons frame
+        controls_frame = ctk.CTkFrame(self, fg_color="transparent")
+        controls_frame.grid(row=3, column=0, pady=(0, 30), sticky="ew")
+        
+        ctk.CTkButton(
+            controls_frame,
+            text="Zoom In (+)",
+            command=self.zoom_in,
+            width=140,
+            height=55,
+            font=("Arial", 18)
+        ).pack(side="left", padx=(40, 10))
+        
+        ctk.CTkButton(
+            controls_frame,
+            text="Zoom Out (-)",
+            command=self.zoom_out,
+            width=140,
+            height=55,
+            font=("Arial", 18)
+        ).pack(side="left", padx=10)
+        
+        ctk.CTkButton(
+            controls_frame,
+            text="Reset Zoom",
+            command=self.reset_zoom,
+            width=140,
+            height=55,
+            font=("Arial", 18)
+        ).pack(side="left", padx=10)
+        
+        ctk.CTkButton(
+            controls_frame,
+            text="Today",
+            command=self.goto_today,
+            width=140,
+            height=55,
+            font=("Arial", 18),
+            fg_color="#22c55e"
+        ).pack(side="left", padx=10)
+        
+        ctk.CTkButton(
+            controls_frame,
+            text="Close",
+            command=self.destroy,
+            width=140,
+            height=55,
+            font=("Arial", 18),
+            fg_color="#b22222"
+        ).pack(side="right", padx=(10, 40))
+    
+    def load_timeline_data(self):
+        """Load user's activity data for the selected date"""
+        self.activities = []
+        
+        try:
+            # Query database for user's activities on selected date
+            query = """
+                SELECT barcode, name_of_item, amount_changed, time, type
+                FROM drug_changes
+                WHERE user = ? AND date(time) = ?
+                ORDER BY time
+            """
+            date_str = self.current_date.strftime("%Y-%m-%d")
+            
+            for row in self.db.pull_data("drug_changes"):
+                if len(row) >= 5:
+                    barcode, name, amount, timestamp, user, type_ = row[0], row[1], row[2], row[5], row[3], row[4]
+                    
+                    if user != self.user:
+                        continue
+                    
+                    # Parse timestamp
+                    try:
+                        dt = datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+                        if dt.date() == self.current_date:
+                            self.activities.append({
+                                'time': dt.time(),
+                                'name': name,
+                                'amount': amount,
+                                'type': type_,
+                                'barcode': barcode
+                            })
+                    except Exception as e:
+                        print(f"Error parsing timestamp: {e}")
+                        continue
+        except Exception as e:
+            print(f"Error loading timeline data: {e}")
+        
+        self.draw_timeline()
+    
+    def draw_timeline(self):
+        """Draw the 24-hour timeline with activities"""
+        self.timeline_canvas.delete("all")
+        
+        canvas_width = self.timeline_canvas.winfo_width()
+        canvas_height = self.timeline_canvas.winfo_height()
+        
+        if canvas_width <= 1:
+            canvas_width = 1200
+        if canvas_height <= 1:
+            canvas_height = 400
+        
+        # Calculate dimensions
+        hour_width = 120 * self.zoom_level
+        total_width = hour_width * 24
+        timeline_y = canvas_height // 2
+        
+        # Update scroll region
+        self.timeline_canvas.configure(scrollregion=(0, 0, total_width, canvas_height))
+        
+        # Draw hour markers
+        for hour in range(25):  # 0-24
+            x = hour * hour_width
+            
+            # Hour line
+            self.timeline_canvas.create_line(
+                x, timeline_y - 30, x, timeline_y + 30,
+                fill="#5F84C8" if hour % 3 == 0 else "#4a4a4a",
+                width=3 if hour % 3 == 0 else 1
+            )
+            
+            # Hour label
+            label = f"{hour:02d}:00"
+            self.timeline_canvas.create_text(
+                x, timeline_y + 50,
+                text=label,
+                fill="white",
+                font=("Arial", int(14 * min(self.zoom_level, 1.5)), "bold" if hour % 3 == 0 else "normal")
+            )
+        
+        # Draw main timeline
+        self.timeline_canvas.create_line(
+            0, timeline_y, total_width, timeline_y,
+            fill="#5F84C8",
+            width=4
+        )
+        
+        # Draw activities
+        for activity in self.activities:
+            time_obj = activity['time']
+            hour = time_obj.hour
+            minute = time_obj.minute
+            
+            # Calculate x position
+            x = (hour + minute / 60.0) * hour_width
+            
+            # Determine color based on type
+            if activity['type'] == 'deletion':
+                color = "#dc2626"
+                symbol = "✖"
+            elif int(activity['amount']) > 0:
+                color = "#22c55e"
+                symbol = "+"
+            else:
+                color = "#f59e0b"
+                symbol = "−"
+            
+            # Draw activity marker
+            marker_size = 15 * min(self.zoom_level, 2.0)
+            self.timeline_canvas.create_oval(
+                x - marker_size, timeline_y - marker_size,
+                x + marker_size, timeline_y + marker_size,
+                fill=color,
+                outline="white",
+                width=2
+            )
+            
+            # Draw symbol
+            self.timeline_canvas.create_text(
+                x, timeline_y,
+                text=symbol,
+                fill="white",
+                font=("Arial", int(12 * min(self.zoom_level, 2.0)), "bold")
+            )
+            
+            # Draw activity info
+            if self.zoom_level >= 1.0:
+                info_text = f"{activity['name']}\n{activity['amount']}"
+                self.timeline_canvas.create_text(
+                    x, timeline_y - marker_size - 40,
+                    text=info_text,
+                    fill="white",
+                    font=("Arial", int(11 * min(self.zoom_level, 1.5))),
+                    justify="center",
+                    width=hour_width * 0.8
+                )
+                
+                # Draw time
+                time_str = time_obj.strftime("%H:%M")
+                self.timeline_canvas.create_text(
+                    x, timeline_y + marker_size + 80,
+                    text=time_str,
+                    fill="#94a3b8",
+                    font=("Arial", int(10 * min(self.zoom_level, 1.5)))
+                )
+    
+    def _on_mousewheel(self, event):
+        """Handle mouse wheel scrolling"""
+        if event.num == 4 or event.delta > 0:
+            self.timeline_canvas.xview_scroll(-1, "units")
+        elif event.num == 5 or event.delta < 0:
+            self.timeline_canvas.xview_scroll(1, "units")
+    
+    def zoom_in(self):
+        """Increase zoom level"""
+        if self.zoom_level < 5.0:
+            self.zoom_level *= 1.5
+            self.draw_timeline()
+    
+    def zoom_out(self):
+        """Decrease zoom level"""
+        if self.zoom_level > 0.3:
+            self.zoom_level /= 1.5
+            self.draw_timeline()
+    
+    def reset_zoom(self):
+        """Reset zoom to default"""
+        self.zoom_level = 1.0
+        self.draw_timeline()
+    
+    def previous_day(self):
+        """Go to previous day"""
+        self.current_date -= datetime.timedelta(days=1)
+        self.date_label.configure(text=self.current_date.strftime("%A, %B %d, %Y"))
+        self.load_timeline_data()
+    
+    def next_day(self):
+        """Go to next day"""
+        self.current_date += datetime.timedelta(days=1)
+        self.date_label.configure(text=self.current_date.strftime("%A, %B %d, %Y"))
+        self.load_timeline_data()
+    
+    def goto_today(self):
+        """Jump to today's date"""
+        self.current_date = datetime.date.today()
+        self.date_label.configure(text=self.current_date.strftime("%A, %B %d, %Y"))
+        self.load_timeline_data()
 #endregion
 
 # ============================================================================
