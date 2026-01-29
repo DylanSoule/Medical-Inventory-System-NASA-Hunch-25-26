@@ -185,11 +185,11 @@ class BarcodeViewer(ctk.CTk):
         sidebar = ctk.CTkFrame(parent, width=420, corner_radius=8)
         sidebar.grid(row=0, column=0, sticky="nsew", padx=(18, 12), pady=18)
         
-        # Configure sidebar to expand vertically
+        # Configure sidebar to expand vertically - adjusted weights
         sidebar.grid_rowconfigure(0, weight=0)  # Search section - fixed
         sidebar.grid_rowconfigure(1, weight=0)  # Filter section - fixed
-        sidebar.grid_rowconfigure(2, weight=0)  # Column visibility - fixed
-        sidebar.grid_rowconfigure(3, weight=1)  # Spacer - flexible
+        sidebar.grid_rowconfigure(2, weight=3)  # Column visibility - flexible (increased weight)
+        sidebar.grid_rowconfigure(3, weight=0)  # Removed spacer row
         sidebar.grid_rowconfigure(4, weight=0)  # Action buttons - fixed
         sidebar.grid_columnconfigure(0, weight=1)
         
@@ -201,10 +201,6 @@ class BarcodeViewer(ctk.CTk):
         
         # Column visibility section
         self._create_column_visibility_section_grid(sidebar, row=2)
-        
-        # Flexible spacer (pushes buttons to bottom)
-        spacer = ctk.CTkFrame(sidebar, fg_color="transparent")
-        spacer.grid(row=3, column=0, sticky="nsew")
         
         # Action buttons (stays at bottom)
         self._create_action_buttons_grid(sidebar, row=4)
@@ -259,18 +255,25 @@ class BarcodeViewer(ctk.CTk):
     def _create_column_visibility_section_grid(self, parent, row):
         """Create column visibility controls with grid"""
         frame = ctk.CTkFrame(parent, fg_color="transparent")
-        frame.grid(row=row, column=0, sticky="ew", padx=25, pady=10)
+        frame.grid(row=row, column=0, sticky="nsew", padx=25, pady=15)
         
-        ctk.CTkLabel(frame, text="Show Columns", anchor="w", font=("Arial", 22)).pack(fill="x", pady=(0, 10))
+        # Configure frame to expand vertically
+        frame.grid_rowconfigure(0, weight=0)  # Label - fixed
+        frame.grid_rowconfigure(1, weight=1)  # Scrollable frame - flexible
+        frame.grid_columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(frame, text="Show Columns", anchor="w", font=("Arial", 22)).grid(
+            row=0, column=0, sticky="w", pady=(0, 10)
+        )
         
         # Initialize column visibility tracking
         columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_type", "item_loc")
         self.column_visibility = {col: tk.BooleanVar(value=True) for col in columns}
         self.column_configs = COLUMN_CONFIGS
         
-        # Create checkboxes in scrollable frame
-        columns_frame = ctk.CTkScrollableFrame(frame, height=200, corner_radius=6)
-        columns_frame.pack(fill="both", expand=True)
+        # Create checkboxes in scrollable frame that expands to fill available space
+        columns_frame = ctk.CTkScrollableFrame(frame, corner_radius=6)
+        columns_frame.grid(row=1, column=0, sticky="nsew")
         
         for col_id, label in COLUMN_LABELS.items():
             ctk.CTkCheckBox(
@@ -332,7 +335,7 @@ class BarcodeViewer(ctk.CTk):
         
         # Log Item Use button with indicator
         btn_frame = ctk.CTkFrame(btns_frame, fg_color="transparent")
-        btn_frame.grid(row=current_row, column=0, sticky="ew", pady=6, padx=12)
+        btn_frame.grid(row=current_row, column=0, sticky="ew", pady=6, padx=6)
         self._create_button_with_indicator(
             btn_frame,
             "Log Item Use",
@@ -344,7 +347,7 @@ class BarcodeViewer(ctk.CTk):
         
         # Personal Database button with indicator
         btn_frame2 = ctk.CTkFrame(btns_frame, fg_color="transparent")
-        btn_frame2.grid(row=current_row, column=0, sticky="nsew", pady=6, padx=12)
+        btn_frame2.grid(row=current_row, column=0, sticky="ew", pady=6, padx=6)
         self._create_button_with_indicator(
             btn_frame2,
             "View Personal Database",
