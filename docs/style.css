@@ -359,17 +359,8 @@ body {
     transition: all 0.3s ease;
 }
 
-.column:hover {
 
-    box-shadow: 0 8px 15px rgba(69, 112, 187, 0.4);
-    border-color: rgb(59, 47, 172);
-    background: rgb(32, 34, 36);
-}
 
-.column:hover a[href]::before, a.column:hover::before {
-    opacity: 1;
-    transform: scale(1.1);
-}
 
 
 .column.team-member {
@@ -377,12 +368,7 @@ body {
     cursor: default;
 }
 
-.column.team-member:hover {
-    transform: none;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    border-color: rgba(255, 255, 255, 0.1);
-    background: rgb(24, 26, 27);
-}
+
 
 .column.team-member a[href]::before {
     display: none;
@@ -687,7 +673,7 @@ footer a:hover {
     }
 }
 
-/* Timeline Styles */
+
 .timeline ul {
     padding: 0;
 }
@@ -698,7 +684,7 @@ footer a:hover {
     width: 6px;
     margin: 0 auto;
     padding-top: 50px;
-    background: #fff;
+    background: #87b2f3;
 }
 
 .timeline ul li::after {
@@ -710,7 +696,7 @@ footer a:hover {
     width: 20px;
     height: 20px;
     z-index: 2;
-    background: #4570bb;
+    background: #3d51ad;
 }
 
 .timeline ul li > div {
@@ -729,7 +715,7 @@ footer a:hover {
 .timeline ul li > div time {
     position: absolute;
     background: #4570bb;
-    color: white;
+    color: rgb(255, 255, 255);
     width: 100px;
     height: 35px;
     top: -17px;
@@ -888,19 +874,40 @@ footer a:hover {
 
 @media screen and (max-width: 600px) {
     .timeline ul li {
-        margin-left: 20px;
+        margin-left: 5px;
     }
     
     .timeline ul li > div {
         width: calc(100vw - 91px);
     }
     
-    .timeline-image {
+    .timeline-images {
+        flex-direction: column;
+        gap: 10px;
         width: 100%;
-        height: 150px;
+    }
+    .timeline-image {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: 120px;
+        box-sizing: border-box;
+    }
+    .timeline-image img {
+        width: 100% !important;
+        height: auto !important;
+        max-width: 100% !important;
+        max-height: 150px !important;
+        object-fit: contain;
     }
     
+
+    .timeline ul li:nth-of-type(odd) > div {
+        left: 40px;
+    }
     .timeline ul li:nth-of-type(even) > div {
-        left: 55px;
+        left: 40px;
     }
 }
+    
+
