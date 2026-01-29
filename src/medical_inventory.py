@@ -292,7 +292,7 @@ class BarcodeViewer(ctk.CTk):
             height=60,
             font=("Arial", 22)
         )
-        btn.pack(fill="x", pady=12)
+        btn.pack(fill="x", pady=6, padx=12)
         setattr(self, btn_name, btn)
         
         # Create status indicator
@@ -332,7 +332,7 @@ class BarcodeViewer(ctk.CTk):
         
         # Log Item Use button with indicator
         btn_frame = ctk.CTkFrame(btns_frame, fg_color="transparent")
-        btn_frame.grid(row=current_row, column=0, sticky="ew", pady=12)
+        btn_frame.grid(row=current_row, column=0, sticky="ew", pady=6, padx=12)
         self._create_button_with_indicator(
             btn_frame,
             "Log Item Use",
@@ -344,7 +344,7 @@ class BarcodeViewer(ctk.CTk):
         
         # Personal Database button with indicator
         btn_frame2 = ctk.CTkFrame(btns_frame, fg_color="transparent")
-        btn_frame2.grid(row=current_row, column=0, sticky="nsew", pady=12)
+        btn_frame2.grid(row=current_row, column=0, sticky="nsew", pady=6, padx=12)
         self._create_button_with_indicator(
             btn_frame2,
             "View Personal Database",
@@ -361,7 +361,7 @@ class BarcodeViewer(ctk.CTk):
             command=self.delete_selected,
             height=60,
             font=("Arial", 22)
-        ).grid(row=current_row, column=0, sticky="ew", pady=12)
+        ).grid(row=current_row, column=0, sticky="ew", pady=6, padx=12)
         current_row += 1
         
         ctk.CTkButton(
@@ -370,7 +370,7 @@ class BarcodeViewer(ctk.CTk):
             command=self.show_history,
             height=60,
             font=("Arial", 22)
-        ).grid(row=current_row, column=0, sticky="ew", pady=12)
+        ).grid(row=current_row, column=0, sticky="ew", pady=6, padx=12)
         current_row += 1
         
         ctk.CTkButton(
@@ -380,7 +380,7 @@ class BarcodeViewer(ctk.CTk):
             height=60,
             font=("Arial", 22),
             fg_color="#b22222"
-        ).grid(row=current_row, column=0, sticky="ew", pady=12)
+        ).grid(row=current_row, column=0, sticky="ew", pady=6, padx=12)
     #endregion
 
     # ========================================================================
@@ -1125,8 +1125,8 @@ class BarcodeViewer(ctk.CTk):
         dlg.bind("<Escape>", on_cancel)
         
         dlg.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width() // 2) - (dlg.winfo_reqwidth() // 2)
-        y = self.winfo_rooty() + (self.winfo_height() // 2) - (dlg.winfo_reqheight() // 2)
+        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
+        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
         dlg.geometry(f"+{x}+{y}")
         
         def do_grab():
@@ -1225,8 +1225,8 @@ class BarcodeViewer(ctk.CTk):
         dlg.bind("<Escape>", on_cancel)
         
         dlg.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width() // 2) - (dlg.winfo_reqwidth() // 2)
-        y = self.winfo_rooty() + (self.winfo_height() // 2) - (dlg.winfo_reqheight() // 2)
+        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
+        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
         dlg.geometry(f"+{x}+{y}")
         
         def do_grab():
