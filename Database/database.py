@@ -564,8 +564,6 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
-    read1.log_access_to_inventory_with_mutable_date('766490599880,',-1,'dylan','2026-01-29 21:00:00')
-
     # print(read.pull_data('history'))
     # print(read.compare_history_with_prescription(days_back=60))
     # print(read.compare_most_recent_log_with_prescription())
