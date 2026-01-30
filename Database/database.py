@@ -140,16 +140,19 @@ class DatabaseManager:
         """
         Log changes to drug inventory amounts.
 
+
         Parameters:
             barcode (str): The barcode of the drug whose inventory is being updated.
             change (int): The amount to change the inventory by (positive or negative).
             user (str): The user making the change.
+
 
         Side effects:
             Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
         """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
+
 
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
         drug_info = c.fetchone()
@@ -158,20 +161,19 @@ class DatabaseManager:
             c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
             c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
         except Exception as e:
-            return("Error:",e)
+            print("Error:",e)
         
         conn.commit()
         conn.close()
 
+
         conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
         c = conn.cursor()
-        
-        compare = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
         
         try:
             c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change)))
         except Exception as e:
-            return("Error:",e)
+            print("Error:",e)
 
         conn.commit()
         conn.close()
@@ -194,6 +196,7 @@ class DatabaseManager:
         """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
+
 
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
         drug_info = c.fetchone()
@@ -440,10 +443,23 @@ class PersonalDatabaseManager:
         c = conn.cursor()
 
         c.execute('SELECT * FROM history WHERE when_taken = ?',(date,))
-        logs = c.fetchall()
-        
-        for i in range(len(logs)):
+        hist_logs = c.fetchall()
 
+        c.execute('SELECT barcode, dname, dosage, frequency, time, leeway, start_date FROM prescription WHERE as_needed = ?', (False,))
+        prescript_dates = c.fetchall()
+        prescript_logs= []
+        for prescript in prescript_dates:
+            pdate = datetime.strptime(prescript[6], time_format)
+            pdate = pdate.date()
+            ndate = datetime.strptime(date, time_format)
+            ndate = ndate.date()
+
+            diff = (pdate-ndate).total_seconds()
+
+            if (diff/86400)%prescript[2]==0:
+                prescript_logs.append((prescript[0],prescript[1],prescript[2], prescript[4], prescript[5],))
+        
+        return hist_logs, prescript_logs
 
 
 
@@ -499,6 +515,7 @@ class PersonalDatabaseManager:
 if __name__ == "__main__":
     read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
+
 
     # print(read.pull_data('history'))
     # print(read.compare_history_with_prescription(days_back=60))
