@@ -1534,7 +1534,6 @@ class Personal_db_window(ctk.CTkToplevel):
         self.current_date = datetime.date.today()
         self.zoom_level = 1.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
         self.db = DatabaseManager(DB_FILE)
-    
         # Initialize personal database
         personal_db_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -1549,43 +1548,32 @@ class Personal_db_window(ctk.CTkToplevel):
         except Exception as e:
             print(f"Error loading personal database: {e}")
             self.personal_db = None
-
-    # Set fullscreen FIRST
-    try:
-        self.attributes("-fullscreen", True)
-    except Exception:
+    
+        # Set fullscreen
+        self.update_idletasks()
+        
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        
         try:
-            self.state("zoomed")
+            self.attributes("-fullscreen", True)
         except Exception:
-            screen_width = self.winfo_screenwidth()
-            screen_height = self.winfo_screenheight()
             self.geometry(f"{screen_width}x{screen_height}+0+0")
     
-    # Force geometry update
-    self.update_idletasks()
-    
-    # Setup UI
-    self._setup_ui()
-    self.bind("<Escape>", lambda e: self.destroy())
-    
-    # Wait for window to be fully rendered before loading timeline
-    self.after(100, self._initialize_window)
-
-def _initialize_window(self):
-    """Initialize window after it's fully rendered"""
-    self.update_idletasks()
-    self.lift()
-    self.focus_force()
-    
-    def do_grab():
-        try:
-            self.grab_set()
-        except Exception as e:
-            print(f"Could not grab focus: {e}")
-    self.after(50, do_grab)
-    
-    # Load timeline data after window is fully sized
-    self.load_timeline_data()
+        self.update_idletasks()
+        self.lift()
+        self.focus_force()
+        
+        def do_grab():
+            try:
+                self.grab_set()
+            except Exception as e:
+                print(f"Could not grab focus: {e}")
+        self.after(100, do_grab)
+        
+        self._setup_ui()
+        self.bind("<Escape>", lambda e: self.destroy())
+        self.load_timeline_data()
 
     def _setup_ui(self):
         """Setup the personal database UI"""
@@ -1680,6 +1668,20 @@ def _initialize_window(self):
             height=55,
             font=("Arial", 18)
         ).pack(side="left", padx=10)
+        
+        ctk.CTkButton(
+            controls_frame,
+            text="Reset Zoom",
+            command=self.reset_zoom,
+            width=140,
+            height=55,
+            font=("Arial", 18)
+        ).pack(side="left", padx=10)
+        
+        ctk.CTkButton(
+            controls_frame,
+            text="Today",
+            command=self.goto_today,
             width=140,
             height=55,
             font=("Arial", 18),
@@ -1701,99 +1703,100 @@ def _initialize_window(self):
         self.activities = []
         self.prescriptions = []
         
-        # Load actual usage history
+        if not self.personal_db:
+            self.draw_timeline()
+            return
+        
         try:
-            for row in self.db.get_personal_data(self.current_date):
-                if len(row) >= 5:
-                    barcode, name, frequency, timestamp, user, type_ = row[0], row[1], row[2], row[5], row[3], row[4]
-                    
-                    if user != self.user:
+            # get_personal_data returns (hist_logs, prescript_logs)
+            # hist_logs format: list of (barcode, dname, when_taken, dose)
+            # prescript_logs format: list of (barcode, dname, dosage, time, leeway)
+            
+            hist_logs, prescript_logs = self.personal_db.get_personal_data(self.current_date)
+            
+            # Process history logs (actual usage)
+            for log in hist_logs:
+                try:
+                    if len(log) < 4:
                         continue
+                        
+                    barcode = log[0]
+                    name = log[1]
+                    when_taken = log[2]
+                    dose = log[3]
                     
                     # Parse timestamp
                     try:
-                        dt = datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-                        if dt.date() == self.current_date:
-                            self.activities.append({
-                                'time': dt.time(),
-                                'name': name,
-                                'dosage': frequency,
-                                'type': type_,
-                                'barcode': barcode
-                            })
-                    except Exception as e:
-                        print(f"Error parsing timestamp: {e}")
-                        continue
-        except Exception as e:
-            print(f"Error loading timeline data: {e}")
-        
-        # Load prescription schedule
-        if self.personal_db:
-            try:
-                prescriptions = self.personal_db.pull_data("prescription")
-                
-                for prescription in prescriptions:
-                    # prescription format: (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed)
-                    if len(prescription) < 9:
-                        continue
-                    
-                    barcode, dname, dosage, frequency, time_str, leeway, start_date_str, end_date_str, as_needed = prescription
-                    
-                    # Skip as-needed medications
-                    if as_needed:
-                        continue
-                    
-                    # Parse start date
-                    try:
-                        start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d %H:%M:%S")
+                        dt = datetime.datetime.strptime(when_taken, "%Y-%m-%d %H:%M:%S")
                     except:
-                        continue
-                    
-                    # Check if prescription is active on current date
-                    if start_date.date() > self.current_date:
-                        continue
-                    
-                    if end_date_str:
                         try:
-                            end_date = datetime.datetime.strptime(end_date_str, "%Y-%m-%d")
-                            if end_date.date() < self.current_date:
-                                continue
+                            dt = datetime.datetime.fromisoformat(when_taken)
                         except:
-                            pass
+                            continue
                     
-                    # Calculate if medication should be taken on this day
-                    days_since_start = (self.current_date - start_date.date()).days
+                    # Only include if it's on the current date
+                    if dt.date() == self.current_date:
+                        self.activities.append({
+                            'time': dt.time(),
+                            'name': name,
+                            'amount': dose,
+                            'barcode': barcode
+                        })
+                except Exception as e:
+                    print(f"Error processing history log: {e}, log: {log}")
+                    continue
+            
+            # Process prescription logs (scheduled medications)
+            for prescription in prescript_logs:
+                try:
+                    if len(prescription) < 5:
+                        continue
+                        
+                    barcode = prescription[0]
+                    name = prescription[1]
+                    dosage = prescription[2]
+                    time_str = prescription[3]
+                    leeway = prescription[4]
                     
-                    if frequency and days_since_start % frequency == 0:
-                        # This medication should be taken today
-                        if time_str:
-                            try:
-                                # Parse time (HH:MM:SS format)
-                                time_parts = time_str.split(':')
+                    # Parse time (HH:MM:SS format)
+                    if time_str:
+                        try:
+                            # Handle different time formats
+                            if isinstance(time_str, datetime.time):
+                                scheduled_time = time_str
+                            elif ':' in str(time_str):
+                                time_parts = str(time_str).split(':')
                                 scheduled_time = datetime.time(
                                     int(time_parts[0]),
                                     int(time_parts[1]),
                                     int(time_parts[2]) if len(time_parts) > 2 else 0
                                 )
-                            except:
-                                # Default to 9 AM if time parsing fails
+                            else:
                                 scheduled_time = datetime.time(9, 0, 0)
-                        else:
-                            # Default to 9 AM if no time specified
+                        except Exception as e:
+                            print(f"Error parsing time: {e}")
                             scheduled_time = datetime.time(9, 0, 0)
-                        
-                        self.prescriptions.append({
-                            'time': scheduled_time,
-                            'name': dname,
-                            'dosage': dosage,
-                            'barcode': barcode,
-                            'leeway': leeway if leeway else 60  # Default 60 minutes leeway
-                        })
-            except Exception as e:
-                print(f"Error loading prescriptions: {e}")
-        
-        self.draw_timeline()
+                    else:
+                        scheduled_time = datetime.time(9, 0, 0)
+                    
+                    self.prescriptions.append({
+                        'time': scheduled_time,
+                        'name': name,
+                        'dosage': dosage,
+                        'barcode': barcode,
+                        'leeway': int(leeway) if leeway else 60
+                    })
+                except Exception as e:
+                    print(f"Error processing prescription: {e}, prescription: {prescription}")
+                    continue
+                
+        except Exception as e:
+            print(f"Error loading timeline data: {e}")
+            import traceback
+            traceback.print_exc()
     
+        self.draw_timeline()
+
     def draw_timeline(self):
         """Draw the 24-hour timeline with activities and prescriptions"""
         self.timeline_canvas.delete("all")
@@ -1844,8 +1847,8 @@ def _initialize_window(self):
         # Draw prescription markers (below timeline)
         for prescription in self.prescriptions:
             time_obj = prescription['time']
-            hour = time_obj.hour
-            minute = time_obj.minute
+            hour = time_obj.strftime("%H")
+            minute = time_obj.strftime("%M")
             
             # Calculate x position
             x = (hour + minute / 60.0) * hour_width
@@ -1897,37 +1900,43 @@ def _initialize_window(self):
         # Draw actual usage activities (above timeline)
         for activity in self.activities:
             time_obj = activity['time']
-            hour = time_obj.hour
-            minute = time_obj.minute
+            hour = time_obj.strftime("%H")
+            minute = time_obj.strftime("%M")
             
-            # Calculate x position
             x = (hour + minute / 60.0) * hour_width
             
-            # Determine color based on type
-            if activity['type'] == 'deletion':
-                color = "#dc2626"
-                symbol = "✖"
-            elif int(activity['amount']) > 0:
-                color = "#22c55e"
-                symbol = "+"
-            else:
-                color = "#f59e0b"
-                symbol = "−"
+            color = "#f59e0b"
+            symbol = "−"
             
-            # Check if this usage matches a prescription
             matched_prescription = False
             for prescription in self.prescriptions:
                 # Calculate time difference in minutes
-                presc_minutes = prescription['time'].hour * 60 + prescription['time'].minute
-                activity_minutes = time_obj.hour * 60 + time_obj.minute
+                presc_minutes = prescription['time'].strftime("%H") * 60 + prescription['time'].strftime("%M")
+                activity_minutes = time_obj.strftime("%M") * 60 + time_obj.strftime("%M")
                 time_diff = abs(activity_minutes - presc_minutes)
                 
                 # Check if within leeway window and same medication
-                if time_diff <= prescription['leeway'] and activity['name'] == prescription['name']:
-                    matched_prescription = True
-                    color = "#22c55e"  # Green for matched
-                    break
-            
+                try:
+                    # Compare dosages (convert to int for comparison)
+                    activity_dose = int(activity['amount'])
+                    prescription_dose = int(prescription['dosage'])
+                    
+                    if (time_diff <= prescription['leeway'] and 
+                        activity['name'] == prescription['name'] and
+                        activity_dose == prescription_dose):
+                        matched_prescription = True
+                        color = "#22c55e"  # Green for matched
+                        symbol = "✓"
+                        break
+                except (ValueError, TypeError):
+                    # If dose comparison fails, just check name and time
+                    if (time_diff <= prescription['leeway'] and 
+                        activity['name'] == prescription['name']):
+                        matched_prescription = True
+                        color = "#22c55e"
+                        symbol = "✓"
+                        break
+        
             # Draw activity marker
             marker_size = 15 * min(self.zoom_level, 2.0)
             self.timeline_canvas.create_oval(
@@ -1957,7 +1966,12 @@ def _initialize_window(self):
             
             # Draw activity info
             if self.zoom_level >= 1.0:
-                info_text = f"{activity['name']}\n{abs(int(activity['amount']))} used"
+                try:
+                    amount_str = str(activity['amount'])
+                except:
+                    amount_str = "?"
+                
+                info_text = f"{activity['name']}\n{amount_str} taken"
                 self.timeline_canvas.create_text(
                     x, timeline_y - marker_size - 80,
                     text=info_text,
@@ -1975,57 +1989,57 @@ def _initialize_window(self):
                     fill="#94a3b8",
                     font=("Arial", int(10 * min(self.zoom_level, 1.5)))
                 )
-    
-        # Draw legend
-        legend_y = 30
-        legend_x_start = 20
         
-        self.timeline_canvas.create_text(
-            legend_x_start, legend_y,
-            text="Legend:",
-            fill="white",
-            font=("Arial", 12, "bold"),
-            anchor="w"
-        )
-        
-        # Prescription indicator
-        self.timeline_canvas.create_rectangle(
-            legend_x_start + 70, legend_y - 8,
-            legend_x_start + 90, legend_y + 8,
-            fill="#3b82f6",
-            outline="white"
-        )
-        self.timeline_canvas.create_text(
-            legend_x_start + 100, legend_y,
-            text="Scheduled Medication",
-            fill="#60a5fa",
-            font=("Arial", 11),
-            anchor="w"
-        )
-        
-        # Usage indicator
-        self.timeline_canvas.create_oval(
-            legend_x_start + 260, legend_y - 8,
-            legend_x_start + 280, legend_y + 8,
-            fill="#f59e0b",
-            outline="white"
-        )
-        self.timeline_canvas.create_text(
-            legend_x_start + 290, legend_y,
-            text="Actual Usage",
-            fill="white",
-            font=("Arial", 11),
-            anchor="w"
-        )
-        
-        # Matched indicator
-        self.timeline_canvas.create_text(
-            legend_x_start + 420, legend_y,
-            text="✓ = Matches Prescription",
-            fill="#22c55e",
-            font=("Arial", 11, "bold"),
-            anchor="w"
-        )
+            # Draw legend
+            legend_y = 30
+            legend_x_start = 20
+            
+            self.timeline_canvas.create_text(
+                legend_x_start, legend_y,
+                text="Legend:",
+                fill="white",
+                font=("Arial", 12, "bold"),
+                anchor="w"
+            )
+            
+            # Prescription indicator
+            self.timeline_canvas.create_rectangle(
+                legend_x_start + 70, legend_y - 8,
+                legend_x_start + 90, legend_y + 8,
+                fill="#3b82f6",
+                outline="white"
+            )
+            self.timeline_canvas.create_text(
+                legend_x_start + 100, legend_y,
+                text="Scheduled Medication",
+                fill="#60a5fa",
+                font=("Arial", 11),
+                anchor="w"
+            )
+            
+            # Usage indicator
+            self.timeline_canvas.create_oval(
+                legend_x_start + 260, legend_y - 8,
+                legend_x_start + 280, legend_y + 8,
+                fill="#f59e0b",
+                outline="white"
+            )
+            self.timeline_canvas.create_text(
+                legend_x_start + 290, legend_y,
+                text="Actual Usage",
+                fill="white",
+                font=("Arial", 11),
+                anchor="w"
+            )
+            
+            # Matched indicator
+            self.timeline_canvas.create_text(
+                legend_x_start + 420, legend_y,
+                text="✓ = Matches Prescription",
+                fill="#22c55e",
+                font=("Arial", 11, "bold"),
+                anchor="w"
+            )
     
     def _on_mousewheel(self, event):
         """Handle mouse wheel scrolling"""
