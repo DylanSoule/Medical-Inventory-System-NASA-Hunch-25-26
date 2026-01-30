@@ -267,7 +267,55 @@ class DatabaseManager:
 
         conn.commit()
         conn.close()
-      
+    
+
+    def pattern_recognition(self, periods=[4,7,14,30], periods_back=5, users=[], whole=True):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        today = datetime.today()
+        if whole==True:
+            total_uses=[]
+            for period in periods:
+                temp = []
+                for i in range(periods_back):
+                    front = (today - timedelta(days=i*period)).strftime(time_format)
+                    back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                    c.execute(
+                        """
+                        SELECT COALESCE(SUM(change), 0)
+                        FROM drug_changes
+                        WHERE time BETWEEN ? AND ?
+                        """,
+                        (back, front)
+                    )
+                    temp.append(c.fetchone()[0])
+                total_uses.append(temp)
+            for period in total_uses():
+                pass
+        if users:
+            user_uses=[]
+            for user in users:
+                user_temp = []
+                for period in periods:
+                    temp = []
+                    for i in range(periods_back):
+                        front = (today - timedelta(days=i*period)).strftime(time_format)
+                        back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                        c.execute(
+                            """
+                            SELECT COALESCE(SUM(change), 0)
+                            FROM drug_changes
+                            WHERE time BETWEEN ? AND ?
+                            AND user = ?
+                            """,
+                            (back, front, user)
+                        )
+                        temp.append(c.fetchone()[0])
+                    user_temp.append(temp)
+                user_uses.append(user_temp)
+        conn.close()
+
 
     def pull_data(self, table):
         """
@@ -516,6 +564,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
+    read1.log_access_to_inventory_with_mutable_date('766490599880,',-1,'dylan','2026-01-29 21:00:00')
 
     # print(read.pull_data('history'))
     # print(read.compare_history_with_prescription(days_back=60))
