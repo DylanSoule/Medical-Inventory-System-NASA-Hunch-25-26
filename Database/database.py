@@ -267,7 +267,55 @@ class DatabaseManager:
 
         conn.commit()
         conn.close()
-      
+    
+
+    def pattern_recognition(self, periods=[4,7,14,30], periods_back=5, users=[], whole=True):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        today = datetime.today()
+        if whole==True:
+            total_uses=[]
+            for period in periods:
+                temp = []
+                for i in range(periods_back):
+                    front = (today - timedelta(days=i*period)).strftime(time_format)
+                    back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                    c.execute(
+                        """
+                        SELECT COALESCE(SUM(change), 0)
+                        FROM drug_changes
+                        WHERE time BETWEEN ? AND ?
+                        """,
+                        (back, front)
+                    )
+                    temp.append(c.fetchone()[0])
+                total_uses.append(temp)
+            for period in total_uses():
+                pass
+        if users:
+            user_uses=[]
+            for user in users:
+                user_temp = []
+                for period in periods:
+                    temp = []
+                    for i in range(periods_back):
+                        front = (today - timedelta(days=i*period)).strftime(time_format)
+                        back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                        c.execute(
+                            """
+                            SELECT COALESCE(SUM(change), 0)
+                            FROM drug_changes
+                            WHERE time BETWEEN ? AND ?
+                            AND user = ?
+                            """,
+                            (back, front, user)
+                        )
+                        temp.append(c.fetchone()[0])
+                    user_temp.append(temp)
+                user_uses.append(user_temp)
+        conn.close()
+
 
     def pull_data(self, table):
         """
@@ -298,7 +346,6 @@ class PersonalDatabaseManager:
     def __init__(self, path_to_person_database):
         self.db_path = path_to_person_database
         self.create_personal_database()
-        
 
 
     def create_personal_database(self):
@@ -443,7 +490,7 @@ class PersonalDatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-        c.execute('SELECT * FROM history WHERE date(when_taken) = ?',(date,))
+        c.execute('SELECT * FROM history WHERE when_taken = ?',(date,))
         hist_logs = c.fetchall()
 
         c.execute('SELECT barcode, dname, dosage, frequency, time, leeway, start_date FROM prescription WHERE as_needed = ?', (False,))
@@ -452,14 +499,14 @@ class PersonalDatabaseManager:
         for prescript in prescript_dates:
             pdate = datetime.strptime(prescript[6], time_format)
             pdate = pdate.date()
-            ndate = datetime.strptime(date, '%Y-%m-%d')
+            ndate = datetime.strptime(date, time_format)
             ndate = ndate.date()
 
-            diff = (ndate-pdate).days
+            diff = (pdate-ndate).total_seconds()
 
-            if ndate > pdate and diff%prescript[3]==0:
-                prescript_logs.append((prescript[0],prescript[1],prescript[2], prescript[4], prescript[5]))
-
+            if (diff/86400)%prescript[2]==0:
+                prescript_logs.append((prescript[0],prescript[1],prescript[2], prescript[4], prescript[5],))
+        
         return hist_logs, prescript_logs
 
 
@@ -514,10 +561,10 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    read = PersonalDatabaseManager('Database/brody_records.db')
+    read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
-    # print(read.get_personal_data('2025-12-12'))
+    read1.log_access_to_inventory_with_mutable_date('766490599880,',-1,'dylan','2026-01-29 21:00:00')
 
     # print(read.pull_data('history'))
     # print(read.compare_history_with_prescription(days_back=60))
