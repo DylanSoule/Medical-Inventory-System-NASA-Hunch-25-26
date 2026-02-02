@@ -298,6 +298,7 @@ class PersonalDatabaseManager:
     def __init__(self, path_to_person_database):
         self.db_path = path_to_person_database
         self.create_personal_database()
+        
 
 
     def create_personal_database(self):
@@ -458,8 +459,8 @@ class PersonalDatabaseManager:
 
             if (diff/86400)%prescript[2]==0:
                 prescript_logs.append((prescript[0],prescript[1],prescript[2], prescript[4], prescript[5],))
-        
-        return hist_logs, prescript_logs
+
+        return hist_logs, prescript_logs, self.db_path
 
 
 

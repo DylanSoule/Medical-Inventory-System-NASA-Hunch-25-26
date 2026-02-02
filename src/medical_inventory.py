@@ -1544,7 +1544,7 @@ class Personal_db_window(ctk.CTkToplevel):
         from Database.database import PersonalDatabaseManager
         
         try:
-            self.personal_db = PersonalDatabaseManager(personal_db_path)
+            self.personal_db = PersonalDatabaseManager(path_to_person_database = personal_db_path)
         except Exception as e:
             print(f"Error loading personal database: {e}")
             self.personal_db = None
@@ -1712,8 +1712,13 @@ class Personal_db_window(ctk.CTkToplevel):
             # hist_logs format: list of (barcode, dname, when_taken, dose)
             # prescript_logs format: list of (barcode, dname, dosage, time, leeway)
             
-            hist_logs, prescript_logs = self.personal_db.get_personal_data(self.current_date)
+            hist_logs, prescript_logs, db_path = self.personal_db.get_personal_data(self.current_date)
+
+            ###debug
+            print(prescript_logs, hist_logs, db_path)
             
+            ###
+
             # Process history logs (actual usage)
             for log in hist_logs:
                 try:
@@ -1847,8 +1852,8 @@ class Personal_db_window(ctk.CTkToplevel):
         # Draw prescription markers (below timeline)
         for prescription in self.prescriptions:
             time_obj = prescription['time']
-            hour = time_obj.strftime("%H")
-            minute = time_obj.strftime("%M")
+            hour = time_obj.hour
+            minute = time_obj.minute
             
             # Calculate x position
             x = (hour + minute / 60.0) * hour_width
@@ -1896,13 +1901,14 @@ class Personal_db_window(ctk.CTkToplevel):
                     justify="center",
                     width=hour_width * 0.8
                 )
-    
+
         # Draw actual usage activities (above timeline)
         for activity in self.activities:
             time_obj = activity['time']
-            hour = time_obj.strftime("%H")
-            minute = time_obj.strftime("%M")
+            hour = time_obj.hour
+            minute = time_obj.minute
             
+            # Calculate x position
             x = (hour + minute / 60.0) * hour_width
             
             color = "#f59e0b"
@@ -1911,8 +1917,8 @@ class Personal_db_window(ctk.CTkToplevel):
             matched_prescription = False
             for prescription in self.prescriptions:
                 # Calculate time difference in minutes
-                presc_minutes = prescription['time'].strftime("%H") * 60 + prescription['time'].strftime("%M")
-                activity_minutes = time_obj.strftime("%M") * 60 + time_obj.strftime("%M")
+                presc_minutes = prescription['time'].hour * 60 + prescription['time'].minute
+                activity_minutes = time_obj.hour * 60 + time_obj.minute
                 time_diff = abs(activity_minutes - presc_minutes)
                 
                 # Check if within leeway window and same medication
@@ -1937,7 +1943,7 @@ class Personal_db_window(ctk.CTkToplevel):
                         symbol = "✓"
                         break
         
-            # Draw activity marker
+        # Draw activity marker (THIS MUST BE INDENTED INSIDE THE LOOP!)
             marker_size = 15 * min(self.zoom_level, 2.0)
             self.timeline_canvas.create_oval(
                 x - marker_size, timeline_y - marker_size - 40,
@@ -1990,7 +1996,7 @@ class Personal_db_window(ctk.CTkToplevel):
                     font=("Arial", int(10 * min(self.zoom_level, 1.5)))
                 )
         
-            # Draw legend
+            # Draw legend (NOW OUTSIDE ALL LOOPS!)
             legend_y = 30
             legend_x_start = 20
             
@@ -2001,7 +2007,7 @@ class Personal_db_window(ctk.CTkToplevel):
                 font=("Arial", 12, "bold"),
                 anchor="w"
             )
-            
+        
             # Prescription indicator
             self.timeline_canvas.create_rectangle(
                 legend_x_start + 70, legend_y - 8,
@@ -2040,6 +2046,9 @@ class Personal_db_window(ctk.CTkToplevel):
                 font=("Arial", 11, "bold"),
                 anchor="w"
             )
+    
+        # Debug: print what we're drawing
+        print(f"Drawing timeline with {len(self.prescriptions)} prescriptions and {len(self.activities)} activities")
     
     def _on_mousewheel(self, event):
         """Handle mouse wheel scrolling"""
