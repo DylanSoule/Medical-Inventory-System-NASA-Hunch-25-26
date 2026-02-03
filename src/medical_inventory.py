@@ -1519,6 +1519,38 @@ class BarcodeViewer(ctk.CTk):
 #endregion
 
 # ============================================================================
+# CANVAS HELPER
+# ============================================================================
+def create_round_rectangle(canvas, x1, y1, x2, y2, radius=25, **kwargs):
+    """Create a rounded rectangle on a canvas"""
+    points = [
+        x1+radius, y1,
+        x1+radius, y1,
+        x2-radius, y1,
+        x2-radius, y1,
+        x2, y1,
+        x2, y1+radius,
+        x2, y1+radius,
+        x2, y2-radius,
+        x2, y2-radius,
+        x2, y2,
+        x2-radius, y2,
+        x2-radius, y2,
+        x1+radius, y2,
+        x1+radius, y2,
+        x1, y2,
+        x1, y2-radius,
+        x1, y2-radius,
+        x1, y1+radius,
+        x1, y1+radius,
+        x1, y1
+    ]
+    return canvas.create_polygon(points, **kwargs, smooth=True)
+
+# Add this helper to Canvas class
+tk.Canvas.create_roundrectangle = create_round_rectangle
+
+# ============================================================================
 # PERSONAL DATABASE WINDOW
 # ============================================================================
 #region personal database window
@@ -1534,6 +1566,8 @@ class Personal_db_window(ctk.CTkToplevel):
         self.current_date = datetime.date.today()
         self.zoom_level = 1.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
         self.db = DatabaseManager(DB_FILE)
+        self.expanded_items = set()  # Track which items are expanded
+        
         # Initialize personal database
         personal_db_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -1817,7 +1851,7 @@ class Personal_db_window(ctk.CTkToplevel):
         # Calculate dimensions
         hour_width = 120 * self.zoom_level
         total_width = hour_width * 24
-        timeline_y = canvas_height // 2
+        timeline_y = canvas_height // 2 + 80  # Move timeline lower to make room above
         
         # Update scroll region
         self.timeline_canvas.configure(scrollregion=(0, 0, total_width, canvas_height))
@@ -1828,7 +1862,7 @@ class Personal_db_window(ctk.CTkToplevel):
             
             # Hour line
             self.timeline_canvas.create_line(
-                x, timeline_y - 30, x, timeline_y + 30,
+                x, timeline_y - 20, x, timeline_y + 20,
                 fill="#5F84C8" if hour % 3 == 0 else "#4a4a4a",
                 width=3 if hour % 3 == 0 else 1
             )
@@ -1836,113 +1870,41 @@ class Personal_db_window(ctk.CTkToplevel):
             # Hour label
             label = f"{hour:02d}:00"
             self.timeline_canvas.create_text(
-                x, timeline_y + 50,
+                x, timeline_y + 40,
                 text=label,
                 fill="white",
-                font=("Arial", int(14 * min(self.zoom_level, 1.5)), "bold" if hour % 3 == 0 else "normal")
+                font=("Arial", int(12 * min(self.zoom_level, 1.5)), "bold" if hour % 3 == 0 else "normal")
             )
         
         # Draw main timeline
         self.timeline_canvas.create_line(
             0, timeline_y, total_width, timeline_y,
             fill="#5F84C8",
-            width=4
+            width=3
         )
         
-        # Draw prescription markers (below timeline) with improved rendering
-        for prescription in self.prescriptions:
+        # Draw prescription markers (above timeline, below activities)
+        for idx, prescription in enumerate(self.prescriptions):
             time_obj = prescription['time']
             hour = time_obj.hour
             minute = time_obj.minute
-            
-            # Calculate x position
             x = (hour + minute / 60.0) * hour_width
             
-            # Draw prescription window (leeway area) - semi-transparent background
-            leeway_minutes = prescription['leeway']
-            leeway_width = (leeway_minutes / 60.0) * hour_width
+            item_id = f"presc_{idx}"
+            is_expanded = item_id in self.expanded_items
             
-            # Background box for prescription
-            box_height = 60
-            box_top = timeline_y + 45
-            
-            # Draw subtle background
-            self.timeline_canvas.create_rectangle(
-                x - leeway_width / 2, box_top,
-                x + leeway_width / 2, box_top + box_height,
-                fill="#1e3a5f",
-                outline="",
-                stipple="gray25"
-            )
-            
-            # Draw main prescription box (cleaner, more compact)
-            box_width = max(80 * min(self.zoom_level, 2.0), 40)
-            box_inner_height = 35
-            box_y = timeline_y + 60
-            
-            self.timeline_canvas.create_rectangle(
-                x - box_width/2, box_y,
-                x + box_width/2, box_y + box_inner_height,
-                fill="#3b82f6",
-                outline="#60a5fa",
-                width=2
-            )
-            
-            # Draw Rx symbol with better sizing
-            rx_font_size = int(12 * min(self.zoom_level, 2.0))
-            self.timeline_canvas.create_text(
-                x, box_y + box_inner_height/2,
-                text="Rx",
-                fill="white",
-                font=("Arial", rx_font_size, "bold")
-            )
-            
-            # Draw prescription info below box (only if zoomed in enough)
-            if self.zoom_level >= 0.8:
-                info_y = box_y + box_inner_height + 10
-                
-                # Name on first line
-                self.timeline_canvas.create_text(
-                    x, info_y,
-                    text=prescription['name'],
-                    fill="#60a5fa",
-                    font=("Arial", int(10 * min(self.zoom_level, 1.5)), "bold"),
-                    justify="center",
-                    width=leeway_width * 0.9
-                )
-                
-                # Dosage on second line
-                self.timeline_canvas.create_text(
-                    x, info_y + 15,
-                    text=f"{prescription['dosage']} dose",
-                    fill="#93c5fd",
-                    font=("Arial", int(9 * min(self.zoom_level, 1.5))),
-                    justify="center"
-                )
-                
-                # Time label above box
-                time_str = time_obj.strftime("%H:%M")
-                self.timeline_canvas.create_text(
-                    x, box_y - 8,
-                    text=time_str,
-                    fill="#94a3b8",
-                    font=("Arial", int(9 * min(self.zoom_level, 1.5)))
-                )
-
-        # Draw actual usage activities (above timeline) with improved rendering
-        for activity in self.activities:
+            # Draw prescription pill
+            self._draw_prescription_pill(x, timeline_y, prescription, item_id, is_expanded)
+        
+        # Draw actual usage activities (above prescriptions)
+        for idx, activity in enumerate(self.activities):
             time_obj = activity['time']
             hour = time_obj.hour
             minute = time_obj.minute
-            
-            # Calculate x position
             x = (hour + minute / 60.0) * hour_width
             
-            color = "#f59e0b"
-            symbol = "−"
-            matched_prescription = False
-            
             # Check for prescription match
+            matched_prescription = False
             for prescription in self.prescriptions:
                 presc_minutes = prescription['time'].hour * 60 + prescription['time'].minute
                 activity_minutes = time_obj.hour * 60 + time_obj.minute
@@ -1950,114 +1912,317 @@ class Personal_db_window(ctk.CTkToplevel):
                 
                 try:
                     activity_dose = int(activity['amount'])
-                    prescription_dose = int(prescription['dosage'])
+                    prescription_dose = int(prescription['dosage']);
                     
                     if (time_diff <= prescription['leeway'] and 
                         activity['name'] == prescription['name'] and
                         activity_dose == prescription_dose):
                         matched_prescription = True
-                        color = "#22c55e"
-                        symbol = "✓"
                         break
                 except (ValueError, TypeError):
                     if (time_diff <= prescription['leeway'] and 
                         activity['name'] == prescription['name']):
                         matched_prescription = True
-                        color = "#22c55e"
-                        symbol = "✓"
                         break
             
-            # Draw activity box (cleaner design)
-            box_width = max(80 * min(self.zoom_level, 2.0), 40)
-            box_height = 35
-            box_y = timeline_y - 80
+            item_id = f"activity_{idx}"
+            is_expanded = item_id in self.expanded_items
             
-            # Main activity box
-            self.timeline_canvas.create_rectangle(
-                x - box_width/2, box_y,
-                x + box_width/2, box_y + box_height,
-                fill=color,
-                outline="white",
+            # Draw activity pill
+            self._draw_activity_pill(x, timeline_y, activity, item_id, is_expanded, matched_prescription)
+        
+        # Draw legend
+        self._draw_legend()
+        
+        print(f"Drawing timeline with {len(self.prescriptions)} prescriptions and {len(self.activities)} activities")
+    
+    def _draw_prescription_pill(self, x, timeline_y, prescription, item_id, is_expanded):
+        """Draw a prescription pill above the timeline"""
+        # Leeway visualization (subtle background)
+        leeway_minutes = prescription['leeway']
+        leeway_width = (leeway_minutes / 60.0) * (120 * self.zoom_level)
+        
+        y_base = timeline_y - 80
+        
+        # Background leeway area
+        self.timeline_canvas.create_rectangle(
+            x - leeway_width / 2, y_base - 50,
+            x + leeway_width / 2, y_base + 20,
+            fill="#1e3a5f",
+            outline="",
+            stipple="gray25"
+        )
+        
+        if is_expanded:
+            # Expanded view - show detailed card
+            card_width = 200 * min(self.zoom_level, 1.5)
+            card_height = 140
+            
+            # Card background with shadow effect
+            shadow_offset = 4
+            self.timeline_canvas.create_roundrectangle(
+                x - card_width/2 + shadow_offset, y_base - card_height + shadow_offset,
+                x + card_width/2 + shadow_offset, y_base + shadow_offset,
+                radius=15,
+                fill="#1a1a1a",
+                outline=""
+            )
+            
+            # Main card
+            card_id = self.timeline_canvas.create_roundrectangle(
+                x - card_width/2, y_base - card_height,
+                x + card_width/2, y_base,
+                radius=15,
+                fill="#2563eb",
+                outline="#3b82f6",
                 width=2
             )
             
-            # Symbol in center
-            symbol_font_size = int(14 * min(self.zoom_level, 2.0))
+            # Bind click to collapse
+            self.timeline_canvas.tag_bind(card_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
+            
+            # Icon at top
             self.timeline_canvas.create_text(
-                x, box_y + box_height/2,
-                text=symbol,
+                x, y_base - card_height + 25,
+                text="💊",
                 fill="white",
-                font=("Arial", symbol_font_size, "bold")
+                font=("Arial", int(24 * min(self.zoom_level, 1.5)))
             )
             
-            # Match checkmark badge (if matched)
-            if matched_prescription:
-                badge_size = 12 * min(self.zoom_level, 1.5)
-                badge_x = x + box_width/2 + 8
-                badge_y = box_y - 8
-                
-                # Badge circle
-                self.timeline_canvas.create_oval(
-                    badge_x - badge_size, badge_y - badge_size,
-                    badge_x + badge_size, badge_y + badge_size,
-                    fill="#22c55e",
-                    outline="white",
-                    width=2
-                )
-                
-                # Checkmark
-                self.timeline_canvas.create_text(
-                    badge_x, badge_y,
-                    text="✓",
-                    fill="white",
-                    font=("Arial", int(10 * min(self.zoom_level, 1.5)), "bold")
-                )
+            # Drug name
+            self.timeline_canvas.create_text(
+                x, y_base - card_height + 55,
+                text=prescription['name'],
+                fill="white",
+                font=("Arial", int(12 * min(self.zoom_level, 1.5)), "bold"),
+                width=card_width - 20
+            )
             
-            # Activity info above box (only if zoomed in enough)
-            if self.zoom_level >= 0.8:
-                info_y = box_y - 10
-                
-                # Time at top
-                time_str = time_obj.strftime("%H:%M")
+            # Time
+            time_str = prescription['time'].strftime("%I:%M %p")
+            self.timeline_canvas.create_text(
+                x, y_base - card_height + 80,
+                text=f"🕐 {time_str}",
+                fill="#93c5fd",
+                font=("Arial", int(10 * min(self.zoom_level, 1.5)))
+            )
+            
+            # Dosage
+            self.timeline_canvas.create_text(
+                x, y_base - card_height + 100,
+                text=f"📊 {prescription['dosage']} dose",
+                fill="#93c5fd",
+                font=("Arial", int(10 * min(self.zoom_level, 1.5)))
+            )
+            
+            # Leeway
+            self.timeline_canvas.create_text(
+                x, y_base - card_height + 120,
+                text=f"⏱ ±{prescription['leeway']} min",
+                fill="#93c5fd",
+                font=("Arial", int(9 * min(self.zoom_level, 1.5)))
+            )
+            
+        else:
+            # Collapsed view - show compact pill
+            pill_width = max(100 * min(self.zoom_level, 2.0), 60)
+            pill_height = 40
+            
+            # Shadow
+            shadow_offset = 3
+            self.timeline_canvas.create_roundrectangle(
+                x - pill_width/2 + shadow_offset, y_base - pill_height/2 + shadow_offset,
+                x + pill_width/2 + shadow_offset, y_base + pill_height/2 + shadow_offset,
+                radius=20,
+                fill="#1a1a1a",
+                outline=""
+            )
+            
+            # Main pill
+            pill_id = self.timeline_canvas.create_roundrectangle(
+                x - pill_width/2, y_base - pill_height/2,
+                x + pill_width/2, y_base + pill_height/2,
+                radius=20,
+                fill="#3b82f6",
+                outline="#60a5fa",
+                width=2
+            )
+            
+            # Bind click to expand
+            self.timeline_canvas.tag_bind(pill_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
+            
+            # Icon and label
+            icon_text = "Rx"
+            self.timeline_canvas.create_text(
+                x, y_base,
+                text=icon_text,
+                fill="white",
+                font=("Arial", int(14 * min(self.zoom_level, 2.0)), "bold")
+            )
+            
+            # Time label below
+            if self.zoom_level >= 0.6:
+                time_str = prescription['time'].strftime("%H:%M")
                 self.timeline_canvas.create_text(
-                    x, info_y,
+                    x, y_base + pill_height/2 + 15,
                     text=time_str,
                     fill="#94a3b8",
                     font=("Arial", int(9 * min(self.zoom_level, 1.5)))
                 )
-                
-                # Name below time
-                self.timeline_canvas.create_text(
-                    x, info_y - 18,
-                    text=activity['name'],
-                    fill="white",
-                    font=("Arial", int(10 * min(self.zoom_level, 1.5)), "bold"),
-                    justify="center",
-                    width=hour_width * 0.8
-                )
-                
-                # Amount taken
-                try:
-                    amount_str = str(activity['amount'])
-                except:
-                    amount_str = "?"
-                
-                self.timeline_canvas.create_text(
-                    x, info_y - 33,
-                    text=f"{amount_str} taken",
-                    fill="#d1d5db",
-                    font=("Arial", int(9 * min(self.zoom_level, 1.5))),
-                    justify="center"
-                )
+    
+    def _draw_activity_pill(self, x, timeline_y, activity, item_id, is_expanded, matched):
+        """Draw an activity pill above the timeline"""
+        color = "#22c55e" if matched else "#f59e0b"
+        outline_color = "#4ade80" if matched else "#fbbf24"
         
-        # Draw legend with cleaner layout
+        y_base = timeline_y - 180  # Higher than prescriptions
+        
+        if is_expanded:
+            # Expanded view - show detailed card
+            card_width = 200 * min(self.zoom_level, 1.5)
+            card_height = 160
+            
+            # Card shadow
+            shadow_offset = 4
+            self.timeline_canvas.create_roundrectangle(
+                x - card_width/2 + shadow_offset, y_base - card_height + shadow_offset,
+                x + card_width/2 + shadow_offset, y_base + shadow_offset,
+                radius=15,
+                fill="#1a1a1a",
+                outline=""
+            )
+            
+            # Main card
+            card_id = self.timeline_canvas.create_roundrectangle(
+                x - card_width/2, y_base - card_height,
+                x + card_width/2, y_base,
+                radius=15,
+                fill=color,
+                outline=outline_color,
+                width=2
+            )
+            
+            # Bind click to collapse
+            self.timeline_canvas.tag_bind(card_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
+            
+            # Status icon at top
+            icon = "✓" if matched else "•"
+            self.timeline_canvas.create_text(
+                x, y_base - card_height + 25,
+                text=icon,
+                fill="white",
+                font=("Arial", int(28 * min(self.zoom_level, 1.5)), "bold")
+            )
+            
+            # Status text
+            status_text = "Matched!" if matched else "Taken"
+            self.timeline_canvas.create_text(
+                x, y_base - card_height + 55,
+                text=status_text,
+                fill="white",
+                font=("Arial", int(11 * min(self.zoom_level, 1.5)), "bold")
+            )
+            
+            # Drug name
+            self.timeline_canvas.create_text(
+                x, y_base - card_height + 80,
+                text=activity['name'],
+                fill="white",
+                font=("Arial", int(12 * min(self.zoom_level, 1.5)), "bold"),
+                width=card_width - 20
+            )
+            
+            # Time
+            time_str = activity['time'].strftime("%I:%M %p")
+            self.timeline_canvas.create_text(
+                x, y_base - card_height + 105,
+                text=f"🕐 {time_str}",
+                fill="white",
+                font=("Arial", int(10 * min(self.zoom_level, 1.5)))
+            )
+            
+            # Amount
+            try:
+                amount_str = str(activity['amount'])
+            except:
+                amount_str = "?"
+            
+            self.timeline_canvas.create_text(
+                x, y_base - card_height + 125,
+                text=f"📊 {amount_str} taken",
+                fill="white",
+                font=("Arial", int(10 * min(self.zoom_level, 1.5)))
+            )
+            
+            # Barcode
+            self.timeline_canvas.create_text(
+                x, y_base - card_height + 145,
+                text=f"🔖 {activity.get('barcode', 'N/A')}",
+                fill="white",
+                font=("Arial", int(9 * min(self.zoom_level, 1.5)))
+            )
+            
+        else:
+            # Collapsed view - show compact pill
+            pill_width = max(100 * min(self.zoom_level, 2.0), 60)
+            pill_height = 40
+            
+            # Shadow
+            shadow_offset = 3
+            self.timeline_canvas.create_roundrectangle(
+                x - pill_width/2 + shadow_offset, y_base - pill_height/2 + shadow_offset,
+                x + pill_width/2 + shadow_offset, y_base + pill_height/2 + shadow_offset,
+                radius=20,
+                fill="#1a1a1a",
+                outline=""
+            )
+            
+            # Main pill
+            pill_id = self.timeline_canvas.create_roundrectangle(
+                x - pill_width/2, y_base - pill_height/2,
+                x + pill_width/2, y_base + pill_height/2,
+                radius=20,
+                fill=color,
+                outline=outline_color,
+                width=2
+            )
+            
+            # Bind click to expand
+            self.timeline_canvas.tag_bind(pill_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
+            
+            # Icon
+            icon = "✓" if matched else "−"
+            self.timeline_canvas.create_text(
+                x, y_base,
+                text=icon,
+                fill="white",
+                font=("Arial", int(16 * min(self.zoom_level, 2.0)), "bold")
+            )
+            
+            # Time label below
+            if self.zoom_level >= 0.6:
+                time_str = activity['time'].strftime("%H:%M")
+                self.timeline_canvas.create_text(
+                    x, y_base + pill_height/2 + 15,
+                    text=time_str,
+                    fill="#94a3b8",
+                    font=("Arial", int(9 * min(self.zoom_level, 1.5)))
+                )
+    
+    def _draw_legend(self):
+        """Draw the legend"""
         legend_y = 20
         legend_x = 20
         
         # Legend background
-        self.timeline_canvas.create_rectangle(
+        self.timeline_canvas.create_roundrectangle(
             legend_x - 10, legend_y - 15,
-            legend_x + 620, legend_y + 35,
+            legend_x + 520, legend_y + 40,
+            radius=10,
             fill="#1a1a1a",
             outline="#4a4a4a",
             width=1
@@ -2073,15 +2238,16 @@ class Personal_db_window(ctk.CTkToplevel):
         )
         
         # Prescription indicator
-        self.timeline_canvas.create_rectangle(
-            legend_x + 70, legend_y - 6,
-            legend_x + 90, legend_y + 6,
+        self.timeline_canvas.create_roundrectangle(
+            legend_x + 70, legend_y - 8,
+            legend_x + 95, legend_y + 8,
+            radius=8,
             fill="#3b82f6",
             outline="white",
-            width=2
+            width=1
         )
         self.timeline_canvas.create_text(
-            legend_x + 100, legend_y,
+            legend_x + 105, legend_y,
             text="Scheduled",
             fill="#60a5fa",
             font=("Arial", 11),
@@ -2089,15 +2255,16 @@ class Personal_db_window(ctk.CTkToplevel):
         )
         
         # Usage indicator
-        self.timeline_canvas.create_rectangle(
-            legend_x + 210, legend_y - 6,
-            legend_x + 230, legend_y + 6,
+        self.timeline_canvas.create_roundrectangle(
+            legend_x + 210, legend_y - 8,
+            legend_x + 235, legend_y + 8,
+            radius=8,
             fill="#f59e0b",
             outline="white",
-            width=2
+            width=1
         )
         self.timeline_canvas.create_text(
-            legend_x + 240, legend_y,
+            legend_x + 245, legend_y,
             text="Taken",
             fill="white",
             font=("Arial", 11),
@@ -2105,46 +2272,38 @@ class Personal_db_window(ctk.CTkToplevel):
         )
         
         # Matched indicator
-        self.timeline_canvas.create_rectangle(
-            legend_x + 320, legend_y - 6,
-            legend_x + 340, legend_y + 6,
+        self.timeline_canvas.create_roundrectangle(
+            legend_x + 320, legend_y - 8,
+            legend_x + 345, legend_y + 8,
+            radius=8,
             fill="#22c55e",
             outline="white",
-            width=2
+            width=1
         )
         self.timeline_canvas.create_text(
-            legend_x + 350, legend_y,
+            legend_x + 355, legend_y,
             text="Matched",
             fill="#22c55e",
             font=("Arial", 11),
             anchor="w"
         )
         
-        # Checkmark explanation
-        badge_x = legend_x + 450
-        self.timeline_canvas.create_oval(
-            badge_x - 8, legend_y - 8,
-            badge_x + 8, legend_y + 8,
-            fill="#22c55e",
-            outline="white",
-            width=1
-        )
+        # Tap instruction
         self.timeline_canvas.create_text(
-            badge_x, legend_y,
-            text="✓",
-            fill="white",
-            font=("Arial", 10, "bold")
-        )
-        self.timeline_canvas.create_text(
-            badge_x + 20, legend_y,
-            text="= Match",
-            fill="#22c55e",
-            font=("Arial", 11),
+            legend_x + 440, legend_y,
+            text="👆 Tap to expand",
+            fill="#94a3b8",
+            font=("Arial", 10, "italic"),
             anchor="w"
         )
     
-        # Debug: print what we're drawing
-        print(f"Drawing timeline with {len(self.prescriptions)} prescriptions and {len(self.activities)} activities")
+    def _toggle_item(self, item_id):
+        """Toggle expanded/collapsed state of an item"""
+        if item_id in self.expanded_items:
+            self.expanded_items.remove(item_id)
+        else:
+            self.expanded_items.add(item_id)
+        self.draw_timeline()
     
     def _on_mousewheel(self, event):
         """Handle mouse wheel scrolling"""
