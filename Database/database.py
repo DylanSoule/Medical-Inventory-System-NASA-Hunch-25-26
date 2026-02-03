@@ -443,7 +443,7 @@ class PersonalDatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-        c.execute('SELECT * FROM history WHERE when_taken = ?',(date,))
+        c.execute('SELECT * FROM history WHERE date(when_taken) = ?',(date,))
         hist_logs = c.fetchall()
 
         c.execute('SELECT barcode, dname, dosage, frequency, time, leeway, start_date FROM prescription WHERE as_needed = ?', (False,))
@@ -452,7 +452,7 @@ class PersonalDatabaseManager:
         for prescript in prescript_dates:
             pdate = datetime.strptime(prescript[6], time_format)
             pdate = pdate.date()
-            ndate = datetime.strptime(date, time_format)
+            ndate = datetime.strptime(date, '%Y-%m-%d')
             ndate = ndate.date()
 
             diff = (pdate-ndate).total_seconds()
@@ -460,7 +460,7 @@ class PersonalDatabaseManager:
             if (diff/86400)%prescript[2]==0:
                 prescript_logs.append((prescript[0],prescript[1],prescript[2], prescript[4], prescript[5],))
 
-        return hist_logs, prescript_logs, self.db_path
+        return hist_logs, prescript_logs
 
 
 
@@ -517,6 +517,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
+    # print(read.get_personal_data('2025-12-12'))
 
     # print(read.pull_data('history'))
     # print(read.compare_history_with_prescription(days_back=60))
