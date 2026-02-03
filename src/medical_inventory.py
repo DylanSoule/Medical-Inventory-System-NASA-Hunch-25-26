@@ -1849,7 +1849,7 @@ class Personal_db_window(ctk.CTkToplevel):
             width=4
         )
         
-        # Draw prescription markers (below timeline)
+        # Draw prescription markers (below timeline) with improved rendering
         for prescription in self.prescriptions:
             time_obj = prescription['time']
             hour = time_obj.hour
@@ -1858,51 +1858,78 @@ class Personal_db_window(ctk.CTkToplevel):
             # Calculate x position
             x = (hour + minute / 60.0) * hour_width
             
-            # Draw prescription window (leeway area)
+            # Draw prescription window (leeway area) - semi-transparent background
             leeway_minutes = prescription['leeway']
             leeway_width = (leeway_minutes / 60.0) * hour_width
             
-            # Draw leeway rectangle
+            # Background box for prescription
+            box_height = 60
+            box_top = timeline_y + 45
+            
+            # Draw subtle background
             self.timeline_canvas.create_rectangle(
-                x - leeway_width / 2, timeline_y + 40,
-                x + leeway_width / 2, timeline_y + 90,
-                fill="#3b82f6",
-                outline="#60a5fa",
-                width=2,
+                x - leeway_width / 2, box_top,
+                x + leeway_width / 2, box_top + box_height,
+                fill="#1e3a5f",
+                outline="",
                 stipple="gray25"
             )
             
-            # Draw prescription marker
-            marker_size = 100 * min(self.zoom_level, 2.0)
+            # Draw main prescription box (cleaner, more compact)
+            box_width = max(80 * min(self.zoom_level, 2.0), 40)
+            box_inner_height = 35
+            box_y = timeline_y + 60
+            
             self.timeline_canvas.create_rectangle(
-                x - marker_size, timeline_y + 55,
-                x + marker_size, timeline_y + 75,
+                x - box_width/2, box_y,
+                x + box_width/2, box_y + box_inner_height,
                 fill="#3b82f6",
-                outline="white",
+                outline="#60a5fa",
                 width=2
             )
             
-            # Draw Rx symbol
+            # Draw Rx symbol with better sizing
+            rx_font_size = int(12 * min(self.zoom_level, 2.0))
             self.timeline_canvas.create_text(
-                x, timeline_y + 65,
+                x, box_y + box_inner_height/2,
                 text="Rx",
                 fill="white",
-                font=("Arial", int(10 * min(self.zoom_level, 2.0)), "bold")
+                font=("Arial", rx_font_size, "bold")
             )
             
-            # Draw prescription info
+            # Draw prescription info below box (only if zoomed in enough)
             if self.zoom_level >= 0.8:
-                info_text = f"{prescription['name']}\n{prescription['dosage']} dose"
+                info_y = box_y + box_inner_height + 10
+                
+                # Name on first line
                 self.timeline_canvas.create_text(
-                    x, timeline_y + 105,
-                    text=info_text,
+                    x, info_y,
+                    text=prescription['name'],
                     fill="#60a5fa",
-                    font=("Arial", int(10 * min(self.zoom_level, 1.5))),
+                    font=("Arial", int(10 * min(self.zoom_level, 1.5)), "bold"),
                     justify="center",
-                    width=hour_width * 0.8
+                    width=leeway_width * 0.9
+                )
+                
+                # Dosage on second line
+                self.timeline_canvas.create_text(
+                    x, info_y + 15,
+                    text=f"{prescription['dosage']} dose",
+                    fill="#93c5fd",
+                    font=("Arial", int(9 * min(self.zoom_level, 1.5))),
+                    justify="center"
+                )
+                
+                # Time label above box
+                time_str = time_obj.strftime("%H:%M")
+                self.timeline_canvas.create_text(
+                    x, box_y - 8,
+                    text=time_str,
+                    fill="#94a3b8",
+                    font=("Arial", int(9 * min(self.zoom_level, 1.5)))
                 )
 
-        # Draw actual usage activities (above timeline)
+        # Draw actual usage activities (above timeline) with improved rendering
         for activity in self.activities:
             time_obj = activity['time']
             hour = time_obj.hour
@@ -1913,17 +1940,15 @@ class Personal_db_window(ctk.CTkToplevel):
             
             color = "#f59e0b"
             symbol = "−"
-            
             matched_prescription = False
+            
+            # Check for prescription match
             for prescription in self.prescriptions:
-                # Calculate time difference in minutes
                 presc_minutes = prescription['time'].hour * 60 + prescription['time'].minute
                 activity_minutes = time_obj.hour * 60 + time_obj.minute
                 time_diff = abs(activity_minutes - presc_minutes)
                 
-                # Check if within leeway window and same medication
                 try:
-                    # Compare dosages (convert to int for comparison)
                     activity_dose = int(activity['amount'])
                     prescription_dose = int(prescription['dosage'])
                     
@@ -1931,121 +1956,192 @@ class Personal_db_window(ctk.CTkToplevel):
                         activity['name'] == prescription['name'] and
                         activity_dose == prescription_dose):
                         matched_prescription = True
-                        color = "#22c55e"  # Green for matched
+                        color = "#22c55e"
                         symbol = "✓"
                         break
                 except (ValueError, TypeError):
-                    # If dose comparison fails, just check name and time
                     if (time_diff <= prescription['leeway'] and 
                         activity['name'] == prescription['name']):
                         matched_prescription = True
                         color = "#22c55e"
                         symbol = "✓"
                         break
-        
-        # Draw activity marker (THIS MUST BE INDENTED INSIDE THE LOOP!)
-            marker_size = 15 * min(self.zoom_level, 2.0)
-            self.timeline_canvas.create_oval(
-                x - marker_size, timeline_y - marker_size - 40,
-                x + marker_size, timeline_y + marker_size - 40,
+            
+            # Draw activity box (cleaner design)
+            box_width = max(80 * min(self.zoom_level, 2.0), 40)
+            box_height = 35
+            box_y = timeline_y - 80
+            
+            # Main activity box
+            self.timeline_canvas.create_rectangle(
+                x - box_width/2, box_y,
+                x + box_width/2, box_y + box_height,
                 fill=color,
                 outline="white",
                 width=2
             )
             
-            # Draw symbol
+            # Symbol in center
+            symbol_font_size = int(14 * min(self.zoom_level, 2.0))
             self.timeline_canvas.create_text(
-                x, timeline_y - 40,
+                x, box_y + box_height/2,
                 text=symbol,
                 fill="white",
-                font=("Arial", int(12 * min(self.zoom_level, 2.0)), "bold")
+                font=("Arial", symbol_font_size, "bold")
             )
             
-            # Draw checkmark if matched prescription
+            # Match checkmark badge (if matched)
             if matched_prescription:
-                self.timeline_canvas.create_text(
-                    x + marker_size + 5, timeline_y - 40 - marker_size - 5,
-                    text="✓",
+                badge_size = 12 * min(self.zoom_level, 1.5)
+                badge_x = x + box_width/2 + 8
+                badge_y = box_y - 8
+                
+                # Badge circle
+                self.timeline_canvas.create_oval(
+                    badge_x - badge_size, badge_y - badge_size,
+                    badge_x + badge_size, badge_y + badge_size,
                     fill="#22c55e",
-                    font=("Arial", int(14 * min(self.zoom_level, 2.0)), "bold")
+                    outline="white",
+                    width=2
+                )
+                
+                # Checkmark
+                self.timeline_canvas.create_text(
+                    badge_x, badge_y,
+                    text="✓",
+                    fill="white",
+                    font=("Arial", int(10 * min(self.zoom_level, 1.5)), "bold")
                 )
             
-            # Draw activity info
-            if self.zoom_level >= 1.0:
+            # Activity info above box (only if zoomed in enough)
+            if self.zoom_level >= 0.8:
+                info_y = box_y - 10
+                
+                # Time at top
+                time_str = time_obj.strftime("%H:%M")
+                self.timeline_canvas.create_text(
+                    x, info_y,
+                    text=time_str,
+                    fill="#94a3b8",
+                    font=("Arial", int(9 * min(self.zoom_level, 1.5)))
+                )
+                
+                # Name below time
+                self.timeline_canvas.create_text(
+                    x, info_y - 18,
+                    text=activity['name'],
+                    fill="white",
+                    font=("Arial", int(10 * min(self.zoom_level, 1.5)), "bold"),
+                    justify="center",
+                    width=hour_width * 0.8
+                )
+                
+                # Amount taken
                 try:
                     amount_str = str(activity['amount'])
                 except:
                     amount_str = "?"
                 
-                info_text = f"{activity['name']}\n{amount_str} taken"
                 self.timeline_canvas.create_text(
-                    x, timeline_y - marker_size - 80,
-                    text=info_text,
-                    fill="white",
-                    font=("Arial", int(11 * min(self.zoom_level, 1.5))),
-                    justify="center",
-                    width=hour_width * 0.8
-                )
-                
-                # Draw time
-                time_str = time_obj.strftime("%H:%M")
-                self.timeline_canvas.create_text(
-                    x, timeline_y - marker_size - 110,
-                    text=time_str,
-                    fill="#94a3b8",
-                    font=("Arial", int(10 * min(self.zoom_level, 1.5)))
+                    x, info_y - 33,
+                    text=f"{amount_str} taken",
+                    fill="#d1d5db",
+                    font=("Arial", int(9 * min(self.zoom_level, 1.5))),
+                    justify="center"
                 )
         
-            # Draw legend (NOW OUTSIDE ALL LOOPS!)
-            legend_y = 30
-            legend_x_start = 20
-            
-            self.timeline_canvas.create_text(
-                legend_x_start, legend_y,
-                text="Legend:",
-                fill="white",
-                font=("Arial", 12, "bold"),
-                anchor="w"
-            )
+        # Draw legend with cleaner layout
+        legend_y = 20
+        legend_x = 20
         
-            # Prescription indicator
-            self.timeline_canvas.create_rectangle(
-                legend_x_start + 70, legend_y - 8,
-                legend_x_start + 90, legend_y + 8,
-                fill="#3b82f6",
-                outline="white"
-            )
-            self.timeline_canvas.create_text(
-                legend_x_start + 100, legend_y,
-                text="Scheduled Medication",
-                fill="#60a5fa",
-                font=("Arial", 11),
-                anchor="w"
-            )
-            
-            # Usage indicator
-            self.timeline_canvas.create_oval(
-                legend_x_start + 260, legend_y - 8,
-                legend_x_start + 280, legend_y + 8,
-                fill="#f59e0b",
-                outline="white"
-            )
-            self.timeline_canvas.create_text(
-                legend_x_start + 290, legend_y,
-                text="Actual Usage",
-                fill="white",
-                font=("Arial", 11),
-                anchor="w"
-            )
-            
-            # Matched indicator
-            self.timeline_canvas.create_text(
-                legend_x_start + 420, legend_y,
-                text="✓ = Matches Prescription",
-                fill="#22c55e",
-                font=("Arial", 11, "bold"),
-                anchor="w"
-            )
+        # Legend background
+        self.timeline_canvas.create_rectangle(
+            legend_x - 10, legend_y - 15,
+            legend_x + 620, legend_y + 35,
+            fill="#1a1a1a",
+            outline="#4a4a4a",
+            width=1
+        )
+        
+        # Legend title
+        self.timeline_canvas.create_text(
+            legend_x, legend_y,
+            text="Legend:",
+            fill="white",
+            font=("Arial", 12, "bold"),
+            anchor="w"
+        )
+        
+        # Prescription indicator
+        self.timeline_canvas.create_rectangle(
+            legend_x + 70, legend_y - 6,
+            legend_x + 90, legend_y + 6,
+            fill="#3b82f6",
+            outline="white",
+            width=2
+        )
+        self.timeline_canvas.create_text(
+            legend_x + 100, legend_y,
+            text="Scheduled",
+            fill="#60a5fa",
+            font=("Arial", 11),
+            anchor="w"
+        )
+        
+        # Usage indicator
+        self.timeline_canvas.create_rectangle(
+            legend_x + 210, legend_y - 6,
+            legend_x + 230, legend_y + 6,
+            fill="#f59e0b",
+            outline="white",
+            width=2
+        )
+        self.timeline_canvas.create_text(
+            legend_x + 240, legend_y,
+            text="Taken",
+            fill="white",
+            font=("Arial", 11),
+            anchor="w"
+        )
+        
+        # Matched indicator
+        self.timeline_canvas.create_rectangle(
+            legend_x + 320, legend_y - 6,
+            legend_x + 340, legend_y + 6,
+            fill="#22c55e",
+            outline="white",
+            width=2
+        )
+        self.timeline_canvas.create_text(
+            legend_x + 350, legend_y,
+            text="Matched",
+            fill="#22c55e",
+            font=("Arial", 11),
+            anchor="w"
+        )
+        
+        # Checkmark explanation
+        badge_x = legend_x + 450
+        self.timeline_canvas.create_oval(
+            badge_x - 8, legend_y - 8,
+            badge_x + 8, legend_y + 8,
+            fill="#22c55e",
+            outline="white",
+            width=1
+        )
+        self.timeline_canvas.create_text(
+            badge_x, legend_y,
+            text="✓",
+            fill="white",
+            font=("Arial", 10, "bold")
+        )
+        self.timeline_canvas.create_text(
+            badge_x + 20, legend_y,
+            text="= Match",
+            fill="#22c55e",
+            font=("Arial", 11),
+            anchor="w"
+        )
     
         # Debug: print what we're drawing
         print(f"Drawing timeline with {len(self.prescriptions)} prescriptions and {len(self.activities)} activities")
