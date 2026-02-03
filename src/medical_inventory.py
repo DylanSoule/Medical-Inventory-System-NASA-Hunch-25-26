@@ -1712,10 +1712,10 @@ class Personal_db_window(ctk.CTkToplevel):
             # hist_logs format: list of (barcode, dname, when_taken, dose)
             # prescript_logs format: list of (barcode, dname, dosage, time, leeway)
             
-            hist_logs, prescript_logs, db_path = self.personal_db.get_personal_data(self.current_date)
+            hist_logs, prescript_logs = self.personal_db.get_personal_data(self.current_date.strftime("%Y-%m-%d"))
 
             ###debug
-            print(prescript_logs, hist_logs, db_path)
+            print(hist_logs, prescript_logs)
             
             ###
 
@@ -1873,7 +1873,7 @@ class Personal_db_window(ctk.CTkToplevel):
             )
             
             # Draw prescription marker
-            marker_size = 12 * min(self.zoom_level, 2.0)
+            marker_size = 100 * min(self.zoom_level, 2.0)
             self.timeline_canvas.create_rectangle(
                 x - marker_size, timeline_y + 55,
                 x + marker_size, timeline_y + 75,
