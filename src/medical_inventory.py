@@ -103,11 +103,11 @@ class BarcodeViewer(ctk.CTk):
         
         try:
             self.attributes("-fullscreen", True)
+            self.after(0, lambda: self.attributes("-fullscreen", True))
         except Exception:
-            try:
-                self.state("zoomed")
-            except Exception:
-                self.geometry("1200x800")
+            screen_width = self.winfo_screenwidth()
+            screen_height = self.winfo_screenheight()
+            self.geometry(f"{screen_width}x{screen_height}+0+0")
         
         # Keyboard shortcuts
         self.bind("<F11>", lambda e: self.attributes("-fullscreen", not self.attributes("-fullscreen")))
@@ -1214,7 +1214,7 @@ class BarcodeViewer(ctk.CTk):
         ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55, 
                      font=("Arial", 20)).pack(side="left", padx=12, pady=12)
         ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55, 
-                     font=("Arial", 20), fg_color="gray30").pack(side="left", padx=12, pady=12)
+                     font=("Arial", 20), fg_color="gray30").pack(side="right", padx=12, pady=12)
         
         entry.bind("<Return>", on_ok)
         dlg.bind("<Escape>", on_cancel)
@@ -1564,7 +1564,7 @@ class Personal_db_window(ctk.CTkToplevel):
         self.parent = parent
         self.user = user
         self.current_date = datetime.date.today()
-        self.zoom_level = 1.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
+        self.zoom_level = 10.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
         self.db = DatabaseManager(DB_FILE)
         self.expanded_items = set()  # Track which items are expanded
         
@@ -1591,10 +1591,23 @@ class Personal_db_window(ctk.CTkToplevel):
         
         try:
             self.attributes("-fullscreen", True)
+            self.after(0, lambda: self.attributes("-fullscreen", True))
         except Exception:
+            pass
+        
+        def enforce_fullscreen():
+            try:
+                self.attributes("-fullscreen", True)
+            except Exception:
+                try:
+                    self.state("zoomed")
+                except Exception:
+                    pass
             self.geometry(f"{screen_width}x{screen_height}+0+0")
-    
-        self.update_idletasks()
+        
+        enforce_fullscreen()
+        self.after(100, enforce_fullscreen)
+        
         self.lift()
         self.focus_force()
         
@@ -1611,37 +1624,37 @@ class Personal_db_window(ctk.CTkToplevel):
 
     def _setup_ui(self):
         """Setup the personal database UI"""
-        # Configure grid
-        self.grid_rowconfigure(0, weight=0)  # Title
-        self.grid_rowconfigure(1, weight=0)  # Date selector
-        self.grid_rowconfigure(2, weight=1)  # Timeline
-        self.grid_rowconfigure(3, weight=0)  # Controls
+        # Configure grid - give timeline most of the space
+        self.grid_rowconfigure(0, weight=0, minsize=40)
+        self.grid_rowconfigure(1, weight=0, minsize=45)
+        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(3, weight=0, minsize=55)
         self.grid_columnconfigure(0, weight=1)
         
-        # Title
+        # Title - more compact
         ctk.CTkLabel(
             self, 
             text=f"{self.user}'s Personal Database", 
-            font=("Arial", 32, "bold")
-        ).grid(row=0, column=0, pady=(20, 10), sticky="ew")
+            font=("Arial", 28, "bold")
+        ).grid(row=0, column=0, pady=(10, 5), sticky="ew")
         
-        # Date selector frame
+        # Date selector frame - more compact
         date_frame = ctk.CTkFrame(self, fg_color="transparent")
-        date_frame.grid(row=1, column=0, pady=10, sticky="ew")
+        date_frame.grid(row=1, column=0, pady=2, sticky="ew")
         
         ctk.CTkButton(
             date_frame,
             text="◄ Previous Day",
             command=self.previous_day,
-            width=180,
-            height=50,
-            font=("Arial", 18)
-        ).pack(side="left", padx=(40, 10))
+            width=150,
+            height=45,
+            font=("Arial", 16)
+        ).pack(side="left", padx=(20, 10))
         
         self.date_label = ctk.CTkLabel(
             date_frame,
             text=self.current_date.strftime("%A, %B %d, %Y"),
-            font=("Arial", 22, "bold")
+            font=("Arial", 20, "bold")
         )
         self.date_label.pack(side="left", expand=True)
         
@@ -1649,16 +1662,21 @@ class Personal_db_window(ctk.CTkToplevel):
             date_frame,
             text="Next Day ►",
             command=self.next_day,
-            width=180,
-            height=50,
-            font=("Arial", 18)
-        ).pack(side="right", padx=(10, 40))
+            width=150,
+            height=45,
+            font=("Arial", 16)
+        ).pack(side="right", padx=(10, 20))
         
-        # Timeline frame
+        # Timeline frame - maximize space
         timeline_frame = ctk.CTkFrame(self, corner_radius=10)
-        timeline_frame.grid(row=2, column=0, sticky="nsew", padx=40, pady=20)
-        timeline_frame.grid_rowconfigure(0, weight=1)
+        timeline_frame.grid(row=2, column=0, sticky="nsew", padx=8, pady=6)
+        timeline_frame.grid_rowconfigure(0, weight=0)
+        timeline_frame.grid_rowconfigure(1, weight=1)
+        timeline_frame.grid_rowconfigure(2, weight=0)
         timeline_frame.grid_columnconfigure(0, weight=1)
+        
+        self.legend_frame = ctk.CTkFrame(timeline_frame, fg_color="transparent")
+        self.legend_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 4))
         
         # Canvas with scrollbar for timeline
         self.timeline_canvas = tk.Canvas(
@@ -1673,85 +1691,80 @@ class Personal_db_window(ctk.CTkToplevel):
         )
         self.timeline_canvas.configure(xscrollcommand=scrollbar.set)
         
-        self.timeline_canvas.grid(row=0, column=0, sticky="nsew", padx=20, pady=(20, 5))
-        scrollbar.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
+        self.timeline_canvas.grid(row=1, column=0, sticky="nsew", padx=10, pady=(10, 5))
+        scrollbar.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
         
         # Bind mouse wheel for scrolling
         self.timeline_canvas.bind("<MouseWheel>", self._on_mousewheel)
         self.timeline_canvas.bind("<Button-4>", self._on_mousewheel)  # Linux scroll up
         self.timeline_canvas.bind("<Button-5>", self._on_mousewheel)  # Linux scroll down
         
-        # Control buttons frame
+        # Control buttons frame - more compact
         controls_frame = ctk.CTkFrame(self, fg_color="transparent")
-        controls_frame.grid(row=3, column=0, pady=(0, 30), sticky="ew")
+        controls_frame.grid(row=3, column=0, pady=(2, 10), sticky="ew")
         
         ctk.CTkButton(
             controls_frame,
             text="Zoom In (+)",
             command=self.zoom_in,
-            width=140,
-            height=55,
-            font=("Arial", 18)
-        ).pack(side="left", padx=(40, 10))
+            width=105,
+            height=42,
+            font=("Arial", 15)
+        ).pack(side="left", padx=(16, 6))
         
         ctk.CTkButton(
             controls_frame,
             text="Zoom Out (-)",
             command=self.zoom_out,
-            width=140,
-            height=55,
-            font=("Arial", 18)
-        ).pack(side="left", padx=10)
+            width=105,
+            height=42,
+            font=("Arial", 15)
+        ).pack(side="left", padx=6)
         
         ctk.CTkButton(
             controls_frame,
             text="Reset Zoom",
             command=self.reset_zoom,
-            width=140,
-            height=55,
-            font=("Arial", 18)
-        ).pack(side="left", padx=10)
-        
+            width=105,
+            height=42,
+            font=("Arial", 15)
+        ).pack(side="left", padx=6)
         ctk.CTkButton(
             controls_frame,
             text="Today",
             command=self.goto_today,
-            width=140,
-            height=55,
-            font=("Arial", 18),
+            width=105,
+            height=42,
+            font=("Arial", 15),
             fg_color="#22c55e"
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=6)
         
         ctk.CTkButton(
             controls_frame,
             text="Close",
             command=self.destroy,
-            width=140,
-            height=55,
-            font=("Arial", 18),
+            width=105,
+            height=42,
+            font=("Arial", 15),
             fg_color="#b22222"
-        ).pack(side="right", padx=(10, 40))
+        ).pack(side="right", padx=(6, 16))
     
     def load_timeline_data(self):
+        
         """Load user's activity data and prescriptions for the selected date"""
         self.activities = []
         self.prescriptions = []
-        
+    
         if not self.personal_db:
             self.draw_timeline()
             return
         
         try:
             # get_personal_data returns (hist_logs, prescript_logs)
-            # hist_logs format: list of (barcode, dname, when_taken, dose)
+            # hist_logs format: list of (barcode, dname, when_taken, dose, taken)
             # prescript_logs format: list of (barcode, dname, dosage, time, leeway)
             
             hist_logs, prescript_logs = self.personal_db.get_personal_data(self.current_date.strftime("%Y-%m-%d"))
-
-            ###debug
-            print(hist_logs, prescript_logs)
-            
-            ###
 
             # Process history logs (actual usage)
             for log in hist_logs:
@@ -1763,6 +1776,7 @@ class Personal_db_window(ctk.CTkToplevel):
                     name = log[1]
                     when_taken = log[2]
                     dose = log[3]
+                    taken = log[4]
                     
                     # Parse timestamp
                     try:
@@ -1779,7 +1793,8 @@ class Personal_db_window(ctk.CTkToplevel):
                             'time': dt.time(),
                             'name': name,
                             'amount': dose,
-                            'barcode': barcode
+                            'barcode': barcode,
+                            'type': 'usage'
                         })
                 except Exception as e:
                     print(f"Error processing history log: {e}, log: {log}")
@@ -1818,13 +1833,23 @@ class Personal_db_window(ctk.CTkToplevel):
                     else:
                         scheduled_time = datetime.time(9, 0, 0)
                     
+                    if leeway:
+                        try:
+                            leeway = float(leeway) * 60
+                            leeway_reform = int(leeway)
+                        except:
+                            leeway_reform = 60
+
                     self.prescriptions.append({
                         'time': scheduled_time,
                         'name': name,
                         'dosage': dosage,
                         'barcode': barcode,
-                        'leeway': int(leeway) if leeway else 60
+                        #'leeway': int(leeway) * 60 if leeway else 60,
+                        'leeway': leeway_reform,
+                        'type': 'prescription'
                     })
+
                 except Exception as e:
                     print(f"Error processing prescription: {e}, prescription: {prescription}")
                     continue
@@ -1833,8 +1858,18 @@ class Personal_db_window(ctk.CTkToplevel):
             print(f"Error loading timeline data: {e}")
             import traceback
             traceback.print_exc()
-    
+
         self.draw_timeline()
+        self.after(100, lambda: self.reset_zoom())
+
+    def _get_stacked_position(self, x, items_at_time, item_index):
+        """Calculate vertical offset for stacked items at the same time"""
+        if item_index == 0:
+            return 0
+        
+        # Stack items horizontally with small offset
+        offset = 30 * min(self.zoom_level, 1.5)
+        return offset * item_index
 
     def draw_timeline(self):
         """Draw the 24-hour timeline with activities and prescriptions"""
@@ -1851,7 +1886,7 @@ class Personal_db_window(ctk.CTkToplevel):
         # Calculate dimensions
         hour_width = 120 * self.zoom_level
         total_width = hour_width * 24
-        timeline_y = canvas_height // 2 + 80  # Move timeline lower to make room above
+        timeline_y = canvas_height // 2
         
         # Update scroll region
         self.timeline_canvas.configure(scrollregion=(0, 0, total_width, canvas_height))
@@ -1883,66 +1918,96 @@ class Personal_db_window(ctk.CTkToplevel):
             width=3
         )
         
-        # Draw prescription markers (above timeline, below activities)
+        # Group items by time for stacking
+        prescription_times = {}
         for idx, prescription in enumerate(self.prescriptions):
-            time_obj = prescription['time']
-            hour = time_obj.hour
-            minute = time_obj.minute
-            x = (hour + minute / 60.0) * hour_width
-            
-            item_id = f"presc_{idx}"
-            is_expanded = item_id in self.expanded_items
-            
-            # Draw prescription pill
-            self._draw_prescription_pill(x, timeline_y, prescription, item_id, is_expanded)
+            time_key = (prescription['time'].hour, prescription['time'].minute)
+            if time_key not in prescription_times:
+                prescription_times[time_key] = []
+            prescription_times[time_key].append((idx, prescription))
         
-        # Draw actual usage activities (above prescriptions)
+        activity_times = {}
         for idx, activity in enumerate(self.activities):
-            time_obj = activity['time']
-            hour = time_obj.hour
-            minute = time_obj.minute
-            x = (hour + minute / 60.0) * hour_width
-            
-            # Check for prescription match
-            matched_prescription = False
-            for prescription in self.prescriptions:
-                presc_minutes = prescription['time'].hour * 60 + prescription['time'].minute
-                activity_minutes = time_obj.hour * 60 + time_obj.minute
-                time_diff = abs(activity_minutes - presc_minutes)
+            time_key = (activity['time'].hour, activity['time'].minute)
+            if time_key not in activity_times:
+                activity_times[time_key] = []
+            activity_times[time_key].append((idx, activity))
+        
+        # Draw prescription markers (above timeline)
+        for time_key, items in prescription_times.items():
+            for stack_idx, (idx, prescription) in enumerate(items):
+                time_obj = prescription['time']
+                hour = time_obj.hour
+                minute = time_obj.minute
+                x = (hour + minute / 60.0) * hour_width
+                x_offset = self._get_stacked_position(x, items, stack_idx)
                 
-                try:
-                    activity_dose = int(activity['amount'])
-                    prescription_dose = int(prescription['dosage']);
-                    
-                    if (time_diff <= prescription['leeway'] and 
-                        activity['name'] == prescription['name'] and
-                        activity_dose == prescription_dose):
-                        matched_prescription = True
-                        break
-                except (ValueError, TypeError):
-                    if (time_diff <= prescription['leeway'] and 
-                        activity['name'] == prescription['name']):
-                        matched_prescription = True
-                        break
-            
-            item_id = f"activity_{idx}"
-            is_expanded = item_id in self.expanded_items
-            
-            # Draw activity pill
-            self._draw_activity_pill(x, timeline_y, activity, item_id, is_expanded, matched_prescription)
+                item_id = f"presc_{idx}"
+                is_expanded = item_id in self.expanded_items
+                
+                # Draw prescription pill
+                self._draw_prescription_pill(x + x_offset, timeline_y, prescription, item_id, is_expanded)
+        
+        # Draw actual usage activities (below timeline)
+        for time_key, items in activity_times.items():
+            for stack_idx, (idx, activity) in enumerate(items):
+                time_obj = activity['time']
+                hour = time_obj.hour
+                minute = time_obj.minute
+                x = (hour + minute / 60.0) * hour_width
+                x_offset = self._get_stacked_position(x, items, stack_idx)
+                
+                # Check for prescription match using database comparison
+                matched_prescription = self._check_activity_match(activity)
+                
+                item_id = f"activity_{idx}"
+                is_expanded = item_id in self.expanded_items
+                
+                # Draw activity pill below timeline
+                self._draw_activity_pill(x + x_offset, timeline_y, activity, item_id, is_expanded, matched = matched_prescription)
         
         # Draw legend
         self._draw_legend()
         
         print(f"Drawing timeline with {len(self.prescriptions)} prescriptions and {len(self.activities)} activities")
-    
+
+    def _check_activity_match(self, activity):
+        """Check if an activity matches a prescription using database comparison"""
+        if not self.personal_db:
+            return False
+        
+        try:
+            # Create a log tuple matching database format
+            # (barcode, dname, when_taken, dose)
+            when_taken = datetime.datetime.combine(
+                self.current_date,
+                activity['time']
+            ).strftime("%Y-%m-%d %H:%M:%S")
+            
+            log = (
+                activity['barcode'],
+                activity['name'],
+                when_taken,
+                str(activity['amount'])
+            )
+            
+            # Use database comparison function
+            result = self.personal_db.compare_with_prescription(log)
+            
+            # result is (bool, string) - return the bool
+            return result[0] if isinstance(result, tuple) else False
+            
+        except Exception as e:
+            print(f"Error checking activity match: {e}")
+            return False
+
     def _draw_prescription_pill(self, x, timeline_y, prescription, item_id, is_expanded):
         """Draw a prescription pill above the timeline"""
         # Leeway visualization (subtle background)
-        leeway_minutes = prescription['leeway']
+        leeway_minutes = prescription.get('leeway', 60)
         leeway_width = (leeway_minutes / 60.0) * (120 * self.zoom_level)
         
-        y_base = timeline_y - 80
+        y_base = timeline_y - 100
         
         # Background leeway area
         self.timeline_canvas.create_rectangle(
@@ -1983,46 +2048,56 @@ class Personal_db_window(ctk.CTkToplevel):
                 lambda e, iid=item_id: self._toggle_item(iid))
             
             # Icon at top
-            self.timeline_canvas.create_text(
+            icon_id = self.timeline_canvas.create_text(
                 x, y_base - card_height + 25,
                 text="💊",
                 fill="white",
                 font=("Arial", int(24 * min(self.zoom_level, 1.5)))
             )
+            self.timeline_canvas.tag_bind(icon_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
             # Drug name
-            self.timeline_canvas.create_text(
+            name_id = self.timeline_canvas.create_text(
                 x, y_base - card_height + 55,
                 text=prescription['name'],
                 fill="white",
                 font=("Arial", int(12 * min(self.zoom_level, 1.5)), "bold"),
                 width=card_width - 20
             )
+            self.timeline_canvas.tag_bind(name_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
             # Time
             time_str = prescription['time'].strftime("%I:%M %p")
-            self.timeline_canvas.create_text(
+            time_id = self.timeline_canvas.create_text(
                 x, y_base - card_height + 80,
                 text=f"🕐 {time_str}",
                 fill="#93c5fd",
                 font=("Arial", int(10 * min(self.zoom_level, 1.5)))
             )
+            self.timeline_canvas.tag_bind(time_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
             # Dosage
-            self.timeline_canvas.create_text(
+            dose_id = self.timeline_canvas.create_text(
                 x, y_base - card_height + 100,
                 text=f"📊 {prescription['dosage']} dose",
                 fill="#93c5fd",
                 font=("Arial", int(10 * min(self.zoom_level, 1.5)))
             )
+            self.timeline_canvas.tag_bind(dose_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
             # Leeway
-            self.timeline_canvas.create_text(
+            leeway_id = self.timeline_canvas.create_text(
                 x, y_base - card_height + 120,
-                text=f"⏱ ±{prescription['leeway']} min",
+                text=f"⏱ ±{leeway_minutes} min",
                 fill="#93c5fd",
                 font=("Arial", int(9 * min(self.zoom_level, 1.5)))
             )
+            self.timeline_canvas.tag_bind(leeway_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
         else:
             # Collapsed view - show compact pill
@@ -2055,29 +2130,33 @@ class Personal_db_window(ctk.CTkToplevel):
             
             # Icon and label
             icon_text = "Rx"
-            self.timeline_canvas.create_text(
+            text_id = self.timeline_canvas.create_text(
                 x, y_base,
                 text=icon_text,
                 fill="white",
                 font=("Arial", int(14 * min(self.zoom_level, 2.0)), "bold")
             )
+            self.timeline_canvas.tag_bind(text_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
             # Time label below
             if self.zoom_level >= 0.6:
                 time_str = prescription['time'].strftime("%H:%M")
-                self.timeline_canvas.create_text(
+                time_label_id = self.timeline_canvas.create_text(
                     x, y_base + pill_height/2 + 15,
                     text=time_str,
                     fill="#94a3b8",
                     font=("Arial", int(9 * min(self.zoom_level, 1.5)))
                 )
+                self.timeline_canvas.tag_bind(time_label_id, "<Button-1>", 
+                    lambda e, iid=item_id: self._toggle_item(iid))
     
     def _draw_activity_pill(self, x, timeline_y, activity, item_id, is_expanded, matched):
-        """Draw an activity pill above the timeline"""
+        """Draw an activity pill below the timeline"""
         color = "#22c55e" if matched else "#f59e0b"
         outline_color = "#4ade80" if matched else "#fbbf24"
         
-        y_base = timeline_y - 180  # Higher than prescriptions
+        y_base = timeline_y + 100  # Below timeline instead of above
         
         if is_expanded:
             # Expanded view - show detailed card
@@ -2087,8 +2166,8 @@ class Personal_db_window(ctk.CTkToplevel):
             # Card shadow
             shadow_offset = 4
             self.timeline_canvas.create_roundrectangle(
-                x - card_width/2 + shadow_offset, y_base - card_height + shadow_offset,
-                x + card_width/2 + shadow_offset, y_base + shadow_offset,
+                x - card_width/2 + shadow_offset, y_base + shadow_offset,
+                x + card_width/2 + shadow_offset, y_base + card_height + shadow_offset,
                 radius=15,
                 fill="#1a1a1a",
                 outline=""
@@ -2096,8 +2175,8 @@ class Personal_db_window(ctk.CTkToplevel):
             
             # Main card
             card_id = self.timeline_canvas.create_roundrectangle(
-                x - card_width/2, y_base - card_height,
-                x + card_width/2, y_base,
+                x - card_width/2, y_base,
+                x + card_width/2, y_base + card_height,
                 radius=15,
                 fill=color,
                 outline=outline_color,
@@ -2110,39 +2189,47 @@ class Personal_db_window(ctk.CTkToplevel):
             
             # Status icon at top
             icon = "✓" if matched else "•"
-            self.timeline_canvas.create_text(
-                x, y_base - card_height + 25,
+            icon_id = self.timeline_canvas.create_text(
+                x, y_base + 25,
                 text=icon,
                 fill="white",
                 font=("Arial", int(28 * min(self.zoom_level, 1.5)), "bold")
             )
+            self.timeline_canvas.tag_bind(icon_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
             # Status text
             status_text = "Matched!" if matched else "Taken"
-            self.timeline_canvas.create_text(
-                x, y_base - card_height + 55,
+            status_id = self.timeline_canvas.create_text(
+                x, y_base + 55,
                 text=status_text,
                 fill="white",
                 font=("Arial", int(11 * min(self.zoom_level, 1.5)), "bold")
             )
+            self.timeline_canvas.tag_bind(status_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
             # Drug name
-            self.timeline_canvas.create_text(
-                x, y_base - card_height + 80,
+            name_id = self.timeline_canvas.create_text(
+                x, y_base + 80,
                 text=activity['name'],
                 fill="white",
                 font=("Arial", int(12 * min(self.zoom_level, 1.5)), "bold"),
                 width=card_width - 20
             )
+            self.timeline_canvas.tag_bind(name_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
             # Time
             time_str = activity['time'].strftime("%I:%M %p")
-            self.timeline_canvas.create_text(
-                x, y_base - card_height + 105,
+            time_id = self.timeline_canvas.create_text(
+                x, y_base + 105,
                 text=f"🕐 {time_str}",
                 fill="white",
                 font=("Arial", int(10 * min(self.zoom_level, 1.5)))
             )
+            self.timeline_canvas.tag_bind(time_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
             # Amount
             try:
@@ -2150,20 +2237,24 @@ class Personal_db_window(ctk.CTkToplevel):
             except:
                 amount_str = "?"
             
-            self.timeline_canvas.create_text(
-                x, y_base - card_height + 125,
+            amount_id = self.timeline_canvas.create_text(
+                x, y_base + 125,
                 text=f"📊 {amount_str} taken",
                 fill="white",
                 font=("Arial", int(10 * min(self.zoom_level, 1.5)))
             )
+            self.timeline_canvas.tag_bind(amount_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
             # Barcode
-            self.timeline_canvas.create_text(
-                x, y_base - card_height + 145,
+            barcode_id = self.timeline_canvas.create_text(
+                x, y_base + 145,
                 text=f"🔖 {activity.get('barcode', 'N/A')}",
                 fill="white",
                 font=("Arial", int(9 * min(self.zoom_level, 1.5)))
             )
+            self.timeline_canvas.tag_bind(barcode_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
         else:
             # Collapsed view - show compact pill
@@ -2196,106 +2287,59 @@ class Personal_db_window(ctk.CTkToplevel):
             
             # Icon
             icon = "✓" if matched else "−"
-            self.timeline_canvas.create_text(
+            text_id = self.timeline_canvas.create_text(
                 x, y_base,
                 text=icon,
                 fill="white",
                 font=("Arial", int(16 * min(self.zoom_level, 2.0)), "bold")
             )
+            self.timeline_canvas.tag_bind(text_id, "<Button-1>", 
+                lambda e, iid=item_id: self._toggle_item(iid))
             
             # Time label below
             if self.zoom_level >= 0.6:
                 time_str = activity['time'].strftime("%H:%M")
-                self.timeline_canvas.create_text(
+                time_label_id = self.timeline_canvas.create_text(
                     x, y_base + pill_height/2 + 15,
                     text=time_str,
                     fill="#94a3b8",
                     font=("Arial", int(9 * min(self.zoom_level, 1.5)))
                 )
+                self.timeline_canvas.tag_bind(time_label_id, "<Button-1>", 
+                    lambda e, iid=item_id: self._toggle_item(iid))
     
     def _draw_legend(self):
         """Draw the legend"""
-        legend_y = 20
-        legend_x = 20
+        if not hasattr(self, "legend_frame"):
+            return
         
-        # Legend background
-        self.timeline_canvas.create_roundrectangle(
-            legend_x - 10, legend_y - 15,
-            legend_x + 520, legend_y + 40,
-            radius=10,
-            fill="#1a1a1a",
-            outline="#4a4a4a",
-            width=1
-        )
+        for child in self.legend_frame.winfo_children():
+            child.destroy()
         
-        # Legend title
-        self.timeline_canvas.create_text(
-            legend_x, legend_y,
-            text="Legend:",
-            fill="white",
-            font=("Arial", 12, "bold"),
-            anchor="w"
-        )
+        legend_container = ctk.CTkFrame(self.legend_frame, corner_radius=10, fg_color="#1a1a1a")
+        legend_container.pack(fill="x")
         
-        # Prescription indicator
-        self.timeline_canvas.create_roundrectangle(
-            legend_x + 70, legend_y - 8,
-            legend_x + 95, legend_y + 8,
-            radius=8,
-            fill="#3b82f6",
-            outline="white",
-            width=1
-        )
-        self.timeline_canvas.create_text(
-            legend_x + 105, legend_y,
-            text="Scheduled",
-            fill="#60a5fa",
-            font=("Arial", 11),
-            anchor="w"
-        )
+        def add_entry(parent, color, text, text_color="#e2e8f0"):
+            row = ctk.CTkFrame(parent, fg_color="transparent")
+            row.pack(side="left", padx=8, pady=6)
+            ctk.CTkFrame(row, width=18, height=18, fg_color=color, corner_radius=6).pack(side="left")
+            ctk.CTkLabel(
+                row,
+                text=text,
+                font=("Arial", 11),
+                text_color=text_color
+            ).pack(side="left", padx=(6, 0))
         
-        # Usage indicator
-        self.timeline_canvas.create_roundrectangle(
-            legend_x + 210, legend_y - 8,
-            legend_x + 235, legend_y + 8,
-            radius=8,
-            fill="#f59e0b",
-            outline="white",
-            width=1
-        )
-        self.timeline_canvas.create_text(
-            legend_x + 245, legend_y,
-            text="Taken",
-            fill="white",
-            font=("Arial", 11),
-            anchor="w"
-        )
+        add_entry(legend_container, "#3b82f6", "Scheduled", "#60a5fa")
+        add_entry(legend_container, "#f59e0b", "Taken")
+        add_entry(legend_container, "#22c55e", "Matched", "#22c55e")
         
-        # Matched indicator
-        self.timeline_canvas.create_roundrectangle(
-            legend_x + 320, legend_y - 8,
-            legend_x + 345, legend_y + 8,
-            radius=8,
-            fill="#22c55e",
-            outline="white",
-            width=1
-        )
-        self.timeline_canvas.create_text(
-            legend_x + 355, legend_y,
-            text="Matched",
-            fill="#22c55e",
-            font=("Arial", 11),
-            anchor="w"
-        )
-        
-        # Tap instruction
-        self.timeline_canvas.create_text(
-            legend_x + 440, legend_y,
-            text="👆 Tap to expand",
-            fill="#94a3b8",
+        ctk.CTkLabel(
+            legend_container,
+            text="👆 Tap a pill to expand",
             font=("Arial", 10, "italic"),
-            anchor="w"
-        )
+            text_color="#94a3b8"
+        ).pack(side="right", padx=12)
     
     def _toggle_item(self, item_id):
         """Toggle expanded/collapsed state of an item"""
