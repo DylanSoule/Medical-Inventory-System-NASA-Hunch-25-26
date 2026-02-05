@@ -88,6 +88,9 @@
                                 <h2>Database Migration: CSV to SQLite</h2>
                                 <p>We transitioned from CSV file storage to a SQLite database system, an important upgrade for data scalability. SQLite's lightweight footprint makes it ideal for spacecraft computers with limited resources while supporting queries for reporting and analysis. This migration enabled features like deletion history, user authentication, and the addition of the actual medications used on the ISS.</p>
                             </div>
+                            <div class="timeline-images">
+                                <div class="timeline-image" style="width: 100%; max-width: 100%;"><img src="database.png" alt="Database Implementation" style="width: 100%; max-width: 100%;"></div>
+                            </div>
                         </div>
                     </div>
                 </li>
@@ -182,6 +185,7 @@
                 star.className = 'star';
                 star.style.left = Math.random() * 100 + '%';
                 star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 3 + 's';
                 particlesContainer.appendChild(star);
             }
 
@@ -192,8 +196,8 @@
             function isElementInViewport(el) {
                 var rect = el.getBoundingClientRect();
                 var windowHeight = (window.innerHeight || document.documentElement.clientHeight);
-                var upper = windowHeight * 0.7;
-                var lower = windowHeight * 0.3;
+                var upper = windowHeight * 0.8;
+                var lower = windowHeight * 0.1;
                 return (
                     rect.top < upper &&
                     rect.bottom > lower &&

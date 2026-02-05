@@ -7,6 +7,7 @@
             <link rel="stylesheet" href="style.css?v=5" />
         </head>
         <body style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; background-attachment: fixed;">
+            <div id="particles"></div>
             
             <div class="hamburger-menu" id="hamburger" onclick="toggleMenu()">
                 <i></i>
@@ -46,7 +47,7 @@
                         <img src="./dylan.png" style="border-radius: 50%; width: 190px; height: 190px; object-fit: cover;">
                     </div>
                     <p><strong>Role:</strong> Team leader/Database</p>
-                    <p>[desc]</p>
+                    <p>A high school junior taking the computer science and cybersecurity class at Warren Tech. Developed the database system for H.E.L.I.O.S using Sqlite and python. Led the H.E.L.I.O.S team from creation.</p>
                     <p><a href="https://github.com/DylanSoule" alt= dylan_headshot target="_blank" style="color: #4774c0; text-decoration: none; font-weight: bold;">GitHub Profile</a></p>
                 </div>
                 
@@ -69,7 +70,7 @@
                         <img src="./lucca.png" style="border-radius: 50%; width: 190px; height: 190px; object-fit: cover;">
                     </div>
                     <p><strong>Role:</strong> Facial Recognition Developer</p>
-                    <p>[desc]</p>
+                    <p>A high school junior specializing in computer science and cybersecurity. Developed the facial recognition system for H.E.L.I.O.S using InsightFace, and is helping build systems that solve real-world problems.</p>
                     <p><a href="https://github.com/lucc24" target="_blank" style="color: #4774c0; text-decoration: none; font-weight: bold;">GitHub Profile</a></p>
                 </div>
                 
@@ -115,6 +116,18 @@
                         hamburger.classList.remove('active');
                     }
                 });
+
+                const particlesContainer = document.getElementById('particles');
+                const isMobile = window.innerWidth <= 768;
+                const starCount = isMobile ? 25 : 80;
+                for(let i = 0; i < starCount; i++) {
+                    const star = document.createElement('div');
+                    star.className = 'star';
+                    star.style.left = Math.random() * 100 + '%';
+                    star.style.top = Math.random() * 100 + '%';
+                    star.style.animationDelay = Math.random() * 3 + 's';
+                    particlesContainer.appendChild(star);
+                }
             </script>
         </body>
     </html>

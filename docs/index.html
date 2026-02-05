@@ -52,7 +52,21 @@
             </a>
         </div>
 
-        <div class="timeline-section fade-in" style="animation-delay: 0.35s;">
+        <div class="what-helios-section fade-in" style="animation-delay: 0.35s;">
+            <h2>How It Works</h2>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <h3>Facial Recognition Authentication</h3>
+                    <p>When an astronaut needs to access medical supplies on the ISS, they authenticate using facial recognition instead of passwords or keycards. The system uses InsightFace and OpenCV to identify crew members, making sure only authorized personnel can log inventory transactions.</p>
+                </div>
+                <div class="feature-item">
+                    <h3>Barcode Scan Logging</h3>
+                    <p>After authentication, astronauts scan medical item barcodes to log what's being used or restocked. Each scan is recorded in a SQLite database with timestamps, user identification, and item details. NASA ground control can track inventory usage patterns and plan resupply missions based on real data from the station.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="timeline-section fade-in" style="animation-delay: 0.45s;">
             <h2 style="color:white;" align="center">Project Timeline</h2>
             <hr width="80%">
             <br>
@@ -172,6 +186,7 @@
                 star.className = 'star';
                 star.style.left = Math.random() * 100 + '%';
                 star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 3 + 's';
                 particlesContainer.appendChild(star);
             }
         </script>

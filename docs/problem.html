@@ -7,6 +7,8 @@
         <link rel="stylesheet" href="style.css?v=5" />
     </head>
     <body>
+        <div id="particles"></div>
+
         <div class="hamburger-menu" id="hamburger" onclick="toggleMenu()">
             <i></i>
             <i></i>
@@ -120,4 +122,18 @@
                 Lucca Townsend • Dylan Soule • Brody Barnes
             </p>
         </footer>
+        
+        <script>
+            const particlesContainer = document.getElementById('particles');
+            const isMobile = window.innerWidth <= 768;
+            const starCount = isMobile ? 25 : 80;
+            for(let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 3 + 's';
+                particlesContainer.appendChild(star);
+            }
+        </script>
 </html>
