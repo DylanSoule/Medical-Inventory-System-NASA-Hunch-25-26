@@ -570,17 +570,19 @@ class PersonalDatabaseManager:
 if __name__ == "__main__":
     read1 = DatabaseManager('Database/inventory.db')
 
-    import random
+    # import random
 
+    # region ### seeder
+    '''
     # ===== CONFIG =====
-    random.seed(42)
+    random.seed(53)
 
     start = datetime(2025, 9, 1)
     end = datetime(2026, 3, 15)
 
     # ===== OPEN CONNECTIONS ONCE =====
     inventory_conn = sqlite3.connect(read1.db_path)
-    history_conn = sqlite3.connect("Database/brody_records.db")
+    history_conn = sqlite3.connect("Database/lucca_records.db")
 
     inventory_cursor = inventory_conn.cursor()
     history_cursor = history_conn.cursor()
@@ -592,8 +594,8 @@ if __name__ == "__main__":
     inventory_conn.execute("BEGIN TRANSACTION")
     history_conn.execute("BEGIN TRANSACTION")
 
-    inventory_cursor.execute("SELECT barcode FROM drugs_in_inventory;")
-    barcodes = inventory_cursor.fetchall()
+    # inventory_cursor.execute("SELECT barcode FROM drugs_in_inventory;")
+    # barcodes = inventory_cursor.fetchall()
     
     current = start
 
@@ -601,67 +603,101 @@ if __name__ == "__main__":
         date_str = current.strftime('%Y-%m-%d')
 
 
-        barcode = random.choice(barcodes)
+        # barcode = random.choice(barcodes)
 
-        time = random.choice(['05:00:00', '06:00:00','07:00:00','08:00:00','09:00:00','10:00:00','11:00:00','12:00:00','13:00:00','14:00:00','15:00:00','16:00:00','17:00:00','18:00:00','19:00:00'])
-        read1.log_access_to_inventory_with_mutable_date(
-            inventory_cursor,
-            history_cursor,
-            barcode[0],
-            -2,
-            'brody',
-            f'{date_str} {time}'
-        )
+        # time = random.choice(['05:00:00', '06:00:00','07:00:00','08:00:00','09:00:00','10:00:00','11:00:00','12:00:00','13:00:00','14:00:00','15:00:00','16:00:00','17:00:00','18:00:00','19:00:00'])
+        # read1.log_access_to_inventory_with_mutable_date(
+        #     inventory_cursor,
+        #     history_cursor,
+        #     barcode[0],
+        #     -2,
+        #     'brody',
+        #     f'{date_str} {time}'
+        # )
+
+        if random.random() < 0.15:
+            time = random.choice(['05:00:00', '06:00:00','07:00:00','08:00:00','09:00:00','10:00:00','11:00:00','12:00:00','13:00:00','14:00:00','15:00:00','16:00:00','17:00:00','18:00:00','19:00:00'])
+            read1.log_access_to_inventory_with_mutable_date(
+                inventory_cursor,
+                history_cursor,
+                '472697964768',
+                -1,
+                'lucca',
+                f'{date_str} {time}'
+            )
 
 
+        if random.random() > 0.35:
+            c_time = (
+                random.choice(['04:45:00', '09:15:00'])
+                if random.random() < 0.5
+                else random.choice(['05:30:00', '06:00:00', '06:30:00','07:00:00', '07:30:00', '08:00:00'])
+            )
 
-        # if random.random() > 0.35:
-        #     caffeine_time = (
-        #         random.choice(['09:15:00', '04:45:00'])
-        #         if random.random() < 0.10
-        #         else random.choice(['05:30:00', '06:00:00', '06:30:00','07:00:00', '07:30:00', '08:00:00'])
-        #     )
-
-        #     read1.log_access_to_inventory_with_mutable_date(
-        #         inventory_cursor,
-        #         history_cursor,
-        #         '982136058275',
-        #         -2,
-        #         'lucca',
-        #         f'{date_str} {caffeine_time}'
-        #     )
+            read1.log_access_to_inventory_with_mutable_date(
+                inventory_cursor,
+                history_cursor,
+                '982136058275',
+                -2,
+                'lucca',
+                f'{date_str} {c_time}'
+            )
     
+        if random.random() > 0.35:
+            m_time = (
+                random.choice(['07:30:00', '18:30:00'])
+                if random.random() < 0.5
+                else random.choice(['17:50:00', '18:00:00', '18:10:00'])
+            )
 
+            read1.log_access_to_inventory_with_mutable_date(
+                inventory_cursor,
+                history_cursor,
+                '118139526546',
+                -1,
+                'lucca',
+                f'{date_str} {m_time}'
+            )
+        
+        if random.random() > 0.35:
+            read1.log_access_to_inventory_with_mutable_date(
+                inventory_cursor,
+                history_cursor,
+                '281772244185',
+                -1,
+                'lucca',
+                f'{date_str} {c_time}'
+            )
 
-        # # ===== IBUPROFEN (never fully skipped) =====
+        # ===== IBUPROFEN (never fully skipped) =====
         # ibuprofen_doses = ['08:00:00', '14:00:00', '20:00:00']
         # skipped_dose = random.choice(ibuprofen_doses) if random.random() < 0.15 else None
 
         # for scheduled_time in ibuprofen_doses:
-        #     if scheduled_time == skipped_dose:
-        #         continue
+            # if scheduled_time == skipped_dose:
+            #     continue
 
-        #     if random.random() < 0.10:
-        #         time = {
-        #             '08:00:00': random.choice(['07:10:00', '08:45:00']),
-        #             '14:00:00': random.choice(['13:10:00', '14:45:00']),
-        #             '20:00:00': random.choice(['19:10:00', '20:45:00']),
-        #         }[scheduled_time]
-        #     else:
-        #         time = {
-        #             '08:00:00': random.choice(['07:45:00', '08:00:00', '08:20:00']),
-        #             '14:00:00': random.choice(['13:45:00', '14:00:00', '14:20:00']),
-        #             '20:00:00': random.choice(['19:45:00', '20:00:00', '20:20:00']),
-        #         }[scheduled_time]
+            # if random.random() < 0.10:
+            #     time = {
+            #         '08:00:00': random.choice(['07:10:00', '08:45:00']),
+            #         '14:00:00': random.choice(['13:10:00', '14:45:00']),
+            #         '20:00:00': random.choice(['19:10:00', '20:45:00']),
+            #     }[scheduled_time]
+            # else:
+            # time = {
+            #     '08:00:00': random.choice(['07:45:00', '08:00:00', '08:20:00']),
+            #     '14:00:00': random.choice(['13:45:00', '14:00:00', '14:20:00']),
+            #     '20:00:00': random.choice(['19:45:00', '20:00:00', '20:20:00']),
+            # }[scheduled_time]
 
-        #     read1.log_access_to_inventory_with_mutable_date(
-        #         inventory_cursor,
-        #         history_cursor,
-        #         '910348161816',
-        #         -1,
-        #         'dylan',
-        #         f'{date_str} {time}'
-        #     )
+            # read1.log_access_to_inventory_with_mutable_date(
+            #     inventory_cursor,
+            #     history_cursor,
+            #     '910348161816',
+            #     -1,
+            #     'dylan',
+            #     f'{date_str} {time}'
+            # )
 
         current += timedelta(days=1)
 
@@ -671,5 +707,5 @@ if __name__ == "__main__":
 
     inventory_conn.close()
     history_conn.close()
-
-
+'''
+#endregion
