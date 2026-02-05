@@ -455,10 +455,10 @@ class PersonalDatabaseManager:
             ndate = datetime.strptime(date, '%Y-%m-%d')
             ndate = ndate.date()
 
-            diff = (pdate-ndate).total_seconds()
+            diff = (ndate-pdate).days
 
-            if (diff/86400)%prescript[2]==0:
-                prescript_logs.append((prescript[0],prescript[1],prescript[2], prescript[4], prescript[5],))
+            if ndate > pdate and diff%prescript[3]==0:
+                prescript_logs.append((prescript[0],prescript[1],prescript[2], prescript[4], prescript[5]))
 
         return hist_logs, prescript_logs
 
@@ -514,7 +514,7 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    read = PersonalDatabaseManager('Database/dylan_records.db')
+    read = PersonalDatabaseManager('Database/brody_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
     # print(read.get_personal_data('2025-12-12'))
