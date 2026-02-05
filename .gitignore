@@ -35,3 +35,5 @@ htmlcov/
 # Temporary files
 /tmp/
 *.tmp
+*.db-wal
+*.db-shm
