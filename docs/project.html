@@ -31,6 +31,23 @@
             <p>See how H.E.L.I.O.S evolved through design reviews, testing, and feedback from NASA engineers.</p>
         </div>
         
+        <section class="research-section">
+            <div class="research-container">
+                <h2>Research & Design Documentation</h2>
+                
+                <p><strong>Technology Selection:</strong> We selected facial recognition for quick authentication (under 1 second) that functions reliably in microgravity without requiring crew members to carry additional equipment. The SQLite database provides local storage for spacecraft computers</p>
+            
+                
+                <p><strong>Testing:</strong> Comprehensive testing included facial recognition accuracy across lighting conditions and different angles, UI responsiveness on Raspberry Pi hardware, and error handling for different interruptions.</p>
+
+                <div class="references">
+                    <strong>References:</strong>
+                    <span>NASA HUNCH. "Medical Inventory System Project Specifications." 2025. <a href="https://cdn.nasahunch.com/Medical_Inventory_System_0bc51cdff5.pdf" target="_blank">Link</a></span>
+                    <span>NASA HUNCH. "MCT System Requirements." 2025. <a href="https://cdn.nasahunch.com/MCT_System_eb3ee91089.pdf" target="_blank">Link</a></span>
+                </div>
+            </div>
+        </section>
+        
         <section class="timeline">
             <ul>
                 <li>
@@ -39,7 +56,7 @@
                         <div class="timeline-content">
                             <div class="timeline-text">
                                 <h2>First Facial Recognition Demo</h2>
-                                <p>Initial facial recognition working with basic UI and scan logging.</p>
+                                <p>We successfully implemented the main facial recognition system using InsightFace and OpenCV. This milestone marked our first working prototype that could accurately identify users and log their interactions with medical supplies. The system had real-time face detection with visual feedback, showing a green box around detected faces. This proof-of-concept validated our technology choice and confirmed that facial recognition could work as an authentication method.</p>
                             </div>
                             <div class="timeline-images">
                                 <div class="timeline-image"><img src="old_face_detected.png" alt="Old Face Detected"></div>
@@ -54,7 +71,7 @@
                         <div class="timeline-content">
                             <div class="timeline-text">
                                 <h2>UI & Status Improvements</h2>
-                                <p>Added status display and improved the look of the main interface.</p>
+                                <p>We redesigned the user interface to provide better visual feedback and system status information. The main interface was redone with a cleaner layout featuring larger, more readable text and improved button placement for easier navigation. We added a status indicator that shows the current camera state.</p>
                             </div>
                             <div class="timeline-images">
                                 <div class="timeline-image"><img src="old_ui.png" alt="Old UI"></div>
@@ -65,11 +82,22 @@
                 </li>
                 <li>
                     <div>
+                        <time>Oct 2025</time>
+                        <div class="timeline-content">
+                            <div class="timeline-text">
+                                <h2>Database Migration: CSV to SQLite</h2>
+                                <p>We transitioned from CSV file storage to a SQLite database system, an important upgrade for data scalability. SQLite's lightweight footprint makes it ideal for spacecraft computers with limited resources while supporting queries for reporting and analysis. This migration enabled features like deletion history, user authentication, and the addition of the actual medications used on the ISS.</p>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+                <li>
+                    <div>
                         <time>Nov 2025</time>
                         <div class="timeline-content">
                             <div class="timeline-text">
                                 <h2>Admin & Deletion History</h2>
-                                <p>Implemented admin PIN, code entry, and persistent deletion history.</p>
+                                <p>Security and data integrity became our focus with the implementation of an admin authentication system using PIN codes. This feature ensures that only authorized personnel can modify inventory records or delete entries. We developed a deletion history feature that maintains a permanent audit trail of all removed items, including who deleted them and when. The system now stores all deletion records in the database, preventing accidental or unauthorized data loss.</p>
                             </div>
                             <div class="timeline-images">
                                 <div class="timeline-image"><img src="old_delete_history.png" alt="Old Delete History"></div>
@@ -84,7 +112,7 @@
                         <div class="timeline-content">
                             <div class="timeline-text">
                                 <h2>New Facial Recognition & Log</h2>
-                                <p>Major update to facial recognition and scan logging UI.</p>
+                                <p>We created a major overhaul of the facial recognition engine, significantly improving accuracy and speed. The updated system now processes faces in under 1 second with better detection in varied lighting conditions, crucial for spacecraft environments. The scan logging interface received a complete redesign with a more modern, streamlined appearance that displays transaction history in an easy-to-read format. We added real-time visual confirmation when items are scanned, showing item details, quantity changes, and user information instantly.</p>
                             </div>
                             <div class="timeline-images">
                                 <div class="timeline-image"><img src="new_detected.png" alt="New Face Detected"></div>
@@ -99,7 +127,7 @@
                         <div class="timeline-content">
                             <div class="timeline-text">
                                 <h2>Modern UI & Admin Window</h2>
-                                <p>Finalized new UI and added improved admin code entry window for CDR.</p>
+                                <p>In preparation for our Critical Design Review (CDR) with NASA, we finalized the user interface with a polished, professional appearance. The main UI now features a cohesive design optimized layouts for both desktop and Raspberry Pi displays. We redesigned the admin code entry window with a more secure and user-friendly keypad interface, featuring larger buttons and clearer visual feedback. The entire system was optimized for performance, reducing load times and improving responsiveness to meet NASA's usability standards for space applications.</p>
                             </div>
                             <div class="timeline-images">
                                 <div class="timeline-image"><img src="new_ui.png" alt="New UI"></div>
@@ -111,7 +139,6 @@
             </ul>
         </section>
 
-        <!-- Lightbox for fullscreen images -->
         <div class="lightbox" id="lightbox">
             <span class="lightbox-close">&times;</span>
             <img src="" alt="Fullscreen image" id="lightbox-img">
@@ -158,14 +185,13 @@
                 particlesContainer.appendChild(star);
             }
 
-            // Timeline scroll animation
+
             var items = document.querySelectorAll(".timeline li");
 
 
             function isElementInViewport(el) {
                 var rect = el.getBoundingClientRect();
                 var windowHeight = (window.innerHeight || document.documentElement.clientHeight);
-                // Fade in/out when the element is within the middle 60% of the viewport
                 var upper = windowHeight * 0.7;
                 var lower = windowHeight * 0.3;
                 return (
@@ -191,7 +217,6 @@
             window.addEventListener("load", callbackFunc);
             window.addEventListener("scroll", callbackFunc);
 
-            // Lightbox functionality
             const lightbox = document.getElementById('lightbox');
             const lightboxImg = document.getElementById('lightbox-img');
             const lightboxClose = document.querySelector('.lightbox-close');

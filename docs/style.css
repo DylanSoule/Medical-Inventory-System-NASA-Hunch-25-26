@@ -412,6 +412,76 @@ table tr:nth-child(even):hover {
     background-color: #2a3235 !important;
 }
 
+.research-section {
+    background: rgb(24, 26, 27);
+    border-radius: 10px;
+    padding: 40px;
+    margin: 40px auto;
+    max-width: 1000px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 3px solid rgba(69, 112, 187, 0.7);
+    position: relative;
+    z-index: 1;
+}
+
+.research-container h2 {
+    color: white;
+    text-align: center;
+    font-size: 2em;
+    margin-bottom: 30px;
+    z-index: 1;
+}
+
+.research-container p {
+    color: white;
+    line-height: 1.8;
+    margin-bottom: 20px;
+    font-size: 1.05em;
+}
+
+.research-container strong {
+    color: #a8b5ff;
+}
+
+.citation {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.citation:hover {
+    text-decoration: underline;
+}
+
+.references {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 2px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 0.9em;
+    z-index: 1;
+}
+
+.references strong {
+    color: #a8b5ff;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.references span {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.references a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.references a:hover {
+    text-decoration: underline;
+}
+
 .timeline ul {
     padding: 0;
 }
@@ -768,6 +838,19 @@ footer a:hover {
     footer {
         margin: 30px -10px -10px -10px;
         padding: 30px 15px !important;
+    }
+    
+    .research-section {
+        padding: 25px 15px;
+        margin: 20px auto;
+    }
+    
+    .research-container h2 {
+        font-size: 1.5em;
+    }
+    
+    .research-container p {
+        font-size: 1em;
     }
 }
 
