@@ -135,92 +135,56 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
-
-    def log_access_to_inventory(self, barcode, change, user):
-        """
-        Log changes to drug inventory amounts.
-
-
-        Parameters:
-            barcode (str): The barcode of the drug whose inventory is being updated.
-            change (int): The amount to change the inventory by (positive or negative).
-            user (str): The user making the change.
-
-
-        Side effects:
-            Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
-        """
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
-
-
-        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
-        drug_info = c.fetchone()
-        
-        try:
-            c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
-        except Exception as e:
-            print("Error:",e)
-        
-        conn.commit()
-        conn.close()
-
-
-        conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
-        c = conn.cursor()
-        
-        try:
-            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change)))
-        except Exception as e:
-            print("Error:",e)
-
-        conn.commit()
-        conn.close()
-
     
 
-    def log_access_to_inventory_with_mutable_date(self, barcode, change, user, date_time): # FOR TESTING ONLY DELETE BEFORE FINAL PRODUCT
+    def log_access_to_inventory_with_mutable_date(
+        self,
+        inventory_cursor,
+        history_cursor,
+        barcode,
+        change,
+        user,
+        date_time
+    ):  # FOR TESTING ONLY DELETE BEFORE FINAL PRODUCT
         """
-        Log changes to drug inventory amounts.
-
-
-        Parameters:
-            barcode (str): The barcode of the drug whose inventory is being updated.
-            change (int): The amount to change the inventory by (positive or negative).
-            user (str): The user making the change.
-
-
-        Side effects:
-            Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
+        Log changes to drug inventory amounts using existing DB connections.
         """
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
 
+        inventory_cursor.execute(
+            "SELECT barcode, dname, estimated_amount FROM drugs_in_inventory WHERE barcode = ?",
+            (barcode,)
+        )
+        drug_info = inventory_cursor.fetchone()
 
-        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
-        drug_info = c.fetchone()
-        
+        if not drug_info:
+            raise ValueError(f"Barcode {barcode} not found in inventory")
+
         try:
-            c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', date_time))
+            inventory_cursor.execute(
+                "UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?",
+                (drug_info[2] + change, barcode)
+            )
+
+            inventory_cursor.execute(
+                """
+                INSERT INTO drug_changes (barcode, dname, change, user, type, time)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (drug_info[0], drug_info[1], change, user, 'Access', date_time)
+            )
+
+            history_cursor.execute(
+                """
+                INSERT INTO history (barcode, dname, when_taken, dose)
+                VALUES (?, ?, ?, ?)
+                """,
+                (drug_info[0], drug_info[1], date_time, abs(change))
+            )
+
         except Exception as e:
-            print("Error:",e)
-        
-        conn.commit()
-        conn.close()
+            print("Database error:", e)
+            raise
 
-
-        conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
-        c = conn.cursor()
-        
-        try:
-            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], date_time, abs(change)))
-        except Exception as e:
-            print("Error:",e)
-
-        conn.commit()
-        conn.close()
 
   
 
@@ -604,16 +568,108 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
-    print(read1.pattern_recognition1())
-    # print(read.pull_data('history'))
-    # print(read.compare_history_with_prescription(days_back=60))
-    # print(read.compare_most_recent_log_with_prescription())
+    import random
+
+    # ===== CONFIG =====
+    random.seed(42)
+
+    start = datetime(2025, 9, 1)
+    end = datetime(2026, 3, 15)
+
+    # ===== OPEN CONNECTIONS ONCE =====
+    inventory_conn = sqlite3.connect(read1.db_path)
+    history_conn = sqlite3.connect("Database/brody_records.db")
+
+    inventory_cursor = inventory_conn.cursor()
+    history_cursor = history_conn.cursor()
+
+    # Optional but recommended
+    inventory_cursor.execute("PRAGMA journal_mode=WAL;")
+    history_cursor.execute("PRAGMA journal_mode=WAL;")
+
+    inventory_conn.execute("BEGIN TRANSACTION")
+    history_conn.execute("BEGIN TRANSACTION")
+
+    inventory_cursor.execute("SELECT barcode FROM drugs_in_inventory;")
+    barcodes = inventory_cursor.fetchall()
+    
+    current = start
+
+    while current <= end:
+        date_str = current.strftime('%Y-%m-%d')
 
 
-    # print(str(read.pull_data('prescription')).replace('),',')\n'))
+        barcode = random.choice(barcodes)
+
+        time = random.choice(['05:00:00', '06:00:00','07:00:00','08:00:00','09:00:00','10:00:00','11:00:00','12:00:00','13:00:00','14:00:00','15:00:00','16:00:00','17:00:00','18:00:00','19:00:00'])
+        read1.log_access_to_inventory_with_mutable_date(
+            inventory_cursor,
+            history_cursor,
+            barcode[0],
+            -2,
+            'brody',
+            f'{date_str} {time}'
+        )
 
 
-    # UPDATE table_name SET column_name = new_value WHERE condition
+
+        # if random.random() > 0.35:
+        #     caffeine_time = (
+        #         random.choice(['09:15:00', '04:45:00'])
+        #         if random.random() < 0.10
+        #         else random.choice(['05:30:00', '06:00:00', '06:30:00','07:00:00', '07:30:00', '08:00:00'])
+        #     )
+
+        #     read1.log_access_to_inventory_with_mutable_date(
+        #         inventory_cursor,
+        #         history_cursor,
+        #         '982136058275',
+        #         -2,
+        #         'lucca',
+        #         f'{date_str} {caffeine_time}'
+        #     )
+    
+
+
+        # # ===== IBUPROFEN (never fully skipped) =====
+        # ibuprofen_doses = ['08:00:00', '14:00:00', '20:00:00']
+        # skipped_dose = random.choice(ibuprofen_doses) if random.random() < 0.15 else None
+
+        # for scheduled_time in ibuprofen_doses:
+        #     if scheduled_time == skipped_dose:
+        #         continue
+
+        #     if random.random() < 0.10:
+        #         time = {
+        #             '08:00:00': random.choice(['07:10:00', '08:45:00']),
+        #             '14:00:00': random.choice(['13:10:00', '14:45:00']),
+        #             '20:00:00': random.choice(['19:10:00', '20:45:00']),
+        #         }[scheduled_time]
+        #     else:
+        #         time = {
+        #             '08:00:00': random.choice(['07:45:00', '08:00:00', '08:20:00']),
+        #             '14:00:00': random.choice(['13:45:00', '14:00:00', '14:20:00']),
+        #             '20:00:00': random.choice(['19:45:00', '20:00:00', '20:20:00']),
+        #         }[scheduled_time]
+
+        #     read1.log_access_to_inventory_with_mutable_date(
+        #         inventory_cursor,
+        #         history_cursor,
+        #         '910348161816',
+        #         -1,
+        #         'dylan',
+        #         f'{date_str} {time}'
+        #     )
+
+        current += timedelta(days=1)
+
+    # ===== COMMIT ONCE =====
+    inventory_conn.commit()
+    history_conn.commit()
+
+    inventory_conn.close()
+    history_conn.close()
+
+
