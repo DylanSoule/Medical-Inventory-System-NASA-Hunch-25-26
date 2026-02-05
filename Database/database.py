@@ -1,6 +1,6 @@
 import sqlite3
 from datetime import datetime, timedelta
-import math
+import numpy as np
 
 
 """
@@ -269,53 +269,96 @@ class DatabaseManager:
         conn.close()
     
 
-    def pattern_recognition(self, periods=[4,7,14,30], periods_back=5, users=[], whole=True):
+    def pattern_recognition1(
+        self,
+        periods=[4,7,14,30],
+        periods_back=5,
+        users=['dylan'],
+        whole=True,
+        z_thresh=2.0,
+        ratio_thresh=1.2,
+        baseline_window=3
+    ):
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
-
         today = datetime.today()
-        if whole==True:
-            total_uses=[]
+
+        results = []
+
+        def analyze_series(values, label):
+            anomalies = []
+            values = np.array(values, dtype=float)
+
+            for i in range(baseline_window, len(values)):
+                baseline = values[i-baseline_window:i]
+                mean = baseline.mean()
+                std = baseline.std(ddof=1) or 1  # prevent divide-by-zero
+
+                z = (values[i] - mean) / std
+                ratio = values[i] / mean if mean > 0 else 0
+
+                if abs(z) > z_thresh or ratio > ratio_thresh:
+                    anomalies.append({
+                        "label": label,
+                        "index": i,
+                        "value": values[i],
+                        "baseline_mean": round(mean, 2),
+                        "z_score": round(z, 2),
+                        "ratio": round(ratio, 2),
+                        "type": (
+                            "spike" if values[i] > mean
+                            else "drop"
+                        )
+                    })
+            return anomalies
+
+        # ---- WHOLE SYSTEM ----
+        if whole:
             for period in periods:
-                temp = []
+                totals = []
                 for i in range(periods_back):
                     front = (today - timedelta(days=i*period)).strftime(time_format)
                     back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
-                    c.execute(
-                        """
+
+                    c.execute("""
                         SELECT COALESCE(SUM(change), 0)
                         FROM drug_changes
                         WHERE time BETWEEN ? AND ?
-                        """,
-                        (back, front)
-                    )
-                    temp.append(c.fetchone()[0])
-                total_uses.append(temp)
-            for period in total_uses():
-                pass
+                    """, (back, front))
+
+                    totals.append(c.fetchone()[0])
+
+                results.extend(
+                    analyze_series(totals, f"whole_{period}d")
+                )
+
+        # ---- PER USER ----
         if users:
-            user_uses=[]
             for user in users:
-                user_temp = []
                 for period in periods:
-                    temp = []
+                    totals = []
                     for i in range(periods_back):
                         front = (today - timedelta(days=i*period)).strftime(time_format)
                         back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
-                        c.execute(
-                            """
+
+                        c.execute("""
                             SELECT COALESCE(SUM(change), 0)
                             FROM drug_changes
-                            WHERE time BETWEEN ? AND ?
+                            WHERE time BETWEEN ?
+                            AND ?
                             AND user = ?
-                            """,
-                            (back, front, user)
-                        )
-                        temp.append(c.fetchone()[0])
-                    user_temp.append(temp)
-                user_uses.append(user_temp)
-        conn.close()
+                        """, (back, front, user))
 
+                        totals.append(c.fetchone()[0])
+
+                    results.extend(
+                        analyze_series(totals, f"user:{user}_{period}d")
+                    )
+
+        conn.close()
+        return results
+
+    
 
     def pull_data(self, table):
         """
@@ -564,6 +607,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
+    print(read1.pattern_recognition1())
     # print(read.pull_data('history'))
     # print(read.compare_history_with_prescription(days_back=60))
     # print(read.compare_most_recent_log_with_prescription())
