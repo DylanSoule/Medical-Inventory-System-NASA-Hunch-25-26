@@ -269,7 +269,7 @@ class DatabaseManager:
         conn.close()
     
 
-    def pattern_recognition1(
+    def pattern_recognition(
         self,
         periods=[4,7,14,30],
         periods_back=5,
@@ -607,7 +607,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
-    print(read1.pattern_recognition1())
+    print(read1.pattern_recognition())
     # print(read.pull_data('history'))
     # print(read.compare_history_with_prescription(days_back=60))
     # print(read.compare_most_recent_log_with_prescription())
