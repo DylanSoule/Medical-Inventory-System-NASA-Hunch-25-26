@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 minimum-scale=1">
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Project Developments - H.E.L.I.O.S</title>
         <link rel="icon" href="./transparent_logo_cropped.png" />
         <link rel="stylesheet" href="style.css?v=6" />
@@ -35,16 +36,11 @@
             <div class="research-container">
                 <h2>Research & Design Documentation</h2>
                 
-                <p><strong>Technology Selection:</strong> We selected facial recognition for quick authentication (under 1 second) that functions reliably in microgravity without requiring crew members to carry additional equipment. The SQLite database provides local storage for spacecraft computers</p>
+                <p><strong>Technology Selection:</strong> We are using facial recognition for quick authentication (under 1 second) that functions reliably in microgravity without making crew members carry additional equipment.</p>
             
                 
-                <p><strong>Testing:</strong> Comprehensive testing included facial recognition accuracy across lighting conditions and different angles, UI responsiveness on Raspberry Pi hardware, and error handling for different interruptions.</p>
+                <p><strong>Testing:</strong> Our testing included facial recognition accuracy across lighting conditions and different angles, UI responsiveness on Raspberry Pi hardware, testing of different python files using pytest, and error handling for different interruptions.</p>
 
-                <div class="references">
-                    <strong>References:</strong>
-                    <span>NASA HUNCH. "Medical Inventory System Project Specifications." 2025. <a href="https://cdn.nasahunch.com/Medical_Inventory_System_0bc51cdff5.pdf" target="_blank">Link</a></span>
-                    <span>NASA HUNCH. "MCT System Requirements." 2025. <a href="https://cdn.nasahunch.com/MCT_System_eb3ee91089.pdf" target="_blank">Link</a></span>
-                </div>
             </div>
         </section>
         
@@ -56,7 +52,7 @@
                         <div class="timeline-content">
                             <div class="timeline-text">
                                 <h2>First Facial Recognition Demo</h2>
-                                <p>We successfully implemented the main facial recognition system using InsightFace and OpenCV. This milestone marked our first working prototype that could accurately identify users and log their interactions with medical supplies. The system had real-time face detection with visual feedback, showing a green box around detected faces. This proof-of-concept validated our technology choice and confirmed that facial recognition could work as an authentication method.</p>
+                                <p>We successfully implemented the main facial recognition system using InsightFace and OpenCV. This marked our first working prototype that could accurately identify users and log their interactions with medical supplies. The system had real time face detection with visual feedback, showing a green box around detected faces. This validated our technology choice and confirmed that facial recognition could work as an authentication method.</p>
                             </div>
                             <div class="timeline-images">
                                 <div class="timeline-image"><img src="old_face_detected.png" alt="Old Face Detected"></div>
@@ -71,7 +67,7 @@
                         <div class="timeline-content">
                             <div class="timeline-text">
                                 <h2>UI & Status Improvements</h2>
-                                <p>We redesigned the user interface to provide better visual feedback and system status information. The main interface was redone with a cleaner layout featuring larger, more readable text and improved button placement for easier navigation. We added a status indicator that shows the current camera state.</p>
+                                <p>We redesigned the user interface to give better visual feedback and system status information. The main interface was redone with a cleaner layout featuring larger, more readable text and better improved placement for easier navigation. We added a status indicator that shows the current camera state.</p>
                             </div>
                             <div class="timeline-images">
                                 <div class="timeline-image"><img src="old_ui.png" alt="Old UI"></div>
@@ -80,27 +76,14 @@
                         </div>
                     </div>
                 </li>
+        
                 <li>
                     <div>
                         <time>Oct 2025</time>
                         <div class="timeline-content">
                             <div class="timeline-text">
-                                <h2>Database Migration: CSV to SQLite</h2>
-                                <p>We transitioned from CSV file storage to a SQLite database system, an important upgrade for data scalability. SQLite's lightweight footprint makes it ideal for spacecraft computers with limited resources while supporting queries for reporting and analysis. This migration enabled features like deletion history, user authentication, and the addition of the actual medications used on the ISS.</p>
-                            </div>
-                            <div class="timeline-images">
-                                <div class="timeline-image" style="width: 100%; max-width: 100%;"><img src="database.png" alt="Database Implementation" style="width: 100%; max-width: 100%;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </li>
-                <li>
-                    <div>
-                        <time>Nov 2025</time>
-                        <div class="timeline-content">
-                            <div class="timeline-text">
                                 <h2>Admin & Deletion History</h2>
-                                <p>Security and data integrity became our focus with the implementation of an admin authentication system using PIN codes. This feature ensures that only authorized personnel can modify inventory records or delete entries. We developed a deletion history feature that maintains a permanent audit trail of all removed items, including who deleted them and when. The system now stores all deletion records in the database, preventing accidental or unauthorized data loss.</p>
+                                <p>Security and data integrity became our focus with the implementation of an admin authentication system using PIN codes. This feature makes sure that only authorized personnel can modify inventory records or delete logs. We developed a deletion history feature that maintains a permanent trail of all removed items, including who deleted them and when. The system now stores all deletion records in the database, preventing accidental or unauthorized data loss.</p>
                             </div>
                             <div class="timeline-images">
                                 <div class="timeline-image"><img src="old_delete_history.png" alt="Old Delete History"></div>
@@ -111,11 +94,25 @@
                 </li>
                 <li>
                     <div>
+                        <time>Nov 2025</time>
+                        <div class="timeline-content">
+                            <div class="timeline-text">
+                                <h2>Database Migration: CSV to SQLite</h2>
+                                <p>We transitioned from CSV file storage to a SQLite database system, an important upgrade for data scalability. SQLite makes it ideal for spacecraft computers with limited resources while also supporting queries for reporting and analysis. This change enabled features like deletion history, user authentication, and the addition of the actual medications used on the ISS.</p>
+                            </div>
+                            <div class="timeline-images">
+                                <div class="timeline-image" style="width: 100%; max-width: 100%;"><img src="database.png" alt="Database Implementation" style="width: 100%; max-width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+                <li>
+                    <div>
                         <time>Dec 2025</time>
                         <div class="timeline-content">
                             <div class="timeline-text">
                                 <h2>New Facial Recognition & Log</h2>
-                                <p>We created a major overhaul of the facial recognition engine, significantly improving accuracy and speed. The updated system now processes faces in under 1 second with better detection in varied lighting conditions, crucial for spacecraft environments. The scan logging interface received a complete redesign with a more modern, streamlined appearance that displays transaction history in an easy-to-read format. We added real-time visual confirmation when items are scanned, showing item details, quantity changes, and user information instantly.</p>
+                                <p>We created a major overhaul of the facial recognition engine, significantly improving accuracy and speed. The updated system now processes faces in under 1 second with better detection in varied lighting conditions, which is crucial for spacecraft environments. The scan logging interface received a complete redesign with a more modern, clean appearance that displays transaction history in an easy to read format. We added real-time visual confirmation when items are scanned, showing item details, quantity changes, and user information instantly.</p>
                             </div>
                             <div class="timeline-images">
                                 <div class="timeline-image"><img src="new_detected.png" alt="New Face Detected"></div>
@@ -130,7 +127,7 @@
                         <div class="timeline-content">
                             <div class="timeline-text">
                                 <h2>Modern UI & Admin Window</h2>
-                                <p>In preparation for our Critical Design Review (CDR) with NASA, we finalized the user interface with a polished, professional appearance. The main UI now features a cohesive design optimized layouts for both desktop and Raspberry Pi displays. We redesigned the admin code entry window with a more secure and user-friendly keypad interface, featuring larger buttons and clearer visual feedback. The entire system was optimized for performance, reducing load times and improving responsiveness to meet NASA's usability standards for space applications.</p>
+                                <p>In preparation for our Critical Design Review (CDR) with NASA, we finalized the user interface with a polished, professional appearance. The main UI now features a cohesive design optimized layouts for both desktop and smaller tablet displays. We redesigned the admin code entry window with a more secure and user friendly keypad interface, featuring larger buttons and clearer visual feedback. The entire system was optimized for performance, reducing load times and improving responsiveness.</p>
                             </div>
                             <div class="timeline-images">
                                 <div class="timeline-image"><img src="new_ui.png" alt="New UI"></div>
@@ -140,6 +137,42 @@
                     </div>
                 </li>
             </ul>
+        </section>
+
+        <section class="citations-section">
+            <div class="citations-container">
+                <h2>Citations and other research sources</h2>
+                <div class="citation-list">
+                    <p class="citation-item">
+                        NASA HUNCH. Medical Inventory System Project Specifications
+                        <a href="https://cdn.nasahunch.com/Medical_Inventory_System_0bc51cdff5.pdf" target="_blank">https://cdn.nasahunch.com/Medical_Inventory_System_0bc51cdff5.pdf</a>
+                    </p>
+                    <p class="citation-item">
+                        NASA HUNCH. MCT System Requirements
+                        <a href="https://cdn.nasahunch.com/MCT_System_eb3ee91089.pdf" target="_blank">https://cdn.nasahunch.com/MCT_System_eb3ee91089.pdf</a>
+                    </p>
+                    <p class="citation-item">
+                        NASA. Packaging for medications on the ISS
+                        <a href="https://docs.google.com/gview?url=https%3A%2F%2Fcdn.nasahunch.com%2Fpackaging_for_medications_on_iss_and_future_space_2133900754.pptx&embedded=true" target="_blank">https://cdn.nasahunch.com/packaging_for_medications_on_iss_and_future_space_2133900754.pptx</a>
+                    </p>
+                    <p class="citation-item">
+                        NASA HUNCH. Medical Inventory System Project Specifications.
+                        <a href="https://nasahunch.com/projects/modified-medical-inventory-system-l" target="_blank">https://nasahunch.com/projects/modified-medical-inventory-system-l</a>
+                    </p>
+                    <p class="citation-item">
+                        InsightFace 
+                        <a href="https://insightface.ai" target="_blank">https://insightface.ai  </a>
+                    </p>
+                    <p class="citation-item">
+                        StackOverflow
+                        <a href="https://stackoverflow.com" target="_blank">https://stackoverflow.com</a>
+                    </p>
+                    <p class="citation-item">
+                        SQLite Documentation
+                        <a href="https://www.sqlite.org/docs.html" target="_blank">https://www.sqlite.org/docs.html</a>
+                    </p>
+                </div>
+            </div>
         </section>
 
         <div class="lightbox" id="lightbox">
