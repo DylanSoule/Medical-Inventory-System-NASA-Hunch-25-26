@@ -674,39 +674,40 @@ table tr:nth-child(even):hover {
 }
 
 .citations-section {
-    background: rgb(24, 26, 27);
-    border-radius: 15px;
-    padding: 40px;
-    margin: 60px auto 40px auto;
-    max-width: 1000px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    position: relative;
-    z-index: 1;
+    color: white !important;
+    background: rgb(24, 26, 27) !important;
+    border-radius: 15px !important;
+    padding: 40px !important;
+    margin: 60px auto 40px auto !important;
+    max-width: 1000px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+    position: relative !important;
+    z-index: 1 !important;
 }
 
 .citations-container h2 {
-    color: hsl(0, 0%, 98%);
-    font-size: 2em;
-    margin-bottom: 30px;
-    text-align: center;
-    font-weight: 600;
+    color: #ffffff !important;
+    font-size: 2em !important;
+    margin-bottom: 30px !important;
+    text-align: center !important;
+    font-weight: 600 !important;
 }
 
 .citation-list {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 20px !important;
 }
 
 .citation-item {
-    color: #ffffff;
-    font-size: 1em;
-    line-height: 1.8;
-    padding: 15px 20px;
-    background: rgba(42, 82, 152, 0.05);
-    border-left: 4px solid #2a5298;
-    border-radius: 5px;
-    margin: 0;
+    color: #ffffff !important;
+    font-size: 1em !important;
+    line-height: 1.8 !important;
+    padding: 15px 20px !important;
+    background: rgba(42, 82, 152, 0.05) !important;
+    border-left: 4px solid #2a5298 !important;
+    border-radius: 5px !important;
+    margin: 0 !important;
 }
 
 .citation-item a {
