@@ -1563,7 +1563,7 @@ class Personal_db_window(ctk.CTkToplevel):
         self.transient(parent)
         self.parent = parent
         self.user = user
-        self.current_date = datetime.date.today()
+        self.current_date = datetime.datetime.now()
         self.zoom_level = 10.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
         self.db = DatabaseManager(DB_FILE)
         self.expanded_items = set()  # Track which items are expanded
@@ -1624,11 +1624,12 @@ class Personal_db_window(ctk.CTkToplevel):
 
     def _setup_ui(self):
         """Setup the personal database UI"""
-        # Configure grid - give timeline most of the space
+        # Configure grid - updated layout
         self.grid_rowconfigure(0, weight=0, minsize=40)
         self.grid_rowconfigure(1, weight=0, minsize=45)
-        self.grid_rowconfigure(2, weight=1)
-        self.grid_rowconfigure(3, weight=0, minsize=55)
+        self.grid_rowconfigure(2, weight=1)  # Timeline
+        self.grid_rowconfigure(3, weight=0, minsize=200)  # As-needed section
+        self.grid_rowconfigure(4, weight=0, minsize=55)  # Controls
         self.grid_columnconfigure(0, weight=1)
         
         # Title - more compact
@@ -1667,7 +1668,7 @@ class Personal_db_window(ctk.CTkToplevel):
             font=("Arial", 16)
         ).pack(side="right", padx=(10, 20))
         
-        # Timeline frame - maximize space
+        # Timeline frame
         timeline_frame = ctk.CTkFrame(self, corner_radius=10)
         timeline_frame.grid(row=2, column=0, sticky="nsew", padx=8, pady=6)
         timeline_frame.grid_rowconfigure(0, weight=0)
@@ -1696,12 +1697,15 @@ class Personal_db_window(ctk.CTkToplevel):
         
         # Bind mouse wheel for scrolling
         self.timeline_canvas.bind("<MouseWheel>", self._on_mousewheel)
-        self.timeline_canvas.bind("<Button-4>", self._on_mousewheel)  # Linux scroll up
-        self.timeline_canvas.bind("<Button-5>", self._on_mousewheel)  # Linux scroll down
+        self.timeline_canvas.bind("<Button-4>", self._on_mousewheel)
+        self.timeline_canvas.bind("<Button-5>", self._on_mousewheel)
         
-        # Control buttons frame - more compact
+        # As-needed prescriptions section
+        self._create_as_needed_section()
+        
+        # Control buttons frame
         controls_frame = ctk.CTkFrame(self, fg_color="transparent")
-        controls_frame.grid(row=3, column=0, pady=(2, 10), sticky="ew")
+        controls_frame.grid(row=4, column=0, pady=(2, 10), sticky="ew")
         
         ctk.CTkButton(
             controls_frame,
@@ -1749,37 +1753,115 @@ class Personal_db_window(ctk.CTkToplevel):
             fg_color="#b22222"
         ).pack(side="right", padx=(6, 16))
     
-    def load_timeline_data(self):
+    def _create_as_needed_section(self):
+        """Create as-needed prescriptions display section"""
+        as_needed_frame = ctk.CTkFrame(self, corner_radius=10)
+        as_needed_frame.grid(row=3, column=0, sticky="nsew", padx=8, pady=(0, 6))
         
-        """Load user's activity data and prescriptions for the selected date"""
-        self.activities = []
-        self.prescriptions = []
-    
+        # Title
+        ctk.CTkLabel(
+            as_needed_frame,
+            text="As-Needed Medications",
+            font=("Arial", 18, "bold")
+        ).pack(pady=(10, 5))
+        
+        # Scrollable content
+        self.as_needed_scroll = ctk.CTkScrollableFrame(as_needed_frame, height=150)
+        self.as_needed_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+    def _load_as_needed_prescriptions(self):
+        """Load as-needed prescriptions from database"""
         if not self.personal_db:
-            self.draw_timeline()
             return
         
         try:
-            # get_personal_data returns (hist_logs, prescript_logs)
-            # hist_logs format: list of (barcode, dname, when_taken, dose, taken)
-            # prescript_logs format: list of (barcode, dname, dosage, time, leeway)
+            # Query all prescriptions where as_needed = True
+            all_prescriptions = self.personal_db.pull_data('prescription')
             
-            hist_logs, prescript_logs = self.personal_db.get_personal_data(self.current_date.strftime("%Y-%m-%d"))
-
-            # Process history logs (actual usage)
-            for log in hist_logs:
+            for prescription in all_prescriptions:
+                # prescription format: (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed)
+                if len(prescription) >= 9 and prescription[8]:  # as_needed is True
+                    self.as_needed_prescriptions.append({
+                        'name': prescription[1],
+                        'dosage': prescription[2],
+                        'barcode': prescription[0],
+                        'type': 'as_needed'
+                    })
+        except Exception as e:
+            print(f"Error loading as-needed prescriptions: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _update_as_needed_display(self):
+        """Update the as-needed medications display"""
+        # Clear existing widgets
+        for widget in self.as_needed_scroll.winfo_children():
+            widget.destroy()
+        
+        if not self.as_needed_prescriptions:
+            ctk.CTkLabel(
+                self.as_needed_scroll,
+                text="No as-needed medications",
+                font=("Arial", 14),
+                text_color="#94a3b8"
+            ).pack(pady=20)
+            return
+        
+        # Display each as-needed medication
+        for med in self.as_needed_prescriptions:
+            med_frame = ctk.CTkFrame(self.as_needed_scroll, corner_radius=8, fg_color="#1e3a5f")
+            med_frame.pack(fill="x", pady=5, padx=5)
+            
+            # Medication name
+            ctk.CTkLabel(
+                med_frame,
+                text=f"💊 {med['name']}",
+                font=("Arial", 16, "bold"),
+                anchor="w"
+            ).pack(fill="x", padx=10, pady=(8, 2))
+            
+            # Dosage
+            ctk.CTkLabel(
+                med_frame,
+                text=f"Dosage: {med['dosage']}",
+                font=("Arial", 12),
+                text_color="#93c5fd",
+                anchor="w"
+            ).pack(fill="x", padx=10, pady=(0, 8))
+    
+    def load_timeline_data(self):
+        """Load user's activity data and prescriptions for the selected date"""
+        self.activities = []
+        self.prescriptions = []
+        self.as_needed_prescriptions = []
+    
+        if not self.personal_db:
+            self.draw_timeline()
+            self._update_as_needed_display()
+            return
+        
+        try:
+            # Get the current date for comparison
+            if isinstance(self.current_date, datetime.datetime):
+                current_date_only = self.current_date.date()
+            else:
+                current_date_only = self.current_date
+            
+            # Query all history logs and filter by date
+            all_history = self.personal_db.pull_data('history')
+            
+            for log in all_history:
                 try:
+                    # history format: (barcode, dname, when_taken, dose)
                     if len(log) < 4:
                         continue
                         
-                    barcode = log[0]
-                    name = log[1]
-                    when_taken = log[2]
-                    dose = log[3]
-                    taken = log[4]
+                    barcode, name, when_taken, dose = log[0], log[1], log[2], log[3]
                     
                     # Parse timestamp
+                    dt = None
                     try:
+                        #ignore the error it works fine
                         dt = datetime.datetime.strptime(when_taken, "%Y-%m-%d %H:%M:%S")
                     except:
                         try:
@@ -1787,8 +1869,11 @@ class Personal_db_window(ctk.CTkToplevel):
                         except:
                             continue
                     
+                    if dt is None:
+                        continue
+                    
                     # Only include if it's on the current date
-                    if dt.date() == self.current_date:
+                    if dt.date() == current_date_only:
                         self.activities.append({
                             'time': dt.time(),
                             'name': name,
@@ -1800,59 +1885,44 @@ class Personal_db_window(ctk.CTkToplevel):
                     print(f"Error processing history log: {e}, log: {log}")
                     continue
             
-            # Process prescription logs (scheduled medications)
-            for prescription in prescript_logs:
-                try:
-                    if len(prescription) < 5:
-                        continue
+            # Get scheduled prescriptions for this date
+            date_str = self.current_date.strftime("%Y-%m-%d %H:%M:%S")
+            try:
+                _, prescript_logs = self.personal_db.get_personal_data(date_str)
+                
+                for prescription in prescript_logs:
+                    try:
+                        if len(prescription) < 5:
+                            continue
+                            
+                        barcode, name, dosage, time_str, leeway = prescription[0], prescription[1], prescription[2], prescription[3], prescription[4]
                         
-                    barcode = prescription[0]
-                    name = prescription[1]
-                    dosage = prescription[2]
-                    time_str = prescription[3]
-                    leeway = prescription[4]
-                    
-                    # Parse time (HH:MM:SS format)
-                    if time_str:
-                        try:
-                            # Handle different time formats
-                            if isinstance(time_str, datetime.time):
-                                scheduled_time = time_str
-                            elif ':' in str(time_str):
-                                time_parts = str(time_str).split(':')
-                                scheduled_time = datetime.time(
-                                    int(time_parts[0]),
-                                    int(time_parts[1]),
-                                    int(time_parts[2]) if len(time_parts) > 2 else 0
-                                )
-                            else:
-                                scheduled_time = datetime.time(9, 0, 0)
-                        except Exception as e:
-                            print(f"Error parsing time: {e}")
-                            scheduled_time = datetime.time(9, 0, 0)
-                    else:
-                        scheduled_time = datetime.time(9, 0, 0)
-                    
-                    if leeway:
-                        try:
-                            leeway = float(leeway) * 60
-                            leeway_reform = int(leeway)
-                        except:
-                            leeway_reform = 60
+                        # Parse scheduled time
+                        scheduled_time = self._parse_time(time_str)
 
-                    self.prescriptions.append({
-                        'time': scheduled_time,
-                        'name': name,
-                        'dosage': dosage,
-                        'barcode': barcode,
-                        #'leeway': int(leeway) * 60 if leeway else 60,
-                        'leeway': leeway_reform,
-                        'type': 'prescription'
-                    })
-
-                except Exception as e:
-                    print(f"Error processing prescription: {e}, prescription: {prescription}")
-                    continue
+                        if leeway:
+                            leeway_formatted = leeway * 60
+                            leeway_formatted = int(leeway_formatted)
+                        else:
+                            leeway_formatted = 60
+                        print(leeway_formatted)
+                        self.prescriptions.append({
+                            'time': scheduled_time,
+                            'name': name,
+                            'dosage': dosage,
+                            'barcode': barcode,
+                            'leeway': leeway_formatted,
+                            'type': 'prescription'
+                        })
+                    
+                    except Exception as e:
+                        print(f"Error processing prescription: {e}, prescription: {prescription}")
+                        continue
+            except Exception as e:
+                print(f"Error getting prescription data: {e}")
+            
+            # Query as-needed prescriptions separately
+            self._load_as_needed_prescriptions()
                 
         except Exception as e:
             print(f"Error loading timeline data: {e}")
@@ -1860,16 +1930,59 @@ class Personal_db_window(ctk.CTkToplevel):
             traceback.print_exc()
 
         self.draw_timeline()
+        self._update_as_needed_display()
         self.after(100, lambda: self.reset_zoom())
-
-    def _get_stacked_position(self, x, items_at_time, item_index):
-        """Calculate vertical offset for stacked items at the same time"""
-        if item_index == 0:
-            return 0
+    
+    def _parse_time(self, time_str):
+        """Parse time string to datetime.time object"""
+        if isinstance(time_str, datetime.time):
+            return time_str
+        if time_str and ':' in str(time_str):
+            try:
+                time_parts = str(time_str).split(':')
+                return datetime.time(
+                    int(time_parts[0]),
+                    int(time_parts[1]),
+                    int(time_parts[2]) if len(time_parts) > 2 else 0
+                )
+            except:
+                pass
+        return datetime.time(9, 0, 0)
+    
+    def _check_activity_match(self, activity):
+        """Check if an activity matches a prescription using database comparison"""
+        if not self.personal_db:
+            return False
         
-        # Stack items horizontally with small offset
-        offset = 30 * min(self.zoom_level, 1.5)
-        return offset * item_index
+        try:
+            # Get the current date for combining
+            if isinstance(self.current_date, datetime.datetime):
+                current_date_only = self.current_date.date()
+            else:
+                current_date_only = self.current_date
+            
+            # Create a log tuple matching database format
+            when_taken = datetime.datetime.combine(
+                current_date_only,
+                activity['time']
+            ).strftime("%Y-%m-%d %H:%M:%S")
+            
+            log = (
+                activity['barcode'],
+                activity['name'],
+                when_taken,
+                str(activity['amount'])
+            )
+            
+            # Use database comparison function
+            result = self.personal_db.compare_with_prescription(log)
+            
+            # result is (bool, string) - return the bool
+            return result[0] if isinstance(result, tuple) else False
+            
+        except Exception as e:
+            print(f"Error checking activity match: {e}")
+            return False
 
     def draw_timeline(self):
         """Draw the 24-hour timeline with activities and prescriptions"""
@@ -1886,7 +1999,7 @@ class Personal_db_window(ctk.CTkToplevel):
         # Calculate dimensions
         hour_width = 120 * self.zoom_level
         total_width = hour_width * 24
-        timeline_y = canvas_height // 2
+        timeline_y = canvas_height // 2;
         
         # Update scroll region
         self.timeline_canvas.configure(scrollregion=(0, 0, total_width, canvas_height))
@@ -1971,41 +2084,20 @@ class Personal_db_window(ctk.CTkToplevel):
         
         print(f"Drawing timeline with {len(self.prescriptions)} prescriptions and {len(self.activities)} activities")
 
-    def _check_activity_match(self, activity):
-        """Check if an activity matches a prescription using database comparison"""
-        if not self.personal_db:
-            return False
+    def _get_stacked_position(self, x, items_at_time, item_index):
+        """Calculate vertical offset for stacked items at the same time"""
+        if item_index == 0:
+            return 0
         
-        try:
-            # Create a log tuple matching database format
-            # (barcode, dname, when_taken, dose)
-            when_taken = datetime.datetime.combine(
-                self.current_date,
-                activity['time']
-            ).strftime("%Y-%m-%d %H:%M:%S")
-            
-            log = (
-                activity['barcode'],
-                activity['name'],
-                when_taken,
-                str(activity['amount'])
-            )
-            
-            # Use database comparison function
-            result = self.personal_db.compare_with_prescription(log)
-            
-            # result is (bool, string) - return the bool
-            return result[0] if isinstance(result, tuple) else False
-            
-        except Exception as e:
-            print(f"Error checking activity match: {e}")
-            return False
+        # Stack items horizontally with small offset
+        offset = 30 * min(self.zoom_level, 1.5)
+        return offset * item_index
 
     def _draw_prescription_pill(self, x, timeline_y, prescription, item_id, is_expanded):
         """Draw a prescription pill above the timeline"""
         # Leeway visualization (subtle background)
         leeway_minutes = prescription.get('leeway', 60)
-        
+
         y_base = timeline_y - 100
     
         if is_expanded:

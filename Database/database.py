@@ -532,6 +532,8 @@ class PersonalDatabaseManager:
     def get_personal_data(self, date):
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
+        
+        print(self.db_path)
 
         c.execute('SELECT * FROM history WHERE when_taken = ?',(date,))
         hist_logs = c.fetchall()

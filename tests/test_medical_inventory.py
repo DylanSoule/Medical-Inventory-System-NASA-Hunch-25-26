@@ -3,14 +3,15 @@ Test Suite for Medical Inventory System
 NASA HUNCH Project 2025-26
 
 This module contains unit tests for the medical inventory application.
-Tests focus on functionality that doesn't require UI rendering.
+Tests focus on UI rendering and functionality.
 """
 
 import pytest
 import sys
 import os
 import datetime
-from unittest.mock import Mock, patch, MagicMock, PropertyMock
+from unittest.mock import Mock, patch, MagicMock, PropertyMock, call
+import tkinter as tk
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -498,6 +499,438 @@ class TestImports:
         from src.medical_inventory import create_round_rectangle
         
         assert create_round_rectangle is not None
+
+
+# ============================================================================
+# UI RENDERING TESTS
+# ============================================================================
+
+class TestUIRendering:
+    """Test UI component rendering and initialization"""
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_main_window_initialization(self, mock_fr, mock_db):
+        """Test that main window initializes without errors"""
+        from src.medical_inventory import BarcodeViewer
+        
+        mock_fr.preload_everything.return_value = Mock()
+        mock_fr.preloading_complete = True
+        mock_fr.camera_ready = True
+        mock_db.return_value.pull_data.return_value = []
+        
+        try:
+            # Create root window without entering mainloop
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                assert app is not None
+                assert hasattr(app, 'tree')
+                assert hasattr(app, 'search_var')
+                assert hasattr(app, 'filter_var')
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_sidebar_creation(self, mock_fr, mock_db):
+        """Test that sidebar is created with all components"""
+        from src.medical_inventory import BarcodeViewer
+        
+        mock_db.return_value.pull_data.return_value = []
+        
+        try:
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                
+                # Check sidebar components exist
+                assert hasattr(app, 'search_var')
+                assert hasattr(app, 'filter_var')
+                assert hasattr(app, 'low_stock_var')
+                assert hasattr(app, 'column_visibility')
+                
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_treeview_creation(self, mock_fr, mock_db):
+        """Test that treeview is created with correct columns"""
+        from src.medical_inventory import BarcodeViewer, COLUMN_CONFIGS
+        
+        mock_db.return_value.pull_data.return_value = []
+        
+        try:
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                
+                # Verify tree exists
+                assert hasattr(app, 'tree')
+                
+                # Verify all columns are configured
+                tree_columns = app.tree['columns']
+                for col in COLUMN_CONFIGS.keys():
+                    assert col in tree_columns
+                
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_action_buttons_creation(self, mock_fr, mock_db):
+        """Test that all action buttons are created"""
+        from src.medical_inventory import BarcodeViewer
+        
+        mock_db.return_value.pull_data.return_value = []
+        
+        try:
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                
+                # Check buttons exist
+                assert hasattr(app, 'log_scan_btn')
+                assert hasattr(app, 'personal_db_btn')
+                
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
+
+
+# ============================================================================
+# FUNCTIONALITY TESTS
+# ============================================================================
+
+class TestDataFiltering:
+    """Test search and filter functionality"""
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_search_functionality(self, mock_fr, mock_db):
+        """Test search filter works correctly"""
+        from src.medical_inventory import BarcodeViewer
+        
+        # Mock database data
+        test_data = [
+            ('12345', 'Aspirin', 100, '2025-12-31', 'pill', 'medication', '100mg', 'A1'),
+            ('67890', 'Ibuprofen', 50, '2025-11-30', 'pill', 'medication', '200mg', 'A2'),
+        ]
+        mock_db.return_value.pull_data.return_value = test_data
+        
+        try:
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                
+                # Set search term
+                app.search_var.set("aspirin")
+                app.apply_search_filter()
+                
+                # Verify filtered results
+                items = app.tree.get_children()
+                assert len(items) == 1
+                
+                # Clear search
+                app.search_var.set("")
+                app.apply_search_filter()
+                items = app.tree.get_children()
+                assert len(items) == 2
+                
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_expiration_filter(self, mock_fr, mock_db):
+        """Test expiration date filtering"""
+        from src.medical_inventory import BarcodeViewer
+        
+        # Create test data with different expiration dates
+        today = datetime.date.today()
+        expired_date = (today - datetime.timedelta(days=10)).strftime("%Y-%m-%d")
+        expiring_soon = (today + datetime.timedelta(days=15)).strftime("%Y-%m-%d")
+        far_future = (today + datetime.timedelta(days=100)).strftime("%Y-%m-%d")
+        
+        test_data = [
+            ('11111', 'Expired Drug', 10, expired_date, 'pill', 'medication', '10mg', 'A1'),
+            ('22222', 'Expiring Soon', 20, expiring_soon, 'pill', 'medication', '20mg', 'A2'),
+            ('33333', 'Future Drug', 30, far_future, 'pill', 'medication', '30mg', 'A3'),
+        ]
+        mock_db.return_value.pull_data.return_value = test_data
+        
+        try:
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                
+                # Test "Expired" filter
+                app.filter_var.set("Expired")
+                app.apply_search_filter()
+                items = app.tree.get_children()
+                assert len(items) == 1
+                
+                # Test "Expiring Soon" filter
+                app.filter_var.set("Expiring Soon")
+                app.apply_search_filter()
+                items = app.tree.get_children()
+                assert len(items) == 1
+                
+                # Test "All" filter
+                app.filter_var.set("All")
+                app.apply_search_filter()
+                items = app.tree.get_children()
+                assert len(items) == 3
+                
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_low_stock_filter(self, mock_fr, mock_db):
+        """Test low stock filtering"""
+        from src.medical_inventory import BarcodeViewer
+        
+        test_data = [
+            ('11111', 'Low Stock Item', 5, '2025-12-31', 'pill', 'medication', '10mg', 'A1'),
+            ('22222', 'Normal Stock', 100, '2025-12-31', 'pill', 'medication', '20mg', 'A2'),
+        ]
+        mock_db.return_value.pull_data.return_value = test_data
+        
+        try:
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                
+                # Enable low stock filter
+                app.low_stock_var.set(True)
+                app.apply_search_filter()
+                items = app.tree.get_children()
+                assert len(items) == 1
+                
+                # Disable low stock filter
+                app.low_stock_var.set(False)
+                app.apply_search_filter()
+                items = app.tree.get_children()
+                assert len(items) == 2
+                
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
+
+
+class TestColumnVisibility:
+    """Test column visibility toggle functionality"""
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_column_toggle(self, mock_fr, mock_db):
+        """Test toggling column visibility"""
+        from src.medical_inventory import BarcodeViewer
+        
+        mock_db.return_value.pull_data.return_value = []
+        
+        try:
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                
+                # Initially all columns visible
+                visible_cols = [col for col, var in app.column_visibility.items() if var.get()]
+                assert len(visible_cols) == 8
+                
+                # Hide a column
+                app.column_visibility['barcode'].set(False)
+                app.update_column_visibility()
+                
+                visible_cols = [col for col, var in app.column_visibility.items() if var.get()]
+                assert len(visible_cols) == 7
+                assert 'barcode' not in visible_cols
+                
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
+
+
+class TestDialogs:
+    """Test dialog windows"""
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_show_popup(self, mock_fr, mock_db):
+        """Test popup dialog creation"""
+        from src.medical_inventory import BarcodeViewer
+        
+        mock_db.return_value.pull_data.return_value = []
+        
+        try:
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                
+                # Mock wait_window to prevent blocking
+                with patch.object(app, 'wait_window', lambda x: None):
+                    # Test that popup doesn't crash
+                    app.show_popup("Test Title", "Test Message", "info")
+                    app.show_popup("Test Error", "Error Message", "error")
+                    app.show_popup("Test Warning", "Warning Message", "warning")
+                
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_show_confirm(self, mock_fr, mock_db):
+        """Test confirmation dialog"""
+        from src.medical_inventory import BarcodeViewer
+        
+        mock_db.return_value.pull_data.return_value = []
+        
+        try:
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                
+                # Mock wait_window to prevent blocking
+                with patch.object(app, 'wait_window', lambda x: None):
+                    result = app.show_confirm("Test Confirm", "Are you sure?")
+                    # Result should be False since we didn't click Yes
+                    assert result == False
+                
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
+
+
+class TestTreeviewInteraction:
+    """Test treeview interaction functionality"""
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_tree_selection(self, mock_fr, mock_db):
+        """Test tree row selection"""
+        from src.medical_inventory import BarcodeViewer
+        
+        test_data = [
+            ('11111', 'Item 1', 10, '2025-12-31', 'pill', 'medication', '10mg', 'A1'),
+            ('22222', 'Item 2', 20, '2025-12-31', 'pill', 'medication', '20mg', 'A2'),
+        ]
+        mock_db.return_value.pull_data.return_value = test_data
+        
+        try:
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                
+                # Get items in tree
+                items = app.tree.get_children()
+                assert len(items) == 2
+                
+                # Select first item
+                app.tree.selection_set(items[0])
+                selection = app.tree.selection()
+                assert len(selection) == 1
+                
+                # Select multiple items
+                app.tree.selection_set(items)
+                selection = app.tree.selection()
+                assert len(selection) == 2
+                
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
+
+
+class TestVirtualKeyboard:
+    """Test virtual keyboard functionality"""
+    
+    def test_virtual_keyboard_class_exists(self):
+        """Test VirtualKeyboard class can be imported"""
+        from src.medical_inventory import VirtualKeyboard
+        assert VirtualKeyboard is not None
+    
+    def test_virtual_keyboard_has_methods(self):
+        """Test VirtualKeyboard has required methods"""
+        from src.medical_inventory import VirtualKeyboard
+        
+        required_methods = ['key_press', 'backspace', 'clear_all', 'toggle_shift', 'toggle_caps']
+        for method in required_methods:
+            assert hasattr(VirtualKeyboard, method)
+
+
+class TestPersonalDatabase:
+    """Test personal database window"""
+    
+    def test_personal_db_window_class_exists(self):
+        """Test Personal_db_window class exists"""
+        from src.medical_inventory import Personal_db_window
+        assert Personal_db_window is not None
+    
+    def test_personal_db_has_timeline_methods(self):
+        """Test timeline methods exist"""
+        from src.medical_inventory import Personal_db_window
+        
+        required_methods = ['load_timeline_data', 'draw_timeline', 'zoom_in', 'zoom_out', 'reset_zoom']
+        for method in required_methods:
+            assert hasattr(Personal_db_window, method)
+
+
+# ============================================================================
+# INTEGRATION TESTS
+# ============================================================================
+
+class TestFullWorkflow:
+    """Test complete user workflows"""
+
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_search_and_filter_workflow(self, mock_fr, mock_db):
+        """Test combined search and filter workflow"""
+        from src.medical_inventory import BarcodeViewer
+        
+        today = datetime.date.today()
+        expiring_soon = (today + datetime.timedelta(days=15)).strftime("%Y-%m-%d")
+        
+        test_data = [
+            ('11111', 'Aspirin Low', 5, expiring_soon, 'pill', 'medication', '10mg', 'A1'),
+            ('22222', 'Aspirin High', 100, '2026-12-31', 'pill', 'medication', '20mg', 'A2'),
+            ('33333', 'Ibuprofen Low', 8, expiring_soon, 'pill', 'medication', '15mg', 'A3'),
+        ]
+        mock_db.return_value.pull_data.return_value = test_data
+        
+        try:
+            with patch.object(BarcodeViewer, 'mainloop', lambda x: None):
+                app = BarcodeViewer()
+                
+                # All items initially
+                items = app.tree.get_children()
+                assert len(items) == 3
+                
+                # Search for "aspirin"
+                app.search_var.set("aspirin")
+                app.apply_search_filter()
+                items = app.tree.get_children()
+                assert len(items) == 2
+                
+                # Add "expiring soon" filter
+                app.filter_var.set("Expiring Soon")
+                app.apply_search_filter()
+                items = app.tree.get_children()
+                assert len(items) == 1
+                
+                # Add low stock filter
+                app.low_stock_var.set(True)
+                app.apply_search_filter()
+                items = app.tree.get_children()
+                assert len(items) == 1
+                
+                # Clear all filters
+                app.search_var.set("")
+                app.filter_var.set("All")
+                app.low_stock_var.set(False)
+                app.apply_search_filter()
+                items = app.tree.get_children()
+                assert len(items) == 3
+                
+                app.destroy()
+        except tk.TclError:
+            pytest.skip("No display available for UI test")
 
 
 # ============================================================================
