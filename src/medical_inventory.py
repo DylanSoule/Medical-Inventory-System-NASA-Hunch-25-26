@@ -2005,19 +2005,9 @@ class Personal_db_window(ctk.CTkToplevel):
         """Draw a prescription pill above the timeline"""
         # Leeway visualization (subtle background)
         leeway_minutes = prescription.get('leeway', 60)
-        leeway_width = (leeway_minutes / 60.0) * (120 * self.zoom_level)
         
         y_base = timeline_y - 100
-        
-        # Background leeway area
-        self.timeline_canvas.create_rectangle(
-            x - leeway_width / 2, y_base - 50,
-            x + leeway_width / 2, y_base + 20,
-            fill="#1e3a5f",
-            outline="",
-            stipple="gray25"
-        )
-        
+    
         if is_expanded:
             # Expanded view - show detailed card
             card_width = 200 * min(self.zoom_level, 1.5)

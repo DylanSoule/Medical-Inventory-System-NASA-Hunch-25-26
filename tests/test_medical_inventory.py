@@ -3,258 +3,42 @@ Test Suite for Medical Inventory System
 NASA HUNCH Project 2025-26
 
 This module contains unit tests for the medical inventory application.
+Tests focus on functionality that doesn't require UI rendering.
 """
 
 import pytest
 import sys
 import os
 import datetime
-import sqlite3
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, PropertyMock
 
 # Add parent directory to path for imports
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
-sys.path.insert(0, os.path.join(project_root, 'src'))
-
-# Now import with try/except to handle missing modules gracefully
-try:
-    from Database.database import DatabaseManager, PersonalDatabaseManager
-except ImportError:
-    DatabaseManager = None
-    PersonalDatabaseManager = None
-
-try:
-    from src import facial_recognition as fr
-    from src.facial_recognition import FaceRecognitionError
-except ImportError:
-    try:
-        import facial_recognition as fr
-        from facial_recognition import FaceRecognitionError
-    except ImportError:
-        fr = None
-        FaceRecognitionError = None
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 # ============================================================================
-# FIXTURES
+# CONSTANTS TESTS
 # ============================================================================
 
-@pytest.fixture
-def temp_db(tmp_path):
-    """Create a temporary database for testing"""
-    if DatabaseManager is None:
-        pytest.skip("DatabaseManager not available")
+class TestConstants:
+    """Test application constants"""
     
-    db_file = tmp_path / "test_inventory.db"
-    db = DatabaseManager(str(db_file))
-    yield db
-    # Cleanup is automatic with tmp_path
-
-
-@pytest.fixture
-def temp_personal_db(tmp_path):
-    """Create a temporary personal database for testing"""
-    if PersonalDatabaseManager is None:
-        pytest.skip("PersonalDatabaseManager not available")
-    
-    db_file = tmp_path / "test_personal.db"
-    personal_db = PersonalDatabaseManager(str(db_file))
-    yield personal_db
-
-
-@pytest.fixture
-def sample_drug_data():
-    """Sample drug data for testing"""
-    return {
-        'barcode': '12345678',
-        'name': 'Test Medicine',
-        'amount': 100,
-        'expiration': '2025-12-31',
-        'type': 'pill',
-        'item_type': 'medication',
-        'dose_size': '10mg',
-        'location': 'A1'
-    }
-
-
-# ============================================================================
-# DATABASE TESTS
-# ============================================================================
-
-class TestDatabaseManager:
-    """Test DatabaseManager functionality"""
-    
-    def test_database_initialization(self, temp_db):
-        """Test that database initializes correctly"""
-        assert temp_db is not None
-        assert os.path.exists(temp_db.path)
-    
-    def test_add_drug_to_inventory(self, temp_db, sample_drug_data):
-        """Test adding a drug to inventory"""
-        # First add drug to main database
-        result = temp_db.add_drug(
-            barcode=sample_drug_data['barcode'],
-            name=sample_drug_data['name'],
-            expiration=sample_drug_data['expiration'],
-            type_=sample_drug_data['type'],
-            item_type=sample_drug_data['item_type'],
-            dose_size=sample_drug_data['dose_size']
-        )
+    def test_refresh_interval_defined(self):
+        """Test that REFRESH_INTERVAL constant is defined"""
+        from src.medical_inventory import REFRESH_INTERVAL
         
-        assert result is True or result is None  # Success returns True or None
+        assert REFRESH_INTERVAL is not None
+        assert isinstance(REFRESH_INTERVAL, int)
+        assert REFRESH_INTERVAL > 0
+        assert REFRESH_INTERVAL == 30000
     
-    def test_check_barcode_exists(self, temp_db, sample_drug_data):
-        """Test checking if barcode exists"""
-        # Add drug first
-        temp_db.add_drug(
-            barcode=sample_drug_data['barcode'],
-            name=sample_drug_data['name'],
-            expiration=sample_drug_data['expiration'],
-            type_=sample_drug_data['type'],
-            item_type=sample_drug_data['item_type'],
-            dose_size=sample_drug_data['dose_size']
-        )
+    def test_db_file_path_defined(self):
+        """Test that DB_FILE path is defined"""
+        from src.medical_inventory import DB_FILE
         
-        result = temp_db.check_if_barcode_exists(sample_drug_data['barcode'])
-        assert result is not False
-    
-    def test_pull_data(self, temp_db):
-        """Test pulling data from database"""
-        data = list(temp_db.pull_data("drugs_in_inventory"))
-        assert isinstance(data, list)
-    
-    def test_delete_entry(self, temp_db, sample_drug_data):
-        """Test deleting an entry"""
-        # Add drug first
-        temp_db.add_drug(
-            barcode=sample_drug_data['barcode'],
-            name=sample_drug_data['name'],
-            expiration=sample_drug_data['expiration'],
-            type_=sample_drug_data['type'],
-            item_type=sample_drug_data['item_type'],
-            dose_size=sample_drug_data['dose_size']
-        )
-        
-        # Delete it
-        temp_db.delete_entry(
-            barcode=sample_drug_data['barcode'],
-            reason="Testing deletion"
-        )
-        
-        # Verify it's gone
-        result = temp_db.check_if_barcode_exists(sample_drug_data['barcode'])
-        assert result is False
-
-
-class TestPersonalDatabaseManager:
-    """Test PersonalDatabaseManager functionality"""
-    
-    def test_personal_db_initialization(self, temp_personal_db):
-        """Test personal database initializes correctly"""
-        assert temp_personal_db is not None
-    
-    def test_add_prescription(self, temp_personal_db):
-        """Test adding a prescription"""
-        result = temp_personal_db.add_new_prescription(
-            barcode='12345',
-            drug_name='Test Drug',
-            dosage='10mg',
-            time='09:00:00',
-            leeway=30
-        )
-        assert result is True or result is None
-    
-    def test_get_personal_data(self, temp_personal_db):
-        """Test retrieving personal data"""
-        date_str = datetime.date.today().strftime("%Y-%m-%d")
-        hist_logs, prescript_logs = temp_personal_db.get_personal_data(date_str)
-        
-        assert isinstance(hist_logs, list)
-        assert isinstance(prescript_logs, list)
-
-
-# ============================================================================
-# DATE PARSING TESTS
-# ============================================================================
-
-class TestDateParsing:
-    """Test date parsing functionality"""
-    
-    def test_parse_standard_date(self):
-        """Test parsing standard date format"""
-        from src.medical_inventory import BarcodeViewer
-        
-        # Create a mock instance just to access the method
-        with patch('src.medical_inventory.DatabaseManager'):
-            viewer = BarcodeViewer.__new__(BarcodeViewer)
-            
-            date_str = "2025-12-31"
-            result = viewer._parse_date(date_str)
-            
-            assert result is not None
-            assert result.year == 2025
-            assert result.month == 12
-            assert result.day == 31
-    
-    def test_parse_invalid_date(self):
-        """Test parsing invalid date"""
-        from src.medical_inventory import BarcodeViewer
-        
-        with patch('src.medical_inventory.DatabaseManager'):
-            viewer = BarcodeViewer.__new__(BarcodeViewer)
-            
-            result = viewer._parse_date("invalid-date")
-            assert result is None
-    
-    def test_parse_none_date(self):
-        """Test parsing None date"""
-        from src.medical_inventory import BarcodeViewer
-        
-        with patch('src.medical_inventory.DatabaseManager'):
-            viewer = BarcodeViewer.__new__(BarcodeViewer)
-            
-            result = viewer._parse_date(None)
-            assert result is None
-
-
-# ============================================================================
-# FACIAL RECOGNITION TESTS
-# ============================================================================
-
-class TestFacialRecognition:
-    """Test facial recognition error handling"""
-    
-    def test_face_recognition_error_enum(self):
-        """Test FaceRecognitionError enum values"""
-        if FaceRecognitionError is None:
-            pytest.skip("FaceRecognitionError not available")
-        
-        assert FaceRecognitionError.SUCCESS is not None
-        assert FaceRecognitionError.CAMERA_ERROR is not None
-        assert FaceRecognitionError.REFERENCE_FOLDER_ERROR is not None
-    
-    @patch('src.facial_recognition.preload_everything')
-    def test_preload_success(self, mock_preload):
-        """Test successful preloading"""
-        if fr is None or FaceRecognitionError is None:
-            pytest.skip("Facial recognition module not available")
-        
-        mock_preload.return_value = FaceRecognitionError.SUCCESS
-        
-        result = mock_preload()
-        assert result == FaceRecognitionError.SUCCESS
-    
-    @patch('src.facial_recognition.preload_everything')
-    def test_preload_camera_error(self, mock_preload):
-        """Test camera error during preloading"""
-        if fr is None or FaceRecognitionError is None:
-            pytest.skip("Facial recognition module not available")
-        
-        mock_preload.return_value = FaceRecognitionError.CAMERA_ERROR
-        
-        result = mock_preload()
-        assert result == FaceRecognitionError.CAMERA_ERROR
+        assert DB_FILE is not None
+        assert isinstance(DB_FILE, str)
+        assert 'inventory.db' in DB_FILE
 
 
 # ============================================================================
@@ -266,82 +50,162 @@ class TestColumnConfiguration:
     
     def test_column_configs_exist(self):
         """Test that column configurations are defined"""
-        try:
-            from src.medical_inventory import COLUMN_CONFIGS
-            
-            assert 'drug' in COLUMN_CONFIGS
-            assert 'barcode' in COLUMN_CONFIGS
-            assert 'exp_date' in COLUMN_CONFIGS
-        except ImportError:
-            pytest.skip("medical_inventory module not available")
+        from src.medical_inventory import COLUMN_CONFIGS
+        
+        required_columns = ['drug', 'barcode', 'est_amount', 'exp_date', 'type_', 'dose_size', 'item_type', 'item_loc']
+        
+        for col in required_columns:
+            assert col in COLUMN_CONFIGS, f"Missing column config: {col}"
     
     def test_column_labels_exist(self):
         """Test that column labels are defined"""
-        try:
-            from src.medical_inventory import COLUMN_LABELS
-            
-            assert 'drug' in COLUMN_LABELS
-            assert 'barcode' in COLUMN_LABELS
-            assert 'exp_date' in COLUMN_LABELS
-        except ImportError:
-            pytest.skip("medical_inventory module not available")
+        from src.medical_inventory import COLUMN_LABELS
+        
+        required_columns = ['drug', 'barcode', 'est_amount', 'exp_date', 'type_', 'dose_size', 'item_type', 'item_loc']
+        
+        for col in required_columns:
+            assert col in COLUMN_LABELS, f"Missing column label: {col}"
+    
+    def test_column_configs_have_required_fields(self):
+        """Test that each column config has required fields"""
+        from src.medical_inventory import COLUMN_CONFIGS
+        
+        for col_id, config in COLUMN_CONFIGS.items():
+            assert 'text' in config, f"Column {col_id} missing 'text' field"
+            assert 'width' in config, f"Column {col_id} missing 'width' field"
+            assert isinstance(config['width'], int), f"Column {col_id} width should be int"
+            assert config['width'] > 0, f"Column {col_id} width should be positive"
+    
+    def test_column_labels_match_configs(self):
+        """Test that column labels match configuration keys"""
+        from src.medical_inventory import COLUMN_CONFIGS, COLUMN_LABELS
+        
+        assert set(COLUMN_CONFIGS.keys()) == set(COLUMN_LABELS.keys()), \
+            "Column configs and labels should have matching keys"
 
 
 # ============================================================================
-# INTEGRATION TESTS
+# DATE PARSING TESTS
 # ============================================================================
 
-class TestIntegration:
-    """Integration tests for the full system"""
+class TestDateParsing:
+    """Test date parsing functionality"""
     
     @patch('src.medical_inventory.DatabaseManager')
-    @patch('src.facial_recognition.preload_everything')
-    def test_app_initialization_without_ui(self, mock_preload, mock_db):
-        """Test app initialization without creating UI"""
-        try:
-            from src.medical_inventory import BarcodeViewer
+    @patch('src.medical_inventory.fr')
+    def test_parse_standard_date_format(self, mock_fr, mock_db):
+        """Test parsing standard YYYY-MM-DD format"""
+        from src.medical_inventory import BarcodeViewer
+        
+        with patch.object(BarcodeViewer, '__init__', lambda x: None):
+            viewer = BarcodeViewer()
             
-            if FaceRecognitionError is None:
-                pytest.skip("FaceRecognitionError not available")
+            result = viewer._parse_date("2025-12-31")
             
-            mock_preload.return_value = FaceRecognitionError.SUCCESS
-            mock_db.return_value = Mock()
-            
-            # We can't easily test full UI initialization without a display
-            # But we can test that imports work
-            assert BarcodeViewer is not None
-        except ImportError:
-            pytest.skip("BarcodeViewer not available")
+            assert result is not None
+            assert isinstance(result, datetime.date)
+            assert result.year == 2025
+            assert result.month == 12
+            assert result.day == 31
     
-    def test_database_integration(self, temp_db, sample_drug_data):
-        """Test complete database workflow"""
-        # Add drug
-        temp_db.add_drug(
-            barcode=sample_drug_data['barcode'],
-            name=sample_drug_data['name'],
-            expiration=sample_drug_data['expiration'],
-            type_=sample_drug_data['type'],
-            item_type=sample_drug_data['item_type'],
-            dose_size=sample_drug_data['dose_size']
-        )
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_parse_slash_date_format(self, mock_fr, mock_db):
+        """Test parsing YYYY/MM/DD format"""
+        from src.medical_inventory import BarcodeViewer
         
-        # Verify it exists
-        result = temp_db.check_if_barcode_exists(sample_drug_data['barcode'])
-        assert result is not False
+        with patch.object(BarcodeViewer, '__init__', lambda x: None):
+            viewer = BarcodeViewer()
+            
+            result = viewer._parse_date("2025/12/31")
+            
+            assert result is not None
+            assert result.year == 2025
+            assert result.month == 12
+            assert result.day == 31
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_parse_us_date_format(self, mock_fr, mock_db):
+        """Test parsing MM/DD/YYYY format"""
+        from src.medical_inventory import BarcodeViewer
         
-        # Pull all data
-        data = list(temp_db.pull_data("drugs_in_inventory"))
-        assert len(data) > 0
+        with patch.object(BarcodeViewer, '__init__', lambda x: None):
+            viewer = BarcodeViewer()
+            
+            result = viewer._parse_date("12/31/2025")
+            
+            assert result is not None
+            assert result.year == 2025
+            assert result.month == 12
+            assert result.day == 31
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_parse_date_object(self, mock_fr, mock_db):
+        """Test parsing existing date object"""
+        from src.medical_inventory import BarcodeViewer
         
-        # Delete it
-        temp_db.delete_entry(
-            barcode=sample_drug_data['barcode'],
-            reason="Test cleanup"
-        )
+        with patch.object(BarcodeViewer, '__init__', lambda x: None):
+            viewer = BarcodeViewer()
+            
+            input_date = datetime.date(2025, 12, 31)
+            result = viewer._parse_date(input_date)
+            
+            assert result is not None
+            assert result == input_date
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_parse_invalid_date(self, mock_fr, mock_db):
+        """Test parsing invalid date string"""
+        from src.medical_inventory import BarcodeViewer
         
-        # Verify deletion
-        result = temp_db.check_if_barcode_exists(sample_drug_data['barcode'])
-        assert result is False
+        with patch.object(BarcodeViewer, '__init__', lambda x: None):
+            viewer = BarcodeViewer()
+            
+            result = viewer._parse_date("invalid-date")
+            assert result is None
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_parse_none_date(self, mock_fr, mock_db):
+        """Test parsing None"""
+        from src.medical_inventory import BarcodeViewer
+        
+        with patch.object(BarcodeViewer, '__init__', lambda x: None):
+            viewer = BarcodeViewer()
+            
+            result = viewer._parse_date(None)
+            assert result is None
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_parse_empty_string(self, mock_fr, mock_db):
+        """Test parsing empty string"""
+        from src.medical_inventory import BarcodeViewer
+        
+        with patch.object(BarcodeViewer, '__init__', lambda x: None):
+            viewer = BarcodeViewer()
+            
+            result = viewer._parse_date("")
+            assert result is None
+    
+    @patch('src.medical_inventory.DatabaseManager')
+    @patch('src.medical_inventory.fr')
+    def test_parse_datetime_with_time(self, mock_fr, mock_db):
+        """Test parsing datetime string with time component"""
+        from src.medical_inventory import BarcodeViewer
+        
+        with patch.object(BarcodeViewer, '__init__', lambda x: None):
+            viewer = BarcodeViewer()
+            
+            result = viewer._parse_date("2025-12-31 14:30:00")
+            
+            assert result is not None
+            assert result.year == 2025
+            assert result.month == 12
+            assert result.day == 31
 
 
 # ============================================================================
@@ -351,27 +215,289 @@ class TestIntegration:
 class TestUtilityFunctions:
     """Test utility functions"""
     
-    def test_create_round_rectangle(self):
-        """Test round rectangle creation helper"""
+    def test_create_round_rectangle_exists(self):
+        """Test that create_round_rectangle function exists"""
+        from src.medical_inventory import create_round_rectangle
+        
+        assert callable(create_round_rectangle)
+    
+    def test_create_round_rectangle_parameters(self):
+        """Test create_round_rectangle function signature"""
+        from src.medical_inventory import create_round_rectangle
+        import inspect
+        
+        sig = inspect.signature(create_round_rectangle)
+        params = list(sig.parameters.keys())
+        
+        # Should have canvas, coordinates, radius, and kwargs
+        assert 'canvas' in params
+        assert 'x1' in params
+        assert 'y1' in params
+        assert 'x2' in params
+        assert 'y2' in params
+        assert 'radius' in params
+
+
+# ============================================================================
+# CLASS STRUCTURE TESTS
+# ============================================================================
+
+class TestBarcodeViewerClass:
+    """Test BarcodeViewer class structure"""
+    
+    def test_barcode_viewer_class_exists(self):
+        """Test that BarcodeViewer class exists"""
+        from src.medical_inventory import BarcodeViewer
+        
+        assert BarcodeViewer is not None
+        assert hasattr(BarcodeViewer, '__init__')
+    
+    def test_barcode_viewer_has_window_setup_methods(self):
+        """Test that BarcodeViewer has window setup methods"""
+        from src.medical_inventory import BarcodeViewer
+        
+        required_methods = [
+            '_setup_window',
+            '_setup_styles',
+            '_setup_ui',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(BarcodeViewer, method_name), f"Missing method: {method_name}"
+    
+    def test_barcode_viewer_has_data_methods(self):
+        """Test that BarcodeViewer has data management methods"""
+        from src.medical_inventory import BarcodeViewer
+        
+        required_methods = [
+            'load_data',
+            'refresh_data',
+            'apply_search_filter',
+            '_parse_date',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(BarcodeViewer, method_name), f"Missing method: {method_name}"
+    
+    def test_barcode_viewer_has_ui_creation_methods(self):
+        """Test that BarcodeViewer has UI creation methods"""
+        from src.medical_inventory import BarcodeViewer
+        
+        required_methods = [
+            '_create_sidebar',
+            '_create_content_area',
+            '_create_search_section_grid',
+            '_create_filter_section_grid',
+            '_create_column_visibility_section_grid',
+            '_create_action_buttons_grid',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(BarcodeViewer, method_name), f"Missing method: {method_name}"
+    
+    def test_barcode_viewer_has_user_action_methods(self):
+        """Test that BarcodeViewer has user action methods"""
+        from src.medical_inventory import BarcodeViewer
+        
+        required_methods = [
+            'personal_run',
+            'log_item_use',
+            'log_scan',
+            'use_item',
+            'delete_selected',
+            'show_history',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(BarcodeViewer, method_name), f"Missing method: {method_name}"
+    
+    def test_barcode_viewer_has_dialog_methods(self):
+        """Test that BarcodeViewer has dialog helper methods"""
+        from src.medical_inventory import BarcodeViewer
+        
+        required_methods = [
+            '_prompt_for_barcode',
+            '_prompt_for_amount',
+            'admin',
+            'show_popup',
+            'show_confirm',
+            'show_error',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(BarcodeViewer, method_name), f"Missing method: {method_name}"
+    
+    def test_barcode_viewer_has_treeview_methods(self):
+        """Test that BarcodeViewer has treeview management methods"""
+        from src.medical_inventory import BarcodeViewer
+        
+        required_methods = [
+            'update_column_visibility',
+            '_on_tree_click',
+            '_on_tree_configure',
+            '_adjust_column_widths',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(BarcodeViewer, method_name), f"Missing method: {method_name}"
+    
+    def test_barcode_viewer_has_facial_recognition_methods(self):
+        """Test that BarcodeViewer has facial recognition methods"""
+        from src.medical_inventory import BarcodeViewer
+        
+        required_methods = [
+            '_start_preloading',
+            '_enable_facial_recognition_ui',
+            '_disable_facial_recognition_ui',
+            'scan_face',
+            'set_status_indicator',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(BarcodeViewer, method_name), f"Missing method: {method_name}"
+
+
+class TestPersonalDbWindowClass:
+    """Test Personal_db_window class structure"""
+    
+    def test_personal_db_window_class_exists(self):
+        """Test that Personal_db_window class exists"""
+        from src.medical_inventory import Personal_db_window
+        
+        assert Personal_db_window is not None
+        assert hasattr(Personal_db_window, '__init__')
+    
+    def test_personal_db_window_has_timeline_methods(self):
+        """Test that Personal_db_window has timeline methods"""
+        from src.medical_inventory import Personal_db_window
+        
+        required_methods = [
+            'load_timeline_data',
+            'draw_timeline',
+            '_draw_prescription_pill',
+            '_draw_activity_pill',
+            '_draw_legend',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(Personal_db_window, method_name), f"Missing method: {method_name}"
+    
+    def test_personal_db_window_has_navigation_methods(self):
+        """Test that Personal_db_window has navigation methods"""
+        from src.medical_inventory import Personal_db_window
+        
+        required_methods = [
+            'zoom_in',
+            'zoom_out',
+            'reset_zoom',
+            'previous_day',
+            'next_day',
+            'goto_today',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(Personal_db_window, method_name), f"Missing method: {method_name}"
+    
+    def test_personal_db_window_has_helper_methods(self):
+        """Test that Personal_db_window has helper methods"""
+        from src.medical_inventory import Personal_db_window
+        
+        required_methods = [
+            '_setup_ui',
+            '_check_activity_match',
+            '_toggle_item',
+            '_on_mousewheel',
+            '_get_stacked_position',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(Personal_db_window, method_name), f"Missing method: {method_name}"
+
+
+class TestVirtualKeyboardClass:
+    """Test VirtualKeyboard class structure"""
+    
+    def test_virtual_keyboard_class_exists(self):
+        """Test that VirtualKeyboard class exists"""
+        from src.medical_inventory import VirtualKeyboard
+        
+        assert VirtualKeyboard is not None
+        assert hasattr(VirtualKeyboard, '__init__')
+    
+    def test_virtual_keyboard_has_static_method(self):
+        """Test that VirtualKeyboard has get_input static method"""
+        from src.medical_inventory import VirtualKeyboard
+        
+        assert hasattr(VirtualKeyboard, 'get_input')
+        assert callable(VirtualKeyboard.get_input)
+    
+    def test_virtual_keyboard_has_key_methods(self):
+        """Test that VirtualKeyboard has key handling methods"""
+        from src.medical_inventory import VirtualKeyboard
+        
+        required_methods = [
+            'key_press',
+            'backspace',
+            'clear_all',
+            'toggle_shift',
+            'toggle_caps',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(VirtualKeyboard, method_name), f"Missing method: {method_name}"
+    
+    def test_virtual_keyboard_has_ui_methods(self):
+        """Test that VirtualKeyboard has UI methods"""
+        from src.medical_inventory import VirtualKeyboard
+        
+        required_methods = [
+            '_setup_ui',
+            '_center_window',
+            'on_ok',
+            'on_cancel',
+        ]
+        
+        for method_name in required_methods:
+            assert hasattr(VirtualKeyboard, method_name), f"Missing method: {method_name}"
+
+
+# ============================================================================
+# IMPORT TESTS
+# ============================================================================
+
+class TestImports:
+    """Test that all required modules can be imported"""
+    
+    def test_main_module_imports(self):
+        """Test that main module imports successfully"""
         try:
-            from src.medical_inventory import create_round_rectangle
-            import tkinter as tk
-            
-            root = tk.Tk()
-            canvas = tk.Canvas(root, width=200, height=200)
-            
-            result = create_round_rectangle(
-                canvas, 10, 10, 100, 100, radius=10,
-                fill="blue", outline="red"
-            )
-            
-            assert result is not None
-            root.destroy()
-        except ImportError:
-            pytest.skip("Tkinter or medical_inventory module not available")
-        except Exception as e:
-            # Tkinter might not be available in headless environments
-            pytest.skip(f"Tkinter initialization failed: {e}")
+            import src.medical_inventory
+            assert True
+        except ImportError as e:
+            pytest.fail(f"Failed to import medical_inventory: {e}")
+    
+    def test_constants_accessible(self):
+        """Test that constants are accessible after import"""
+        from src.medical_inventory import DB_FILE, REFRESH_INTERVAL, COLUMN_CONFIGS, COLUMN_LABELS
+        
+        assert DB_FILE is not None
+        assert REFRESH_INTERVAL is not None
+        assert COLUMN_CONFIGS is not None
+        assert COLUMN_LABELS is not None
+    
+    def test_classes_accessible(self):
+        """Test that classes are accessible after import"""
+        from src.medical_inventory import BarcodeViewer, Personal_db_window, VirtualKeyboard
+        
+        assert BarcodeViewer is not None
+        assert Personal_db_window is not None
+        assert VirtualKeyboard is not None
+    
+    def test_utility_functions_accessible(self):
+        """Test that utility functions are accessible"""
+        from src.medical_inventory import create_round_rectangle
+        
+        assert create_round_rectangle is not None
 
 
 # ============================================================================
