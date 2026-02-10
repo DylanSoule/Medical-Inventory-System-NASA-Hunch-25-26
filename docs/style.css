@@ -236,7 +236,7 @@ body {
 
 
 .column hr {
-    border: 1px solid #4774c0;
+    border: 1px solid #4570bb;
     margin-left: 0;
 }
 
@@ -253,7 +253,7 @@ body {
 }
 
 .section h2 {
-    color: #4774c0;
+    color: #4570bb;
     text-align: center;
     margin-bottom: 20px;
 }
@@ -289,7 +289,7 @@ body {
 }
 
 .feature-item h3 {
-    color: #4774c0;
+    color: #4570bb;
     margin-bottom: 15px;
     font-size: 1.3em;
 }
@@ -359,7 +359,7 @@ body {
 }
 
 .sub-bullets li strong {
-    color: #764ba2;
+    color: #1e47b6;
 }
 
 .nested-sub-bullets {
@@ -446,7 +446,6 @@ table tr:nth-child(even):hover {
     margin: 40px auto;
     max-width: 1000px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    border: 3px solid rgba(69, 112, 187, 0.7);
     position: relative;
     z-index: 1;
 }
@@ -544,7 +543,6 @@ table tr:nth-child(even):hover {
     border-radius: 10px;
     display: flex;
     flex-direction: column;
-    border: 2px solid rgba(69, 112, 187, 0.5);
     visibility: hidden;
     opacity: 0;
     transition: all 0.5s ease-in-out;
@@ -727,11 +725,8 @@ footer {
     padding: 25px 20px 20px 20px !important;
     text-align: center;
     margin: 40px -20px -20px -20px !important;
-    color: white !important;
+    color: rgb(43, 31, 31) !important;
     width: calc(100% + 40px) !important;
-    margin-left: -20px !important;
-    margin-right: -20px !important;
-    margin-bottom: -20px !important;
     position: relative;
     z-index: 1;
 }
