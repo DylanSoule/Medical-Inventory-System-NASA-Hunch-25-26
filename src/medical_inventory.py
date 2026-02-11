@@ -879,7 +879,7 @@ class BarcodeViewer(ctk.CTk):
     
     def log_scan(self, user=None):
         """Log item restock"""
-        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        time = datetime.datetime.now().strftime("%Y-%m-%d")
         
         if user is None or user == "":
             return
@@ -909,7 +909,7 @@ class BarcodeViewer(ctk.CTk):
     
     def use_item(self, user=None):
         """Log item usage"""
-        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        time = datetime.datetime.now().strftime("%Y-%m-%d")
         
         barcode = self._prompt_for_barcode(prompt="Scan item barcode", title="Item Usage - Scan Barcode")
         if barcode is None or barcode.strip() == "":
@@ -1862,7 +1862,7 @@ class Personal_db_window(ctk.CTkToplevel):
                     dt = None
                     try:
                         #ignore the error it works fine
-                        dt = datetime.datetime.strptime(when_taken, "%Y-%m-%d %H:%M:%S")
+                        dt = datetime.datetime.strptime(when_taken, "%Y-%m-%d")
                     except:
                         try:
                             dt = datetime.datetime.fromisoformat(when_taken)
@@ -1886,7 +1886,7 @@ class Personal_db_window(ctk.CTkToplevel):
                     continue
             
             # Get scheduled prescriptions for this date
-            date_str = self.current_date.strftime("%Y-%m-%d %H:%M:%S")
+            date_str = self.current_date.strftime("%Y-%m-%d")
             try:
                 _, prescript_logs = self.personal_db.get_personal_data(date_str)
                 
@@ -1965,7 +1965,7 @@ class Personal_db_window(ctk.CTkToplevel):
             when_taken = datetime.datetime.combine(
                 current_date_only,
                 activity['time']
-            ).strftime("%Y-%m-%d %H:%M:%S")
+            ).strftime("%Y-%m-%d")
             
             log = (
                 activity['barcode'],
