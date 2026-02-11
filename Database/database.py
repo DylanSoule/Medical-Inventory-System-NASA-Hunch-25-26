@@ -554,7 +554,7 @@ class PersonalDatabaseManager:
 
             diff = (pdate-ndate).total_seconds()
 
-            if (diff/86400)%prescript[2]==0:
+            if (diff/86400)%prescript[3]==0:
                 prescript_logs.append((prescript[0],prescript[1],prescript[2], prescript[4], prescript[5],))
         
         return hist_logs, prescript_logs
