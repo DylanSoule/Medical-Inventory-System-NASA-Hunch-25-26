@@ -1887,7 +1887,7 @@ class Personal_db_window(ctk.CTkToplevel):
                     continue
             
             # Get scheduled prescriptions for this date
-            date_str = self.current_date.strftime("%Y-%m-%d")
+            date_str = self.current_date.strftime("%Y-%m-%d %H:%M:%S")
             try:
                 prescript_logs = self.personal_db.get_personal_data(date_str)
                 
@@ -1906,7 +1906,7 @@ class Personal_db_window(ctk.CTkToplevel):
                             leeway_formatted = int(leeway_formatted)
                         else:
                             leeway_formatted = 60
-                        
+                    
                         self.prescriptions.append({
                             'time': scheduled_time,
                             'name': name,
