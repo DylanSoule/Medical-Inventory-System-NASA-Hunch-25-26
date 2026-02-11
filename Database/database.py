@@ -547,7 +547,7 @@ class PersonalDatabaseManager:
         prescript_dates = c.fetchall()
         prescript_logs= []
         for prescript in prescript_dates:
-            pdate = datetime.strptime(prescript[6], '%Y-%m-%d')
+            pdate = datetime.strptime(prescript[6], time_format)
             pdate = pdate.date()
             ndate = datetime.strptime(date, time_format)
             ndate = ndate.date()
