@@ -219,6 +219,11 @@ class DatabaseManager:
         except Exception as e:
             print("Error:",e)
 
+        is_prescribed = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
+        result = is_prescribed.compare_most_recent_log_with_prescription()
+
+        c.execute("UPDATE history SET is_prescribed = ? WHERE when_taken = ?", (result,date_time,))
+
         conn.commit()
         conn.close()
 
