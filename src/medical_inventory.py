@@ -1563,7 +1563,7 @@ class Personal_db_window(ctk.CTkToplevel):
         self.transient(parent)
         self.parent = parent
         self.user = user
-        self.current_date = datetime.datetime.now()
+        self.current_date = datetime.datetime.today()
         self.zoom_level = 10.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
         self.db = DatabaseManager(DB_FILE)
         self.expanded_items = set()  # Track which items are expanded
@@ -1834,6 +1834,7 @@ class Personal_db_window(ctk.CTkToplevel):
         self.activities = []
         self.prescriptions = []
         self.as_needed_prescriptions = []
+
     
         if not self.personal_db:
             self.draw_timeline()
@@ -1848,7 +1849,7 @@ class Personal_db_window(ctk.CTkToplevel):
                 current_date_only = self.current_date
             
             # Query all history logs and filter by date
-            all_history = self.personal_db.pull_data('history')
+            all_history = self.personal_db.get_personal_data('history')
             
             for log in all_history:
                 try:
@@ -1888,7 +1889,7 @@ class Personal_db_window(ctk.CTkToplevel):
             # Get scheduled prescriptions for this date
             date_str = self.current_date.strftime("%Y-%m-%d")
             try:
-                _, prescript_logs = self.personal_db.get_personal_data(date_str)
+                prescript_logs = self.personal_db.get_personal_data(date_str)
                 
                 for prescription in prescript_logs:
                     try:
@@ -1905,7 +1906,7 @@ class Personal_db_window(ctk.CTkToplevel):
                             leeway_formatted = int(leeway_formatted)
                         else:
                             leeway_formatted = 60
-                        print(leeway_formatted)
+                        
                         self.prescriptions.append({
                             'time': scheduled_time,
                             'name': name,
