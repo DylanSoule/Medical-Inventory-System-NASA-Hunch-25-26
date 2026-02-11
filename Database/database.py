@@ -509,7 +509,7 @@ class PersonalDatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         
-        c.execute(f"SELECT * FROM prescription WHERE barcode = {log[0]}")
+        c.execute("SELECT * FROM prescription WHERE barcode = ?", (log[0],))
         matching_prescriptions = c.fetchall()
 
         if matching_prescriptions == []:
@@ -517,19 +517,30 @@ class PersonalDatabaseManager:
             return False, "No Matches Found"
         try:
             date_taken = datetime.strptime(log[2], time_format)
-        except TypeError:
+        except (TypeError, ValueError):
             for prescription in matching_prescriptions:
                 if prescription[8] == True:
                     conn.close()
                     return True, "As needed"
+            conn.close()
             return False, "Datetime"
 
         for prescription in matching_prescriptions:
-            prescription_start_date = datetime.strptime(prescription[6], time_format)
-            difference = (date_taken - prescription_start_date).total_seconds()
-            if (86400 - (difference % (prescription[3]*86400))) <= float(prescription[5] * 3600) or (difference % (prescription[3]*86400)) <= float(prescription[5] * 3600) and (int(log[3]) == prescription[2]):
-                conn.close()
-                return True, "Matches Prescription"
+            try:
+                prescription_start_date = datetime.strptime(prescription[6], time_format)
+                frequency = prescription[3]
+                leeway = prescription[5]
+                if not frequency or frequency <= 0 or not leeway:
+                    continue
+                difference = (date_taken - prescription_start_date).total_seconds()
+                if difference < 0:
+                    continue
+                if (86400 - (difference % (frequency*86400))) <= float(leeway * 3600) or (difference % (frequency*86400)) <= float(leeway * 3600) and (int(log[3]) == prescription[2]):
+                    conn.close()
+                    return True, "Matches Prescription"
+            except Exception as e:
+                print(f"Error comparing prescription: {e}")
+                continue
         conn.close()
         return False, "No Time Match"
 
@@ -540,23 +551,40 @@ class PersonalDatabaseManager:
         
         print(self.db_path)
 
-        c.execute('SELECT * FROM history WHERE when_taken = ?',(date,))
+        # Get history for the specific date (match on date portion)
+        try:
+            ndate = datetime.strptime(date, time_format).date()
+            date_start = datetime.combine(ndate, datetime.min.time()).strftime(time_format)
+            date_end = datetime.combine(ndate, datetime.max.time()).strftime(time_format)
+            c.execute('SELECT * FROM history WHERE when_taken BETWEEN ? AND ?', (date_start, date_end))
+        except Exception:
+            c.execute('SELECT * FROM history WHERE when_taken = ?', (date,))
         hist_logs = c.fetchall()
 
         c.execute('SELECT barcode, dname, dosage, frequency, time, leeway, start_date FROM prescription WHERE as_needed = ?', (False,))
         prescript_dates = c.fetchall()
         prescript_logs= []
         for prescript in prescript_dates:
-            pdate = datetime.strptime(prescript[6], time_format)
-            pdate = pdate.date()
-            ndate = datetime.strptime(date, time_format)
-            ndate = ndate.date()
+            try:
+                frequency = prescript[3]
+                if not frequency or frequency <= 0:
+                    continue
+                
+                start_date_str = prescript[6]
+                if not start_date_str:
+                    continue
 
-            diff = (pdate-ndate).total_seconds()
+                pdate = datetime.strptime(start_date_str, time_format).date()
 
-            if (diff/86400)%prescript[3]==0:
-                prescript_logs.append((prescript[0],prescript[1],prescript[2], prescript[4], prescript[5],))
+                diff_days = abs((ndate - pdate).days)
+
+                if diff_days % frequency == 0:
+                    prescript_logs.append((prescript[0], prescript[1], prescript[2], prescript[4], prescript[5],))
+            except Exception as e:
+                print(f"Error processing prescription {prescript}: {e}")
+                continue
         
+        conn.close()
         return hist_logs, prescript_logs
 
 
