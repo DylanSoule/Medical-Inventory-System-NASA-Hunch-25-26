@@ -388,10 +388,11 @@ class DatabaseManager:
         c = conn.cursor()
 
         if table != 'drug_changes':
-            c.execute("SELECT * FROM ?",(table,))
+            c.execute(f"SELECT * FROM {table};")
             table = c.fetchall()
         else:
-            c.execute("SELECT *  FROM ? ORDER BY time ASC", (table,))
+            c.execute(f"SELECT * FROM {table} ORDER BY time ASC;")
+            table = c.fetchall()
         
         conn.close()
         return table
@@ -555,8 +556,10 @@ class PersonalDatabaseManager:
     def get_personal_data(self, date):
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
+
+        connection = sqlite3.connect('Database/inventory.db')
+        cursor = connection.cursor()
         
-        print(self.db_path)
 
         # Get history for the specific date (match on date portion)
         try:
@@ -586,11 +589,18 @@ class PersonalDatabaseManager:
                 diff_days = abs((ndate - pdate).days)
 
                 if diff_days % frequency == 0:
-                    prescript_logs.append((prescript[0], prescript[1], prescript[2], prescript[4], prescript[5],))
+                    cursor.execute("SELECT item_type, dose_size FROM drugs WHERE barcode = ?", (str(prescript[0]),))
+                    dose_list = cursor.fetchone()
+                    dose = dose_list[1] + ' '+dose_list[0]
+                    prescript_logs.append((prescript[0], prescript[1], prescript[2], prescript[4], prescript[5],dose))
             except Exception as e:
                 print(f"Error processing prescription {prescript}: {e}")
                 continue
+
         
+        
+
+        connection.close()
         conn.close()
         return hist_logs, prescript_logs
 
@@ -646,10 +656,12 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    read = PersonalDatabaseManager('Database/dylan_records.db')
+    read = PersonalDatabaseManager('Database/brody_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
-    print(read1.pattern_recognition())
+    print(read.get_personal_data('2026-02-12 13:40:00'))
+    # print(read1.pattern_recognition())
+    # read1.pull_data('drug_changes')
     # print(read.pull_data('history'))
     # print(read.compare_history_with_prescription(days_back=60))
     # print(read.compare_most_recent_log_with_prescription())
