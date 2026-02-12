@@ -12,7 +12,6 @@ import customtkinter as ctk
 import os
 import sys
 import datetime
-import tkcalendar as tkcal
 import threading
 import time
 import tkinter.font as tkfont
@@ -119,7 +118,10 @@ class BarcodeViewer(ctk.CTk):
         style.configure("TLabel", font=("Arial", 28))
         style.configure("TButton", font=("Arial", 24), padding=20)
         style.configure("Treeview", font=("Arial", 22), rowheight=55)
+        style.configure("Treeview", background="#292929", foreground="#f8f8f8", fieldbackground="#292929")
         style.configure("Treeview.Heading", font=("Arial", 24, "bold"))
+        style.configure("Treeview.Heading", background="#646464", foreground="#292929")
+
         
         # Configure scrollbar thickness
         style.configure("Vertical.TScrollbar", width=30)  # Make vertical scrollbar 30 pixels wide
@@ -1035,6 +1037,7 @@ class BarcodeViewer(ctk.CTk):
         
         for row in self.db.pull_data("drug_changes"):
             tree.insert("", "end", values=row)
+
     #endregion
 
     # ========================================================================
@@ -1585,28 +1588,14 @@ class Personal_db_window(ctk.CTkToplevel):
     
         # Set fullscreen
         self.update_idletasks()
+
+        def screen():
+            screen_width = self.winfo_screenwidth()
+            screen_height = self.winfo_screenheight()
+            return (screen_width * screen_height)
         
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
         
-        try:
-            self.attributes("-fullscreen", True)
-            self.after(0, lambda: self.attributes("-fullscreen", True))
-        except Exception:
-            pass
-        
-        def enforce_fullscreen():
-            try:
-                self.attributes("-fullscreen", True)
-            except Exception:
-                try:
-                    self.state("zoomed")
-                except Exception:
-                    pass
-            self.geometry(f"{screen_width}x{screen_height}+0+0")
-        
-        enforce_fullscreen()
-        self.after(100, enforce_fullscreen)
+
         
         self.lift()
         self.focus_force()
