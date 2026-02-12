@@ -380,11 +380,15 @@ class DatabaseManager:
             if the table name is not properly validated. Ensure that the table name is validated against
             a whitelist of expected table names before calling this function.
         """
+        
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-        c.execute(f"SELECT * FROM {table}")
-        table = c.fetchall()
+        if table != 'drug_changes':
+            c.execute("SELECT * FROM ?",(table,))
+            table = c.fetchall()
+        else:
+            c.execute("SELECT *  FROM ? ORDER BY time ASC", (table,))
         
         conn.close()
         return table
