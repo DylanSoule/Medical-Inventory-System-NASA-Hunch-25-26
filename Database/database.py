@@ -157,11 +157,14 @@ class DatabaseManager:
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
         drug_info = c.fetchone()
         
-        try:
-            c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
-        except Exception as e:
-            print("Error:",e)
+        if drug_info[2] + change <= 0:
+            c.execute("DELETE * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        else:
+            try:
+                c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
+                c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
+            except Exception as e:
+                print("Error:",e)
         
         conn.commit()
         conn.close()
