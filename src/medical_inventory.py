@@ -1594,9 +1594,25 @@ class Personal_db_window(ctk.CTkToplevel):
             screen_height = self.winfo_screenheight()
             return (screen_width * screen_height)
         
+        def window():
+            window_width = self.winfo_width()
+            window_height = self.winfo_height()
+            return (window_width * window_height)
         
+        if screen():
+            self.attributes("-fullscreen", True)
 
-        
+            if screen() != window():
+                self.attributes("-fullscreen", False)
+                window_width = self.winfo_screenwidth()
+                window_height = self.winfo_screenheight()
+                self.geometry(f"{window_width}x{window_height}+0+0")
+                pass 
+        else:
+            pass
+                
+                
+        self.resizable(False, True)
         self.lift()
         self.focus_force()
         
@@ -1892,11 +1908,10 @@ class Personal_db_window(ctk.CTkToplevel):
             # Process prescriptions
             for prescription in prescript_logs:
                 try:
-                    if len(prescription) < 5:
+                    if len(prescription) < 6:
                         continue
                         
-                    barcode, name, dosage, time_str, leeway, = prescription[0], prescription[1], prescription[2], prescription[3], prescription[4]
-                    item_type = None
+                    barcode, name, dosage, time_str, leeway, item_type = prescription[0], prescription[1], prescription[2], prescription[3], prescription[4], prescription[5]
                     scheduled_time = self._parse_time(time_str)
 
                     if leeway:
@@ -1905,9 +1920,9 @@ class Personal_db_window(ctk.CTkToplevel):
                         leeway_formatted = 60
 
                     if dosage and item_type:
-                        dose = dosage + " " + item_type
+                        dose = str(dosage) + " " + item_type
                     else:
-                        dose = dosage
+                        dose = str(dosage)
 
                     self.prescriptions.append({
                         'time': scheduled_time,
@@ -1916,7 +1931,7 @@ class Personal_db_window(ctk.CTkToplevel):
                         'barcode': barcode,
                         'leeway': leeway_formatted,
                     })
-                    print(dosage)
+
                 except Exception as e:
                     print(f"Error processing prescription: {e}, prescription: {prescription}")
                     continue
@@ -2165,7 +2180,7 @@ class Personal_db_window(ctk.CTkToplevel):
             # Dosage
             dose_id = self.timeline_canvas.create_text(
                 x, y_base - card_height + 100,
-                text=f"📊 {prescription['dosage']} dose",
+                text=f"📊 {prescription['dosage']}",
                 fill="#93c5fd",
                 font=("Arial", int(10 * min(self.zoom_level, 1.5)))
             )

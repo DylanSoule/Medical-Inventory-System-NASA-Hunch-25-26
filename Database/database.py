@@ -391,7 +391,7 @@ class DatabaseManager:
             c.execute(f"SELECT * FROM {table};")
             table = c.fetchall()
         else:
-            c.execute(f"SELECT * FROM {table} ORDER BY time ASC;")
+            c.execute(f"SELECT * FROM {table} ORDER BY time DESC;")
             table = c.fetchall()
         
         conn.close()
