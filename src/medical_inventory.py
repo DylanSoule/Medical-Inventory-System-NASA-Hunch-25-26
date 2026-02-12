@@ -1895,8 +1895,8 @@ class Personal_db_window(ctk.CTkToplevel):
                     if len(prescription) < 5:
                         continue
                         
-                    barcode, name, dosage, time_str, leeway = prescription[0], prescription[1], prescription[2], prescription[3], prescription[4]
-                    
+                    barcode, name, dosage, time_str, leeway, = prescription[0], prescription[1], prescription[2], prescription[3], prescription[4]
+                    item_type = None
                     scheduled_time = self._parse_time(time_str)
 
                     if leeway:
@@ -1904,15 +1904,19 @@ class Personal_db_window(ctk.CTkToplevel):
                     else:
                         leeway_formatted = 60
 
+                    if dosage and item_type:
+                        dose = dosage + " " + item_type
+                    else:
+                        dose = dosage
+
                     self.prescriptions.append({
                         'time': scheduled_time,
                         'name': name,
-                        'dosage': dosage,
+                        'dosage': dose,
                         'barcode': barcode,
                         'leeway': leeway_formatted,
-                        'type': 'prescription'
                     })
-                
+                    print(dosage)
                 except Exception as e:
                     print(f"Error processing prescription: {e}, prescription: {prescription}")
                     continue
