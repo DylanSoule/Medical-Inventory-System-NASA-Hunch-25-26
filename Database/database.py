@@ -607,7 +607,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
-    print(read1.pattern_recognition())
+    print(str(read1.pattern_recognition()).replace(', ', '\n'))
     # print(read.pull_data('history'))
     # print(read.compare_history_with_prescription(days_back=60))
     # print(read.compare_most_recent_log_with_prescription())
