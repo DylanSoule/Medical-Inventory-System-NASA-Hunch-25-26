@@ -3,23 +3,24 @@ import mysql.connector
 
 liteconn = sqlite3.connect('Database/inventory.db')
 
-myconn = connection = mysql.connector.connect(
+myconn = mysql.connector.connect(
     host="localhost",
     user="root",
     password="1234",
-    database="inventory-system"
+    database="inventory_system"
 )
 
 lite_c = liteconn.cursor()
 
 my_c = myconn.cursor()
 
-lite_c.execute("SELECT * FROM drugs;")
+lite_c.execute("SELECT barcode,estimated_amount FROM drugs_in_inventory;")
 drugs = lite_c.fetchall()
 
 for entry in drugs:
-    my_c.execute("INSERT * INTO medications VALUES (?,?,?,?,?,?)",(entry[0],entry[1],entry[2],entry[4],entry[6]+' '+entry[5],entry[3]))
+    my_c.execute("INSERT INTO in_inventory (barcode, amount) VALUES (%s, %s)", (entry[0],entry[1]))
 
 liteconn.close()
+
 myconn.commit()
 myconn.close()
