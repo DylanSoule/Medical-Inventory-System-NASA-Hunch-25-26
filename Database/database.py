@@ -284,7 +284,7 @@ class DatabaseManager:
         users=['dylan'],
         whole=True,
         z_thresh=2.0,
-        ratio_thresh=1.2,
+        ratio_thresh=1.5,
         baseline_window=3
     ):
         conn = sqlite3.connect(self.db_path)
