@@ -1,4 +1,4 @@
-import sqlite3
+import mysql.connector
 from datetime import datetime, timedelta
 import numpy as np
 
@@ -12,17 +12,20 @@ time_format = "%Y-%m-%d %H:%M:%S"
 
 
 class DatabaseManager:
-    def __init__(self, path_to_db):
-        self.db_path = path_to_db
-        self.create_inventory()
+    def __init__(self, host,user,password,database):
+        self.host = host
+        self.user = user
+        self.password = password
+        self.database = database
+        # self.create_inventory()
 
-
+    """
     def create_inventory(self):
-        """
+         
         This function just creates the inventory database, realistically it doesn't ever need to be used if the database is already created, will likely be deleted eventually, but keeping just in case for now
 
         It initializes the two tables for what we have and what drugs are possible, so you can pull based on barcodes.
-        """
+        
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute('''
@@ -63,9 +66,9 @@ class DatabaseManager:
 
         conn.commit()
         conn.close()
+    """
 
-
-    def add_to_inventory(self, barcode, user):
+    def add_to_inventory(self, barcode, user, expiration_date,location):
         """
         Adds a drug to the inventory if it exists in the drugs database and logs the change.
 
@@ -82,10 +85,16 @@ class DatabaseManager:
         Note:
             This method does not raise exceptions; instead, it returns exception types or instances on error.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="local_host",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
-        c.execute("SELECT * FROM drugs WHERE barcode = ?", (barcode,))
+        c.execute("SELECT * FROM medications WHERE barcode = %s", (barcode,))
         drug = c.fetchone()
 
         if not drug:
@@ -95,20 +104,25 @@ class DatabaseManager:
 
         try:
             c.execute('''
-                INSERT INTO drugs_in_inventory (barcode, dname, estimated_amount, expiration_date, type, item_type, dose_size)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (drug[0], drug[1], drug[2], drug[3], drug[4], drug[5], drug[6]))
-        except (sqlite3.IntegrityError):
+                INSERT INTO in_inventory (barcode, estimated_amount_remaining, expiration_date, location)
+                VALUES (%s, %s, %s, %s,)
+            ''', (drug[0], drug[2], drug[2], expiration_date,location))
+        except (mysql.IntegrityError):
             conn.close()
             return IndexError
         except Exception as e:
             conn.close()
             return e
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug[1], drug[2], user, 'New Entry', datetime.now().strftime(time_format)))
+        c.execute("SELECT MAX(id) FROM in_inventory;")
+        iid = c.fetchone[0]
+        c.execute("SELECT id FROM people WHERE name = %s",(user,))
+        pid = c.fetchone[0]
+        c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use) VALUES (%s,%s,%s,%s,%s)",(barcode, iid, , user, 'New Entry', datetime.now().strftime(time_format),)) 
 
         conn.commit()
         conn.close()
+
 
 
     def add_to_drugs_database(self, barcode, dname, amount, expiration_date, Type, item_type, dose_size):
@@ -130,7 +144,7 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         
-        c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date, type, item_type, dose_size) VALUES (?,?,?,?,?,?,?)", (barcode, dname, amount, expiration_date,Type,item_type, dose_size))
+        c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date, type, item_type, dose_size) VALUES (%s,%s,%s,%s,%s,%s,%s)", (barcode, dname, amount, expiration_date,Type,item_type, dose_size))
 
         conn.commit()
         conn.close()
@@ -154,12 +168,12 @@ class DatabaseManager:
         c = conn.cursor()
 
 
-        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = %s", (barcode,))
         drug_info = c.fetchone()
         
         try:
-            c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
+            c.execute("UPDATE drugs_in_inventory SET estimated_amount = %s WHERE barcode = %s", (drug_info[2] + change, barcode))
+            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (%s,%s,%s,%s,%s,%s)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
         except Exception as e:
             print("Error:",e)
         
@@ -171,7 +185,7 @@ class DatabaseManager:
         c = conn.cursor()
         
         try:
-            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change)))
+            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (%s,%s,%s,%s)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change)))
         except Exception as e:
             print("Error:",e)
 
@@ -198,12 +212,12 @@ class DatabaseManager:
         c = conn.cursor()
 
 
-        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = %s", (barcode,))
         drug_info = c.fetchone()
         
         try:
-            c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', date_time))
+            c.execute("UPDATE drugs_in_inventory SET estimated_amount = %s WHERE barcode = %s", (drug_info[2] + change, barcode))
+            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (%s,%s,%s,%s,%s,%s)", (drug_info[0], drug_info[1], change, user, 'Access', date_time))
         except Exception as e:
             print("Error:",e)
         
@@ -215,14 +229,14 @@ class DatabaseManager:
         c = conn.cursor()
         
         try:
-            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], date_time, abs(change)))
+            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (%s,%s,%s,%s)", (drug_info[0], drug_info[1], date_time, abs(change)))
         except Exception as e:
             print("Error:",e)
 
         is_prescribed = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
         result = is_prescribed.compare_most_recent_log_with_prescription()
 
-        c.execute("UPDATE history SET is_prescribed = ? WHERE when_taken = ?", (result,date_time,))
+        c.execute("UPDATE history SET is_prescribed = %s WHERE when_taken = %s", (result,date_time,))
 
         conn.commit()
         conn.close()
@@ -239,7 +253,7 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = %s", (barcode,))
         check = c.fetchone()
 
         if not check:
@@ -263,12 +277,12 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = %s", (barcode,))
         drug_info = c.fetchone()
 
-        c.execute("DELETE FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        c.execute("DELETE FROM drugs_in_inventory WHERE barcode = %s", (barcode,))
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time, reason) VALUES (?,?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.now().strftime(time_format), reason,))
+        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time, reason) VALUES (%s,%s,%s,%s,%s,%s,%s)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.now().strftime(time_format), reason,))
 
         conn.commit()
         conn.close()
@@ -328,7 +342,7 @@ class DatabaseManager:
                     c.execute("""
                         SELECT COALESCE(SUM(change), 0)
                         FROM drug_changes
-                        WHERE time BETWEEN ? AND ?
+                        WHERE time BETWEEN %s AND %s
                     """, (back, front))
 
                     totals.append(c.fetchone()[0])
@@ -349,9 +363,9 @@ class DatabaseManager:
                         c.execute("""
                             SELECT COALESCE(SUM(change), 0)
                             FROM drug_changes
-                            WHERE time BETWEEN ?
-                            AND ?
-                            AND user = ?
+                            WHERE time BETWEEN %s
+                            AND %s
+                            AND user = %s
                         """, (back, front, user))
 
                         totals.append(c.fetchone()[0])
@@ -456,7 +470,7 @@ class PersonalDatabaseManager:
         c = conn.cursor()
 
 
-        c.execute("INSERT INTO prescription (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed) VALUES (?,?,?,?,?,?,?,?,?)", (barcode, drug_name, dose, frequency, time, leeway, start_date, end_date, as_needed))
+        c.execute("INSERT INTO prescription (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)", (barcode, drug_name, dose, frequency, time, leeway, start_date, end_date, as_needed))
 
 
         conn.commit()
@@ -470,7 +484,7 @@ class PersonalDatabaseManager:
         deadline = (datetime.today() + timedelta(days=(days_back*-1))).strftime(time_format)
 
 
-        c.execute("SELECT * FROM history WHERE when_taken > ?", (deadline,))
+        c.execute("SELECT * FROM history WHERE when_taken > %s", (deadline,))
         history = c.fetchall()
         # print(history)
         flags = []
@@ -540,10 +554,10 @@ class PersonalDatabaseManager:
         
         print(self.db_path)
 
-        c.execute('SELECT * FROM history WHERE when_taken = ?',(date,))
+        c.execute('SELECT * FROM history WHERE when_taken = %s',(date,))
         hist_logs = c.fetchall()
 
-        c.execute('SELECT barcode, dname, dosage, frequency, time, leeway, start_date FROM prescription WHERE as_needed = ?', (False,))
+        c.execute('SELECT barcode, dname, dosage, frequency, time, leeway, start_date FROM prescription WHERE as_needed = %s', (False,))
         prescript_dates = c.fetchall()
         prescript_logs= []
         for prescript in prescript_dates:
@@ -573,7 +587,7 @@ class PersonalDatabaseManager:
     #     c = conn.cursor()
 
 
-   #     c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (barcode, drug_name, datetime.now().strftime(time_format), dose))
+   #     c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (%s,%s,%s,%s)", (barcode, drug_name, datetime.now().strftime(time_format), dose))
 
 
    #     conn.commit()

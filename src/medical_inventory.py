@@ -21,7 +21,7 @@ import tkinter.font as tkfont
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import facial_recognition as fr
-from Database.database import DatabaseManager
+from database import DatabaseManager
 from facial_recognition import FaceRecognitionError
 
 # ============================================================================
@@ -1575,7 +1575,7 @@ class Personal_db_window(ctk.CTkToplevel):
         )
         
         # Import PersonalDatabaseManager at the top if not already imported
-        from Database.database import PersonalDatabaseManager
+        from database import PersonalDatabaseManager
         
         try:
             self.personal_db = PersonalDatabaseManager(path_to_person_database = personal_db_path)
