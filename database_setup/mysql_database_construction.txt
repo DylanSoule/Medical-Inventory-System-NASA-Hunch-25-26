@@ -4,6 +4,7 @@ CREATE TABLE `medications` (
   `amount_in_unit` INT NOT NULL,
   `type` TEXT NOT NULL,
   `dosage` TEXT NOT NULL,
+  `expiration_date` DATE NOT NULL,
   PRIMARY KEY (`barcode`)
 );
 
@@ -11,7 +12,6 @@ CREATE TABLE `in_inventory` (
   `id` INT AUTO_INCREMENT,
   `barcode` VARCHAR(12) NOT NULL,
   `estimated_amount_remaining` INT NOT NULL,
-  `expiration_date` DATE NOT NULL,
   `location` TEXT NOT NULL,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`barcode`)

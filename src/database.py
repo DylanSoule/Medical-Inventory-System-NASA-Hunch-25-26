@@ -68,7 +68,7 @@ class DatabaseManager:
         conn.close()
     """
 
-    def add_to_inventory(self, barcode, user, expiration_date,location):
+    def add_to_inventory(self, barcode, user,location):
         """
         Adds a drug to the inventory if it exists in the drugs database and logs the change.
 
@@ -94,7 +94,7 @@ class DatabaseManager:
         )
         c = conn.cursor()
 
-        c.execute("SELECT * FROM medications WHERE barcode = %s", (barcode,))
+        c.execute("SELECT barcode, amount_in_unit FROM medications WHERE barcode = %s", (barcode,))
         drug = c.fetchone()
 
         if not drug:
@@ -104,9 +104,9 @@ class DatabaseManager:
 
         try:
             c.execute('''
-                INSERT INTO in_inventory (barcode, estimated_amount_remaining, expiration_date, location)
-                VALUES (%s, %s, %s, %s,)
-            ''', (drug[0], drug[2], drug[2], expiration_date,location))
+                INSERT INTO in_inventory (barcode, estimated_amount_remaining, location)
+                VALUES (%s, %s, %s)
+            ''', (drug[0], drug[1],location,))
         except (mysql.IntegrityError):
             conn.close()
             return IndexError
@@ -118,14 +118,14 @@ class DatabaseManager:
         iid = c.fetchone[0]
         c.execute("SELECT id FROM people WHERE name = %s",(user,))
         pid = c.fetchone[0]
-        c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use) VALUES (%s,%s,%s,%s,%s)",(barcode, iid, , user, 'New Entry', datetime.now().strftime(time_format),)) 
+        c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use) VALUES (%s,%s,%s,%s,%s)",(barcode, iid, pid, 'New Entry', datetime.now().strftime(time_format),)) 
 
         conn.commit()
         conn.close()
 
 
 
-    def add_to_drugs_database(self, barcode, dname, amount, expiration_date, Type, item_type, dose_size):
+    def add_to_drugs_database(self, barcode, name, amount, Type, item_type, dose_size, expiration_date):
         """
         Add a new drug to the drugs reference table.
 
@@ -141,10 +141,16 @@ class DatabaseManager:
         Effects:
             Inserts a new drug into the drugs table in the database.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="local_host",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
         
-        c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date, type, item_type, dose_size) VALUES (%s,%s,%s,%s,%s,%s,%s)", (barcode, dname, amount, expiration_date,Type,item_type, dose_size))
+        c.execute("INSERT INTO medications (barcode, name, amount_in_unit, type, dosage,expiration_date) VALUES (%s,%s,%s,%s,%s)", (barcode, name, amount,Type,item_type + ' ' + dose_size,expiration_date))
 
         conn.commit()
         conn.close()
@@ -164,16 +170,22 @@ class DatabaseManager:
         Side effects:
             Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="local_host",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
 
-        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = %s", (barcode,))
+        c.execute("SELECT id, estimated_amount_remaining FROM in_inventory WHERE barcode = %s", (barcode,))
         drug_info = c.fetchone()
         
         try:
-            c.execute("UPDATE drugs_in_inventory SET estimated_amount = %s WHERE barcode = %s", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (%s,%s,%s,%s,%s,%s)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
+            c.execute("UPDATE drugs_in_inventory SET estimated_amount = %s WHERE barcode = %s", (drug_info[1] + change, barcode))
+            c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use) VALUES (%s,%s,%s,%s,%s)", (barcode, drug_info[0], change, user, 'Access', datetime.now().strftime(time_format)))
         except Exception as e:
             print("Error:",e)
         
