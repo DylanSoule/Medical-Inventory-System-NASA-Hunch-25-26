@@ -391,7 +391,7 @@ class DatabaseManager:
             c.execute(f"SELECT * FROM {table};")
             table = c.fetchall()
         else:
-            c.execute(f"SELECT * FROM {table} ORDER BY time DESC;")
+            c.execute(f"SELECT * FROM {table} WHERE time >= ? AND time <= ?ORDER BY time DESC;",((datetime.now() + timedelta(-7)).strftime(time_format),datetime.now().strftime(time_format),))
             table = c.fetchall()
         
         conn.close()
