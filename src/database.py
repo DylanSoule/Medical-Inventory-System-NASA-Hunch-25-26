@@ -1,4 +1,4 @@
-import sqlite3
+import mysql.connector
 from datetime import datetime, timedelta
 import numpy as np
 
@@ -12,18 +12,26 @@ time_format = "%Y-%m-%d %H:%M:%S"
 
 
 class DatabaseManager:
-    def __init__(self, path_to_db):
-        self.db_path = path_to_db
-        self.create_inventory()
+    def __init__(self,user,password,database):
+        self.user = user
+        self.password = password
+        self.database = database
+        # self.create_inventory()
 
-
+    """
     def create_inventory(self):
-        """
+         
         This function just creates the inventory database, realistically it doesn't ever need to be used if the database is already created, will likely be deleted eventually, but keeping just in case for now
 
         It initializes the two tables for what we have and what drugs are possible, so you can pull based on barcodes.
-        """
-        conn = sqlite3.connect(self.db_path)
+        
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS drugs_in_inventory (
@@ -63,9 +71,9 @@ class DatabaseManager:
 
         conn.commit()
         conn.close()
+    """
 
-
-    def add_to_inventory(self, barcode, user):
+    def add_to_inventory(self, barcode, user,location):
         """
         Adds a drug to the inventory if it exists in the drugs database and logs the change.
 
@@ -82,10 +90,16 @@ class DatabaseManager:
         Note:
             This method does not raise exceptions; instead, it returns exception types or instances on error.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
-        c.execute("SELECT * FROM drugs WHERE barcode = ?", (barcode,))
+        c.execute("SELECT barcode, amount_in_unit FROM medications WHERE barcode = %s", (barcode,))
         drug = c.fetchone()
 
         if not drug:
@@ -95,23 +109,28 @@ class DatabaseManager:
 
         try:
             c.execute('''
-                INSERT INTO drugs_in_inventory (barcode, dname, estimated_amount, expiration_date, type, item_type, dose_size)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (drug[0], drug[1], drug[2], drug[3], drug[4], drug[5], drug[6]))
-        except (sqlite3.IntegrityError):
+                INSERT INTO in_inventory (barcode, estimated_amount_remaining, location)
+                VALUES (%s, %s, %s)
+            ''', (drug[0], drug[1],location,))
+        except (mysql.IntegrityError):
             conn.close()
             return IndexError
         except Exception as e:
             conn.close()
             return e
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)",(barcode, drug[1], drug[2], user, 'New Entry', datetime.now().strftime(time_format)))
+        c.execute("SELECT MAX(id) FROM in_inventory;")
+        iid = c.fetchone[0]
+        c.execute("SELECT id FROM people WHERE name = %s",(user,))
+        pid = c.fetchone[0]
+        c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use) VALUES (%s,%s,%s,%s,%s)",(barcode, iid, pid, 'New Entry', datetime.now().strftime(time_format),)) 
 
         conn.commit()
         conn.close()
 
 
-    def add_to_drugs_database(self, barcode, dname, amount, expiration_date, Type, item_type, dose_size):
+
+    def add_to_drugs_database(self, barcode, name, amount, Type, item_type, dose_size, expiration_date):
         """
         Add a new drug to the drugs reference table.
 
@@ -127,10 +146,16 @@ class DatabaseManager:
         Effects:
             Inserts a new drug into the drugs table in the database.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
         
-        c.execute("INSERT INTO drugs (barcode, dname, amount, expiration_date, type, item_type, dose_size) VALUES (?,?,?,?,?,?,?)", (barcode, dname, amount, expiration_date,Type,item_type, dose_size))
+        c.execute("INSERT INTO medications (barcode, name, amount_in_unit, type, dosage,expiration_date) VALUES (%s,%s,%s,%s,%s)", (barcode, name, amount,Type,item_type + ' ' + dose_size,expiration_date))
 
         conn.commit()
         conn.close()
@@ -150,93 +175,28 @@ class DatabaseManager:
         Side effects:
             Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
 
-        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
-        drug_info = c.fetchone()
-        
-        if drug_info[2] + change <= 0:
-            c.execute("DELETE * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
-        else:
-            try:
-                c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-                c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
-            except Exception as e:
-                print("Error:",e)
-        
-        conn.commit()
-        conn.close()
-
-
-        conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
-        c = conn.cursor()
-        
-        prescription_check = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
-        log = (drug_info[0],drug_info[1], drug_info[0], drug_info[1], date_time, abs(change))
-        prescription= prescription_check.compare_with_prescription(log)[0]
-
-        try:
-            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change), prescription,))
-        except Exception as e:
-            print("Error:",e)
-
-        conn.commit()
-        conn.close()
-    
-
-    def log_access_to_inventory_with_mutable_date(self, barcode, change, user, date_time): # FOR TESTING ONLY DELETE BEFORE FINAL PRODUCT
-        """
-        Log changes to drug inventory amounts.
-
-
-        Parameters:
-            barcode (str): The barcode of the drug whose inventory is being updated.
-            change (int): The amount to change the inventory by (positive or negative).
-            user (str): The user making the change.
-
-
-        Side effects:
-            Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
-        """
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
-
-
-        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        c.execute("SELECT id, estimated_amount_remaining FROM in_inventory WHERE barcode = %s", (barcode,))
         drug_info = c.fetchone()
         
         try:
-            c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', date_time))
+            c.execute("UPDATE drugs_in_inventory SET estimated_amount = %s WHERE barcode = %s", (drug_info[1] + change, barcode))
+            c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use, change) VALUES (%s,%s,%s,%s,%s)", (barcode, drug_info[0], change, user, 'Access', datetime.now().strftime(time_format),change))
         except Exception as e:
             print("Error:",e)
         
         conn.commit()
         conn.close()
-
-
-        conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
-        c = conn.cursor()
-
-        prescription_check = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
-        log = (drug_info[0],drug_info[1], drug_info[0], drug_info[1], date_time, abs(change))
-        prescription= prescription_check.compare_with_prescription(log)[0]
-        
-        try:
-            c.execute("INSERT INTO history (barcode, dname, when_taken, dose, prescription_match) VALUES (?,?,?,?,?)", (drug_info[0], drug_info[1], date_time, abs(change),prescription,))
-        except Exception as e:
-            print("Error:",e)
-
-        is_prescribed = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
-        result = is_prescribed.compare_most_recent_log_with_prescription()
-
-        c.execute("UPDATE history SET is_prescribed = ? WHERE when_taken = ?", (result,date_time,))
-
-        conn.commit()
-        conn.close()
-
+  
 
     def check_if_barcode_exists(self, barcode):
         """
@@ -245,10 +205,16 @@ class DatabaseManager:
         :param self: class path to inventory
         :param barcode: barcode being checked
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
-        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        c.execute("SELECT medications.name AS name FROM medications JOIN in_inventory ON medications.barcode=in_inventory.barcode WHERE in_inventory.barcode=%s", (barcode,))
         check = c.fetchone()
 
         if not check:
@@ -269,15 +235,24 @@ class DatabaseManager:
         Side effects:
             Removes the entry from the drugs_in_inventory table and adds a record to the drug_changes table.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
-        c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
-        drug_info = c.fetchone()
+        c.execute("SELECT id FROM in_inventory WHERE barcode = %s", (barcode,))
+        iid = c.fetchone()[0]
 
-        c.execute("DELETE FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        c.execute("SELECT id FROM people WHERE name=%s",('admin',))
+        pid= c.fetchone()[0]
 
-        c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time, reason) VALUES (?,?,?,?,?,?,?)",(barcode, drug_info[1], drug_info[2], 'Admin', 'Delete Entry', datetime.now().strftime(time_format), reason,))
+        c.execute("DELETE FROM drugs_in_inventory WHERE barcode = %s", (barcode,))
+
+        c.execute("INSERT INTO drug_changes (barcode, inventory_id, person_id, type_of_use, time_of_use, reason) VALUES (%s,%s,%s,%s,%s,%s)",(barcode, iid, pid, 'Delete Entry', datetime.now().strftime(time_format), reason,))
 
         conn.commit()
         conn.close()
@@ -293,7 +268,13 @@ class DatabaseManager:
         ratio_thresh=1.5,
         baseline_window=3
     ):
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
         today = datetime.today()
 
@@ -336,8 +317,8 @@ class DatabaseManager:
 
                     c.execute("""
                         SELECT COALESCE(SUM(change), 0)
-                        FROM drug_changes
-                        WHERE time BETWEEN ? AND ?
+                        FROM history
+                        WHERE time_of_use BETWEEN %s AND %s
                     """, (back, front))
 
                     totals.append(c.fetchone()[0])
@@ -349,6 +330,8 @@ class DatabaseManager:
         # ---- PER USER ----
         if users:
             for user in users:
+                c.execute("SELECT id FROM people WHERE name=%s",(user,))
+                pid=c.fetchall()[0]
                 for period in periods:
                     totals = []
                     for i in range(periods_back):
@@ -357,11 +340,11 @@ class DatabaseManager:
 
                         c.execute("""
                             SELECT COALESCE(SUM(change), 0)
-                            FROM drug_changes
-                            WHERE time BETWEEN ?
-                            AND ?
-                            AND user = ?
-                        """, (back, front, user))
+                            FROM history
+                            WHERE time_of_use BETWEEN %s
+                            AND %s
+                            AND person_id = %s
+                        """, (back, front, pid))
 
                         totals.append(c.fetchone()[0])
 
@@ -373,6 +356,23 @@ class DatabaseManager:
         return results
 
     
+    def give_inventory_data(self): #for later, just transitioning to not change frontend right now
+        pass
+        # conn = mysql.connector.connect(
+        #     host="127.0.0.1",
+        #     port=3306,
+        #     user=self.user,
+        #     password=self.password,
+        #     database=self.database
+        # )
+        # c = conn.cursor()
+
+        # c.execute("SELECT ")
+
+    def give_history_data(self): #for later, just transitioning to not change frontend right now
+        pass
+
+
 
     def pull_data(self, table):
         """
@@ -389,15 +389,32 @@ class DatabaseManager:
             if the table name is not properly validated. Ensure that the table name is validated against
             a whitelist of expected table names before calling this function.
         """
-        
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
-        if table != 'drug_changes':
-            c.execute(f"SELECT * FROM {table};")
-            table = c.fetchall()
+        if table=="in_inventory":
+            c.execute("""SELECT medications.name, in_inventory.barcode, in_inventory.estimated_amount_remaining, medications.expiration_date,medications.type,medications.dosage 
+                      FROM in_inventory
+                      JOIN medications ON medications.barcode=in_inventory.barcode;""")
+            table=c.fetchall()
+            new = table[5].split()
+            table[5]=new[0]+new[1]
+            table.append(new[2])
+        elif table =="history":
+            c.execute("""SELECT history.barcode, medications.name,history.change,people.name,history.type_of_use,history.time_of_use,history.reason FROM history
+                      JOIN medications ON medications.barcode=history.barcode
+                      JOIN people ON people.id=history.person_id
+                      WHERE history.time_of_use >= %s and history.time_of_use <= %s
+                      ORDER BY history.time_of_use DESC;""", (datetime.now() + timedelta(-7)).strftime(time_format),(datetime.now()+timedelta(1)).strftime(time_format),)
+            table=c.fetchall()
         else:
-            c.execute(f"SELECT * FROM {table} WHERE time >= ? AND time <= ?ORDER BY time DESC;",((datetime.now() + timedelta(-7)).strftime(time_format),datetime.now().strftime(time_format),))
+            c.execute(f"SELECT * FROM {table}")
             table = c.fetchall()
         
         conn.close()
@@ -405,13 +422,27 @@ class DatabaseManager:
         
 
 class PersonalDatabaseManager:
-    def __init__(self, path_to_person_database):
-        self.db_path = path_to_person_database
-        self.create_personal_database()
+    def __init__(self,user,password,database,access_user):
+        self.user = user
+        self.password = password
+        self.database = database
+        self.access_user = access_user
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
+        c = conn.cursor()
+        c.execute("SELECT id FROM people WHERE name=%s",(access_user,))
+        self.user_id=c.fetchone[0]
+        conn.close()
+        #create_personal_database()
 
-
+    """
     def create_personal_database(self):
-        """
+        ""
         This function just creates the changes database, and checks that it exists every time the class is called
 
         prescription table:
@@ -429,8 +460,14 @@ class PersonalDatabaseManager:
             dname - name of drug
             when_taken - when they took the medication, used to compare with prescriptions
             dose - how big of a dose they take, used to compare with prescriptions
-        """
-        conn = sqlite3.connect(self.db_path)
+        ""
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS prescription(
@@ -458,19 +495,21 @@ class PersonalDatabaseManager:
 
         conn.commit()
         conn.close()
-  
-    def add_prescription_med(self, barcode, dose, frequency, start_date, leeway=None, end_date=None, time=None, drug_name=None, as_needed=False):
-        if drug_name == None:
-            conn = sqlite3.connect('Database/inventory.db')
-            cur = conn.cursor()
-            cur.execute(f"SELECT dname FROM drugs WHERE barcode = {barcode}")
-            drug_name = cur.fetchone()[0]
-            conn.close()
-        conn = sqlite3.connect(self.db_path)
+    """
+        
+    def add_prescription_med(self, barcode, dose, frequency=None, leeway=None, time=None, drug_name=None, as_needed=True):
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
 
-        c.execute("INSERT INTO prescription (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed) VALUES (?,?,?,?,?,?,?,?,?)", (barcode, drug_name, dose, frequency, time, leeway, start_date, end_date, as_needed))
+        c.execute("INSERT INTO prescriptions (barcode, dose, time, frequency, time, leeway, as_needed) VALUES (%s,%s,%s,%s,%s,%s,%s)", (barcode, dose, time, frequency, leeway, as_needed))
+        c.execute("INSERT INTO assigned_prescriptions (person_id,prescription_id) VALUES (%s, (SELECT MAX(id) FROM prescriptions));",(self.user_id))
 
 
         conn.commit()
@@ -478,13 +517,19 @@ class PersonalDatabaseManager:
 
 
     def compare_history_with_prescription(self, days_back=7):
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
         deadline = (datetime.today() + timedelta(days=(days_back*-1))).strftime(time_format)
 
 
-        c.execute("SELECT * FROM history WHERE when_taken > ?", (deadline,))
+        c.execute("SELECT barcode,time_of_use FROM history WHERE when_taken > %s AND person_id=%s", (deadline,self.user_id,))
         history = c.fetchall()
         # print(history)
         flags = []
@@ -508,10 +553,16 @@ class PersonalDatabaseManager:
 
         return True or False based on if match is found or not
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
-        c.execute("SELECT * FROM history ORDER BY rowid DESC LIMIT 1")
+        c.execute("SELECT barcode,time_of_use FROM history WHERE person_id = %s ORDER BY id DESC LIMIT 1",(self.user_id,))
         last_taken = c.fetchone()
         result = self.compare_with_prescription(last_taken)
         
@@ -519,10 +570,16 @@ class PersonalDatabaseManager:
         return(result)
     
     def compare_with_prescription(self, log):
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
         
-        c.execute("SELECT * FROM prescription WHERE barcode = ?", (log[0],))
+        c.execute("SELECT assigned_prescriptions FROM assigned_prescriptions WHERE barcode = %s",(log[0]))
         matching_prescriptions = c.fetchall()
 
         if matching_prescriptions == []:
@@ -559,24 +616,19 @@ class PersonalDatabaseManager:
 
 
     def get_personal_data(self, date):
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
-        connection = sqlite3.connect('Database/inventory.db')
-        cursor = connection.cursor()
-        
-
-        # Get history for the specific date (match on date portion)
-        try:
-            ndate = datetime.strptime(date, time_format).date()
-            date_start = datetime.combine(ndate, datetime.min.time()).strftime(time_format)
-            date_end = datetime.combine(ndate, datetime.max.time()).strftime(time_format)
-            c.execute('SELECT * FROM history WHERE when_taken BETWEEN ? AND ?', (date_start, date_end))
-        except Exception:
-            c.execute('SELECT * FROM history WHERE when_taken = ?', (date,))
+        c.execute('SELECT * FROM history WHERE when_taken = %s',(date,))
         hist_logs = c.fetchall()
 
-        c.execute('SELECT barcode, dname, dosage, frequency, time, leeway, start_date FROM prescription WHERE as_needed = ?', (False,))
+        c.execute('SELECT barcode, dname, dosage, frequency, time, leeway, start_date FROM prescription WHERE as_needed = %s', (False,))
         prescript_dates = c.fetchall()
         prescript_logs= []
         for prescript in prescript_dates:
@@ -622,11 +674,17 @@ class PersonalDatabaseManager:
     #         cur.execute(f"SELECT dname FROM drugs WHERE barcode = {barcode}")
     #         drug_name = cur.fetchone()[0]
     #         conn.close()
-    #     conn = sqlite3.connect(self.db_path)
+    #     conn = mysql.connector.connect(
+        #     host="127.0.0.1",
+        #     port=3306,
+        #     user=self.user,
+        #     password=self.password,
+        #     database=self.database
+        # )
     #     c = conn.cursor()
 
 
-   #     c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (barcode, drug_name, datetime.now().strftime(time_format), dose))
+   #     c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (%s,%s,%s,%s)", (barcode, drug_name, datetime.now().strftime(time_format), dose))
 
 
    #     conn.commit()
@@ -651,7 +709,13 @@ class PersonalDatabaseManager:
             if the table name is not properly validated. Ensure that the table name is validated against
             a whitelist of expected table names before calling this function.
         """
-        conn = sqlite3.connect(self.db_path)
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
         c = conn.cursor()
 
 
