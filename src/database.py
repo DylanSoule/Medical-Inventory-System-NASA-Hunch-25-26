@@ -265,7 +265,7 @@ class DatabaseManager:
         users=['dylan'],
         whole=True,
         z_thresh=2.0,
-        ratio_thresh=1.2,
+        ratio_thresh=1.5,
         baseline_window=3
     ):
         conn = mysql.connector.connect(
@@ -419,7 +419,7 @@ class DatabaseManager:
         
         conn.close()
         return table
-
+        
 
 class PersonalDatabaseManager:
     def __init__(self,user,password,database,access_user):
@@ -564,7 +564,6 @@ class PersonalDatabaseManager:
 
         c.execute("SELECT barcode,time_of_use FROM history WHERE person_id = %s ORDER BY id DESC LIMIT 1",(self.user_id,))
         last_taken = c.fetchone()
-        print(last_taken)
         result = self.compare_with_prescription(last_taken)
         
         conn.close()
@@ -588,19 +587,30 @@ class PersonalDatabaseManager:
             return False, "No Matches Found"
         try:
             date_taken = datetime.strptime(log[2], time_format)
-        except TypeError:
+        except (TypeError, ValueError):
             for prescription in matching_prescriptions:
                 if prescription[8] == True:
                     conn.close()
                     return True, "As needed"
+            conn.close()
             return False, "Datetime"
 
         for prescription in matching_prescriptions:
-            prescription_start_date = datetime.strptime(prescription[6], time_format)
-            difference = (date_taken - prescription_start_date).total_seconds()
-            if (86400 - (difference % (prescription[3]*86400))) <= float(prescription[5] * 3600) or (difference % (prescription[3]*86400)) <= float(prescription[5] * 3600) and (int(log[3]) == prescription[2]):
-                conn.close()
-                return True, "Matches Prescription"
+            try:
+                prescription_start_date = datetime.strptime(prescription[6], time_format)
+                frequency = prescription[3]
+                leeway = prescription[5]
+                if not frequency or frequency <= 0 or not leeway:
+                    continue
+                difference = (date_taken - prescription_start_date).total_seconds()
+                if difference < 0:
+                    continue
+                if (86400 - (difference % (frequency*86400))) <= float(leeway * 3600) or (difference % (frequency*86400)) <= float(leeway * 3600) and (int(log[3]) == prescription[2]):
+                    conn.close()
+                    return True, "Matches Prescription"
+            except Exception as e:
+                print(f"Error comparing prescription: {e}")
+                continue
         conn.close()
         return False, "No Time Match"
 
@@ -614,8 +624,6 @@ class PersonalDatabaseManager:
             database=self.database
         )
         c = conn.cursor()
-        
-        print(self.db_path)
 
         c.execute('SELECT * FROM history WHERE when_taken = %s',(date,))
         hist_logs = c.fetchall()
@@ -624,17 +632,37 @@ class PersonalDatabaseManager:
         prescript_dates = c.fetchall()
         prescript_logs= []
         for prescript in prescript_dates:
-            pdate = datetime.strptime(prescript[6], time_format)
-            pdate = pdate.date()
-            ndate = datetime.strptime(date, time_format)
-            ndate = ndate.date()
+            try:
+                frequency = prescript[3]
+                if not frequency or frequency <= 0:
+                    continue
+                
+                start_date_str = prescript[6]
+                if not start_date_str:
+                    continue
 
-            diff = (pdate-ndate).total_seconds()
+                pdate = datetime.strptime(start_date_str, time_format).date()
 
-            if (diff/86400)%prescript[3]==0:
-                prescript_logs.append((prescript[0],prescript[1],prescript[2], prescript[4], prescript[5],))
+                diff_days = abs((ndate - pdate).days)
+
+                if diff_days % frequency == 0:
+                    cursor.execute("SELECT item_type, dose_size FROM drugs WHERE barcode = ?", (str(prescript[0]),))
+                    dose_list = cursor.fetchone()
+                    dose = dose_list[1] + ' '+dose_list[0]
+                    prescript_logs.append((prescript[0], prescript[1], prescript[2], prescript[4], prescript[5],dose))
+            except Exception as e:
+                print(f"Error processing prescription {prescript}: {e}")
+                continue
+
         
+        
+
+        connection.close()
+        conn.close()
         return hist_logs, prescript_logs
+
+
+
 
 
 
@@ -700,10 +728,11 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    read = PersonalDatabaseManager('Database/dylan_records.db')
+    # read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
-    print(read1.pattern_recognition())
+    read1.pattern_recognition()
+
     # print(read.pull_data('history'))
     # print(read.compare_history_with_prescription(days_back=60))
     # print(read.compare_most_recent_log_with_prescription())
