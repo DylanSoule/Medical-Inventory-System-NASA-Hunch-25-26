@@ -173,14 +173,17 @@ class DatabaseManager:
         conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
         c = conn.cursor()
         
+        prescription_check = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
+        log = (drug_info[0],drug_info[1], drug_info[0], drug_info[1], date_time, abs(change))
+        prescription= prescription_check.compare_with_prescription(log)[0]
+
         try:
-            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change)))
+            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change), prescription,))
         except Exception as e:
             print("Error:",e)
 
         conn.commit()
         conn.close()
-
     
 
     def log_access_to_inventory_with_mutable_date(self, barcode, change, user, date_time): # FOR TESTING ONLY DELETE BEFORE FINAL PRODUCT
@@ -216,9 +219,13 @@ class DatabaseManager:
 
         conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
         c = conn.cursor()
+
+        prescription_check = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
+        log = (drug_info[0],drug_info[1], drug_info[0], drug_info[1], date_time, abs(change))
+        prescription= prescription_check.compare_with_prescription(log)[0]
         
         try:
-            c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], date_time, abs(change)))
+            c.execute("INSERT INTO history (barcode, dname, when_taken, dose, prescription_match) VALUES (?,?,?,?,?)", (drug_info[0], drug_info[1], date_time, abs(change),prescription,))
         except Exception as e:
             print("Error:",e)
 
@@ -230,7 +237,6 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
-  
 
     def check_if_barcode_exists(self, barcode):
         """
@@ -396,7 +402,7 @@ class DatabaseManager:
         
         conn.close()
         return table
-
+        
 
 class PersonalDatabaseManager:
     def __init__(self, path_to_person_database):
@@ -507,7 +513,6 @@ class PersonalDatabaseManager:
 
         c.execute("SELECT * FROM history ORDER BY rowid DESC LIMIT 1")
         last_taken = c.fetchone()
-        print(last_taken)
         result = self.compare_with_prescription(last_taken)
         
         conn.close()
@@ -606,6 +611,9 @@ class PersonalDatabaseManager:
 
 
 
+
+
+
     '''The following is an old function that is not in use but being kept around just in case'''
     # def log_access(self, barcode, dose, drug_name=None):
     #     if drug_name == None:
@@ -656,12 +664,11 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    read = PersonalDatabaseManager('Database/brody_records.db')
+    # read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager('Database/inventory.db')
 
-    print(read.get_personal_data('2026-02-12 13:40:00'))
-    # print(read1.pattern_recognition())
-    # read1.pull_data('drug_changes')
+    read1.pattern_recognition()
+
     # print(read.pull_data('history'))
     # print(read.compare_history_with_prescription(days_back=60))
     # print(read.compare_most_recent_log_with_prescription())
