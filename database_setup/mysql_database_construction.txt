@@ -41,7 +41,7 @@ CREATE TABLE `assigned_prescriptions` (
       REFERENCES `people`(`id`),
   FOREIGN KEY (`prescription_id`)
       REFERENCES `prescriptions`(`id`),
-  KEY `Prescription` (`person_id`, `prescription_id`)
+  PRIMARY KEY `Prescription` (`person_id`, `prescription_id`)
 );
 
 CREATE TABLE `history` (
@@ -51,6 +51,7 @@ CREATE TABLE `history` (
   `person_id` INT NOT NULL,
   `type_of_use` TEXT NOT NULL,
   `time_of_use` DATETIME NOT NULL,
+  `amnt_change` INT NOT NULL
   PRIMARY KEY (`id`),
   FOREIGN KEY (`barcode`)
       REFERENCES `medications`(`barcode`),
