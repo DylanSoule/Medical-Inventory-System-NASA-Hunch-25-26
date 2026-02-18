@@ -1,6 +1,6 @@
 import sqlite3
 from datetime import datetime, timedelta
-import math
+import numpy as np
 
 
 """
@@ -140,10 +140,12 @@ class DatabaseManager:
         """
         Log changes to drug inventory amounts.
 
+
         Parameters:
             barcode (str): The barcode of the drug whose inventory is being updated.
             change (int): The amount to change the inventory by (positive or negative).
             user (str): The user making the change.
+
 
         Side effects:
             Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
@@ -151,17 +153,22 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
+
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
         drug_info = c.fetchone()
         
-        try:
-            c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
-            c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
-        except Exception as e:
-            return("Error:",e)
+        if drug_info[2] + change <= 0:
+            c.execute("DELETE * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
+        else:
+            try:
+                c.execute("UPDATE drugs_in_inventory SET estimated_amount = ? WHERE barcode = ?", (drug_info[2] + change, barcode))
+                c.execute("INSERT INTO drug_changes (barcode, dname, change, user, type, time) VALUES (?,?,?,?,?,?)", (drug_info[0], drug_info[1], change, user, 'Access', datetime.now().strftime(time_format)))
+            except Exception as e:
+                print("Error:",e)
         
         conn.commit()
         conn.close()
+
 
         conn = sqlite3.connect(f'Database/{user.lower()}_records.db')
         c = conn.cursor()
@@ -173,7 +180,7 @@ class DatabaseManager:
         try:
             c.execute("INSERT INTO history (barcode, dname, when_taken, dose) VALUES (?,?,?,?)", (drug_info[0], drug_info[1], datetime.now().strftime(time_format), abs(change), prescription,))
         except Exception as e:
-            return("Error:",e)
+            print("Error:",e)
 
         conn.commit()
         conn.close()
@@ -195,6 +202,7 @@ class DatabaseManager:
         """
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
+
 
         c.execute("SELECT * FROM drugs_in_inventory WHERE barcode = ?", (barcode,))
         drug_info = c.fetchone()
@@ -220,6 +228,11 @@ class DatabaseManager:
             c.execute("INSERT INTO history (barcode, dname, when_taken, dose, prescription_match) VALUES (?,?,?,?,?)", (drug_info[0], drug_info[1], date_time, abs(change),prescription,))
         except Exception as e:
             print("Error:",e)
+
+        is_prescribed = PersonalDatabaseManager(f'Database/{user.lower()}_records.db')
+        result = is_prescribed.compare_most_recent_log_with_prescription()
+
+        c.execute("UPDATE history SET is_prescribed = ? WHERE when_taken = ?", (result,date_time,))
 
         conn.commit()
         conn.close()
@@ -268,7 +281,98 @@ class DatabaseManager:
 
         conn.commit()
         conn.close()
-      
+    
+
+    def pattern_recognition(
+        self,
+        periods=[4,7,14,30],
+        periods_back=5,
+        users=['dylan'],
+        whole=True,
+        z_thresh=2.0,
+        ratio_thresh=1.5,
+        baseline_window=3
+    ):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        today = datetime.today()
+
+        results = []
+
+        def analyze_series(values, label):
+            anomalies = []
+            values = np.array(values, dtype=float)
+
+            for i in range(baseline_window, len(values)):
+                baseline = values[i-baseline_window:i]
+                mean = baseline.mean()
+                std = baseline.std(ddof=1) or 1  # prevent divide-by-zero
+
+                z = (values[i] - mean) / std
+                ratio = values[i] / mean if mean > 0 else 0
+
+                if abs(z) > z_thresh or ratio > ratio_thresh:
+                    anomalies.append({
+                        "label": label,
+                        "index": i,
+                        "value": values[i],
+                        "baseline_mean": round(mean, 2),
+                        "z_score": round(z, 2),
+                        "ratio": round(ratio, 2),
+                        "type": (
+                            "spike" if values[i] > mean
+                            else "drop"
+                        )
+                    })
+            return anomalies
+
+        # ---- WHOLE SYSTEM ----
+        if whole:
+            for period in periods:
+                totals = []
+                for i in range(periods_back):
+                    front = (today - timedelta(days=i*period)).strftime(time_format)
+                    back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+
+                    c.execute("""
+                        SELECT COALESCE(SUM(change), 0)
+                        FROM drug_changes
+                        WHERE time BETWEEN ? AND ?
+                    """, (back, front))
+
+                    totals.append(c.fetchone()[0])
+
+                results.extend(
+                    analyze_series(totals, f"whole_{period}d")
+                )
+
+        # ---- PER USER ----
+        if users:
+            for user in users:
+                for period in periods:
+                    totals = []
+                    for i in range(periods_back):
+                        front = (today - timedelta(days=i*period)).strftime(time_format)
+                        back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+
+                        c.execute("""
+                            SELECT COALESCE(SUM(change), 0)
+                            FROM drug_changes
+                            WHERE time BETWEEN ?
+                            AND ?
+                            AND user = ?
+                        """, (back, front, user))
+
+                        totals.append(c.fetchone()[0])
+
+                    results.extend(
+                        analyze_series(totals, f"user:{user}_{period}d")
+                    )
+
+        conn.close()
+        return results
+
+    
 
     def pull_data(self, table):
         """
@@ -285,11 +389,16 @@ class DatabaseManager:
             if the table name is not properly validated. Ensure that the table name is validated against
             a whitelist of expected table names before calling this function.
         """
+        
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
-        c.execute(f"SELECT * FROM {table}")
-        table = c.fetchall()
+        if table != 'drug_changes':
+            c.execute(f"SELECT * FROM {table};")
+            table = c.fetchall()
+        else:
+            c.execute(f"SELECT * FROM {table} WHERE time >= ? AND time <= ?ORDER BY time DESC;",((datetime.now() + timedelta(-7)).strftime(time_format),datetime.now().strftime(time_format),))
+            table = c.fetchall()
         
         conn.close()
         return table
@@ -413,7 +522,7 @@ class PersonalDatabaseManager:
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         
-        c.execute(f"SELECT * FROM prescription WHERE barcode = {log[0]}")
+        c.execute("SELECT * FROM prescription WHERE barcode = ?", (log[0],))
         matching_prescriptions = c.fetchall()
 
         if matching_prescriptions == []:
@@ -421,22 +530,84 @@ class PersonalDatabaseManager:
             return False, "No Matches Found"
         try:
             date_taken = datetime.strptime(log[2], time_format)
-        except TypeError:
+        except (TypeError, ValueError):
             for prescription in matching_prescriptions:
                 if prescription[8] == True:
                     conn.close()
                     return True, "As needed"
+            conn.close()
             return False, "Datetime"
 
         for prescription in matching_prescriptions:
-            prescription_start_date = datetime.strptime(prescription[6], time_format)
-            difference = (date_taken - prescription_start_date).total_seconds()
-            if (86400 - (difference % (prescription[3]*86400))) <= float(prescription[5] * 3600) or (difference % (prescription[3]*86400)) <= float(prescription[5] * 3600) and (int(log[3]) == prescription[2]):
-                conn.close()
-                return True, "Matches Prescription"
+            try:
+                prescription_start_date = datetime.strptime(prescription[6], time_format)
+                frequency = prescription[3]
+                leeway = prescription[5]
+                if not frequency or frequency <= 0 or not leeway:
+                    continue
+                difference = (date_taken - prescription_start_date).total_seconds()
+                if difference < 0:
+                    continue
+                if (86400 - (difference % (frequency*86400))) <= float(leeway * 3600) or (difference % (frequency*86400)) <= float(leeway * 3600) and (int(log[3]) == prescription[2]):
+                    conn.close()
+                    return True, "Matches Prescription"
+            except Exception as e:
+                print(f"Error comparing prescription: {e}")
+                continue
         conn.close()
         return False, "No Time Match"
 
+
+    def get_personal_data(self, date):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        connection = sqlite3.connect('Database/inventory.db')
+        cursor = connection.cursor()
+        
+
+        # Get history for the specific date (match on date portion)
+        try:
+            ndate = datetime.strptime(date, time_format).date()
+            date_start = datetime.combine(ndate, datetime.min.time()).strftime(time_format)
+            date_end = datetime.combine(ndate, datetime.max.time()).strftime(time_format)
+            c.execute('SELECT * FROM history WHERE when_taken BETWEEN ? AND ?', (date_start, date_end))
+        except Exception:
+            c.execute('SELECT * FROM history WHERE when_taken = ?', (date,))
+        hist_logs = c.fetchall()
+
+        c.execute('SELECT barcode, dname, dosage, frequency, time, leeway, start_date FROM prescription WHERE as_needed = ?', (False,))
+        prescript_dates = c.fetchall()
+        prescript_logs= []
+        for prescript in prescript_dates:
+            try:
+                frequency = prescript[3]
+                if not frequency or frequency <= 0:
+                    continue
+                
+                start_date_str = prescript[6]
+                if not start_date_str:
+                    continue
+
+                pdate = datetime.strptime(start_date_str, time_format).date()
+
+                diff_days = abs((ndate - pdate).days)
+
+                if diff_days % frequency == 0:
+                    cursor.execute("SELECT item_type, dose_size FROM drugs WHERE barcode = ?", (str(prescript[0]),))
+                    dose_list = cursor.fetchone()
+                    dose = dose_list[1] + ' '+dose_list[0]
+                    prescript_logs.append((prescript[0], prescript[1], prescript[2], prescript[4], prescript[5],dose))
+            except Exception as e:
+                print(f"Error processing prescription {prescript}: {e}")
+                continue
+
+        
+        
+
+        connection.close()
+        conn.close()
+        return hist_logs, prescript_logs
 
 
 
