@@ -12,10 +12,10 @@ time_format = "%Y-%m-%d %H:%M:%S"
 
 
 class DatabaseManager:
-    def __init__(self,user,password,database):
-        self.user = user
-        self.password = password
-        self.database = database
+    def __init__(self):
+        self.user = 'root'
+        self.password = 1243
+        self.database = 'inventory_system'
         # self.create_inventory()
 
     """
@@ -187,7 +187,6 @@ class DatabaseManager:
 
         c.execute("SELECT id, estimated_amount_remaining FROM in_inventory WHERE barcode = %s", (barcode,))
         drug_info = c.fetchone()
-        
         try:
             c.execute("UPDATE drugs_in_inventory SET estimated_amount = %s WHERE barcode = %s", (drug_info[1] + change, barcode))
             c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use, change) VALUES (%s,%s,%s,%s,%s)", (barcode, drug_info[0], change, user, 'Access', datetime.now().strftime(time_format),change))
@@ -422,10 +421,10 @@ class DatabaseManager:
         
 
 class PersonalDatabaseManager:
-    def __init__(self,user,password,database,access_user):
-        self.user = user
-        self.password = password
-        self.database = database
+    def __init__(self,access_user):
+        self.user = 'root'
+        self.password = 1234
+        self.database = 'inventory-system'
         self.access_user = access_user
         conn = mysql.connector.connect(
             host="127.0.0.1",
