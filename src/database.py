@@ -12,8 +12,7 @@ time_format = "%Y-%m-%d %H:%M:%S"
 
 
 class DatabaseManager:
-    def __init__(self, host,user,password,database):
-        self.host = host
+    def __init__(self,user,password,database):
         self.user = user
         self.password = password
         self.database = database
@@ -27,7 +26,7 @@ class DatabaseManager:
         It initializes the two tables for what we have and what drugs are possible, so you can pull based on barcodes.
         
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -92,7 +91,7 @@ class DatabaseManager:
             This method does not raise exceptions; instead, it returns exception types or instances on error.
         """
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -148,7 +147,7 @@ class DatabaseManager:
             Inserts a new drug into the drugs table in the database.
         """
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -177,7 +176,7 @@ class DatabaseManager:
             Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
         """
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -207,7 +206,7 @@ class DatabaseManager:
         :param barcode: barcode being checked
         """
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -237,7 +236,7 @@ class DatabaseManager:
             Removes the entry from the drugs_in_inventory table and adds a record to the drug_changes table.
         """
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -270,7 +269,7 @@ class DatabaseManager:
         baseline_window=3
     ):
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -357,19 +356,20 @@ class DatabaseManager:
         return results
 
     
-    def give_inventory_data(self):
-        conn = mysql.connector.connect(
-            host="local_host",
-            port=3306,
-            user=self.user,
-            password=self.password,
-            database=self.database
-        )
-        c = conn.cursor()
+    def give_inventory_data(self): #for later, just transitioning to not change frontend right now
+        pass
+        # conn = mysql.connector.connect(
+        #     host="127.0.0.1",
+        #     port=3306,
+        #     user=self.user,
+        #     password=self.password,
+        #     database=self.database
+        # )
+        # c = conn.cursor()
 
-        c.execute("SELECT ")
+        # c.execute("SELECT ")
 
-    def give_history_data(self):
+    def give_history_data(self): #for later, just transitioning to not change frontend right now
         pass
 
 
@@ -390,7 +390,7 @@ class DatabaseManager:
             a whitelist of expected table names before calling this function.
         """
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -398,21 +398,51 @@ class DatabaseManager:
         )
         c = conn.cursor()
 
-        c.execute(f"SELECT * FROM {table}")
-        table = c.fetchall()
+        if table=="in_inventory":
+            c.execute("""SELECT medications.name, in_inventory.barcode, in_inventory.estimated_amount_remaining, medications.expiration_date,medications.type,medications.dosage 
+                      FROM in_inventory
+                      JOIN medications ON medications.barcode=in_inventory.barcode;""")
+            table=c.fetchall()
+            new = table[5].split()
+            table[5]=new[0]+new[1]
+            table.append(new[2])
+        elif table =="history":
+            c.execute("""SELECT history.barcode, medications.name,history.change,people.name,history.type_of_use,history.time_of_use,history.reason FROM history
+                      JOIN medications ON medications.barcode=history.barcode
+                      JOIN people ON people.id=history.person_id
+                      WHERE history.time_of_use >= %s and history.time_of_use <= %s
+                      ORDER BY history.time_of_use DESC;""", (datetime.now() + timedelta(-7)).strftime(time_format),(datetime.now()+timedelta(1)).strftime(time_format),)
+            table=c.fetchall()
+        else:
+            c.execute(f"SELECT * FROM {table}")
+            table = c.fetchall()
         
         conn.close()
         return table
 
 
 class PersonalDatabaseManager:
-    def __init__(self, path_to_person_database):
-        self.db_path = path_to_person_database
-        self.create_personal_database()
+    def __init__(self,user,password,database,access_user):
+        self.user = user
+        self.password = password
+        self.database = database
+        self.access_user = access_user
+        conn = mysql.connector.connect(
+            host="127.0.0.1",
+            port=3306,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
+        c = conn.cursor()
+        c.execute("SELECT id FROM people WHERE name=%s",(access_user,))
+        self.user_id=c.fetchone[0]
+        conn.close()
+        #create_personal_database()
 
-
+    """
     def create_personal_database(self):
-        """
+        ""
         This function just creates the changes database, and checks that it exists every time the class is called
 
         prescription table:
@@ -430,9 +460,9 @@ class PersonalDatabaseManager:
             dname - name of drug
             when_taken - when they took the medication, used to compare with prescriptions
             dose - how big of a dose they take, used to compare with prescriptions
-        """
+        ""
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -465,16 +495,11 @@ class PersonalDatabaseManager:
 
         conn.commit()
         conn.close()
-  
-    def add_prescription_med(self, barcode, dose, frequency, start_date, leeway=None, end_date=None, time=None, drug_name=None, as_needed=False):
-        if drug_name == None:
-            conn = sqlite3.connect('Database/inventory.db')
-            cur = conn.cursor()
-            cur.execute(f"SELECT dname FROM drugs WHERE barcode = {barcode}")
-            drug_name = cur.fetchone()[0]
-            conn.close()
+    """
+        
+    def add_prescription_med(self, barcode, dose, frequency=None, leeway=None, time=None, drug_name=None, as_needed=True):
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -483,7 +508,8 @@ class PersonalDatabaseManager:
         c = conn.cursor()
 
 
-        c.execute("INSERT INTO prescription (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)", (barcode, drug_name, dose, frequency, time, leeway, start_date, end_date, as_needed))
+        c.execute("INSERT INTO prescriptions (barcode, dose, time, frequency, time, leeway, as_needed) VALUES (%s,%s,%s,%s,%s,%s,%s)", (barcode, dose, time, frequency, leeway, as_needed))
+        c.execute("INSERT INTO assigned_prescriptions (person_id,prescription_id) VALUES (%s, (SELECT MAX(id) FROM prescriptions));",(self.user_id))
 
 
         conn.commit()
@@ -492,7 +518,7 @@ class PersonalDatabaseManager:
 
     def compare_history_with_prescription(self, days_back=7):
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -503,7 +529,7 @@ class PersonalDatabaseManager:
         deadline = (datetime.today() + timedelta(days=(days_back*-1))).strftime(time_format)
 
 
-        c.execute("SELECT * FROM history WHERE when_taken > %s", (deadline,))
+        c.execute("SELECT barcode,time_of_use FROM history WHERE when_taken > %s AND person_id=%s", (deadline,self.user_id,))
         history = c.fetchall()
         # print(history)
         flags = []
@@ -528,7 +554,7 @@ class PersonalDatabaseManager:
         return True or False based on if match is found or not
         """
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -536,7 +562,7 @@ class PersonalDatabaseManager:
         )
         c = conn.cursor()
 
-        c.execute("SELECT * FROM history ORDER BY rowid DESC LIMIT 1")
+        c.execute("SELECT barcode,time_of_use FROM history WHERE person_id = %s ORDER BY id DESC LIMIT 1",(self.user_id,))
         last_taken = c.fetchone()
         print(last_taken)
         result = self.compare_with_prescription(last_taken)
@@ -546,7 +572,7 @@ class PersonalDatabaseManager:
     
     def compare_with_prescription(self, log):
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -554,7 +580,7 @@ class PersonalDatabaseManager:
         )
         c = conn.cursor()
         
-        c.execute(f"SELECT * FROM prescription WHERE barcode = {log[0]}")
+        c.execute("SELECT assigned_prescriptions FROM assigned_prescriptions WHERE barcode = %s",(log[0]))
         matching_prescriptions = c.fetchall()
 
         if matching_prescriptions == []:
@@ -581,7 +607,7 @@ class PersonalDatabaseManager:
 
     def get_personal_data(self, date):
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
@@ -621,12 +647,12 @@ class PersonalDatabaseManager:
     #         drug_name = cur.fetchone()[0]
     #         conn.close()
     #     conn = mysql.connector.connect(
-            host="local_host",
-            port=3306,
-            user=self.user,
-            password=self.password,
-            database=self.database
-        )
+        #     host="127.0.0.1",
+        #     port=3306,
+        #     user=self.user,
+        #     password=self.password,
+        #     database=self.database
+        # )
     #     c = conn.cursor()
 
 
@@ -656,7 +682,7 @@ class PersonalDatabaseManager:
             a whitelist of expected table names before calling this function.
         """
         conn = mysql.connector.connect(
-            host="local_host",
+            host="127.0.0.1",
             port=3306,
             user=self.user,
             password=self.password,
