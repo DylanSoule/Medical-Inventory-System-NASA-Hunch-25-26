@@ -20,8 +20,14 @@ fi
 
 ACTUAL_HOME=$(eval echo "~$ACTUAL_USER")
 WORKSPACE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$WORKSPACE/Medical-Inventory-System-NASA-Hunch-25-26"
 REPO_URL="https://github.com/NASA-Hunch/Medical-Inventory-System-NASA-Hunch-25-26.git"
+
+# If the installer is inside the repo, use that directly
+if [ -d "$WORKSPACE/.git" ]; then
+    REPO_DIR="$WORKSPACE"
+else
+    REPO_DIR="$WORKSPACE/Medical-Inventory-System-NASA-Hunch-25-26"
+fi
 
 echo "============================================="
 echo " Medical Inventory System Installer"
@@ -80,8 +86,7 @@ fi
 echo ""
 echo ">>> [3/7] Setting up repository..."
 if [ -d "$REPO_DIR/.git" ]; then
-    echo "  Repository already exists — pulling latest changes..."
-    run_as_user git -C "$REPO_DIR" pull --ff-only || true
+    echo "  ✓ Repository already exists at $REPO_DIR — skipping clone"
 else
     echo "  Cloning repository..."
     run_as_user git clone "$REPO_URL" "$REPO_DIR"
