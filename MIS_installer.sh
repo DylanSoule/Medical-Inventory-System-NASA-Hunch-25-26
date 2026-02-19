@@ -110,6 +110,30 @@ else
     echo "  ⚠ No requirements.txt found — skipping pip install"
 fi
 
+# Force-install onnxruntime even if no matching platform wheel is found
+echo "  Installing onnxruntime (forced)..."
+set +e
+run_as_user "$VENV_DIR/bin/pip" install onnxruntime --force-reinstall --no-cache-dir --only-binary=:none: 2>/dev/null
+if [ $? -ne 0 ]; then
+    echo "  ⚠ Standard install failed — attempting source/compat install..."
+    run_as_user "$VENV_DIR/bin/pip" install onnxruntime \
+        --force-reinstall \
+        --no-cache-dir \
+        --no-deps \
+        --platform manylinux2014_$(uname -m) \
+        --python-version "$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')" \
+        --implementation cp \
+        --abi "cp$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')" \
+        --target "$VENV_DIR/lib/python3/site-packages" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo "  ⚠ Platform-specific install failed — trying pip with no binary restriction..."
+        run_as_user "$VENV_DIR/bin/pip" install onnxruntime --no-binary=onnxruntime --force-reinstall --no-cache-dir 2>&1 || \
+            echo "  ✗ Could not install onnxruntime — you may need to install it manually"
+    fi
+fi
+set -e
+echo "  ✓ onnxruntime install step complete"
+
 # ── 5. Set up the database Docker container ─────────────────
 echo ""
 echo ">>> [5/7] Setting up database container..."
