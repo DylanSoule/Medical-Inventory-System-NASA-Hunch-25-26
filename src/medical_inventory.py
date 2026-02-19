@@ -73,7 +73,7 @@ class BarcodeViewer(ctk.CTk):
         super().__init__()
         
         # Initialize core components
-        self.db = DatabaseManager(DB_FILE)
+        self.db = DatabaseManager()
         self._all_rows = []
         self.fr_ready = False
         self.camera_ready = False
@@ -1565,7 +1565,7 @@ class Personal_db_window(ctk.CTkToplevel):
         self.user = user
         self.current_date = datetime.datetime.today()
         self.zoom_level = 10.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
-        self.db = DatabaseManager(DB_FILE)
+        self.db = DatabaseManager()
         self.expanded_items = set()  # Track which items are expanded
         
         # Initialize personal database
