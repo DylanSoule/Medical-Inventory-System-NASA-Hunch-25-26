@@ -4,16 +4,17 @@
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Set display for GUI
 export DISPLAY=${DISPLAY:-:0}
 
-# Change to the application directory
-cd "$SCRIPT_DIR"
+# Change to the project directory
+cd "$PROJECT_DIR"
 
 # Activate virtual environment if it exists
-if [ -d "venv" ]; then
-    source venv/bin/activate
+if [ -d "$PROJECT_DIR/venv" ]; then
+    source "$PROJECT_DIR/venv/bin/activate"
 fi
 
 # Wait for X server to be ready (important for auto-start)
@@ -34,9 +35,16 @@ if [ "$X_READY" = false ]; then
     exit 1
 fi
 
+# Start the database container
+echo "Starting Docker container..."
+docker start medical-inventory-db 2>/dev/null || echo "WARNING: Could not start medical-inventory-db container"
+
+# Give the database a moment to accept connections
+sleep 2
+
 # Launch the application
 echo "Starting Medical Inventory System..."
-cd "$SCRIPT_DIR/.." && python3 src/medical_inventory.py
+python3 "$PROJECT_DIR/src/medical_inventory.py"
 
 # If the application exits, log it
 echo "Medical Inventory System stopped at $(date)" >> "$SCRIPT_DIR/startup.log"

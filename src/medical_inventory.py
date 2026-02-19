@@ -45,7 +45,6 @@ COLUMN_CONFIGS = {
     "exp_date": {"text": "Expiration", "width": 140},
     "type_": {"text": "Type", "width": 120},
     "dose_size": {"text": "Dose Size", "width": 140},
-    "item_type": {"text": "Item Type", "width": 140},
     "item_loc": {"text": "Location", "width": 100}
 }
 
@@ -56,7 +55,6 @@ COLUMN_LABELS = {
     "exp_date": "Expiration",
     "type_": "Type",
     "dose_size": "Dose Size",
-    "item_type": "Item Type",
     "item_loc": "Location"
 }
 #endregion
@@ -174,7 +172,7 @@ class BarcodeViewer(ctk.CTk):
         content_frame.grid_columnconfigure(0, weight=1)
         
         # Create treeview
-        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_type", "item_loc")
+        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_loc")
         self.tree = ttk.Treeview(content_frame, columns=columns, show="headings", selectmode="extended")
         
         # Configure columns
@@ -308,7 +306,7 @@ class BarcodeViewer(ctk.CTk):
         )
         
         # Initialize column visibility tracking
-        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_type", "item_loc")
+        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_loc")
         self.column_visibility = {col: tk.BooleanVar(value=True) for col in columns}
         self.column_configs = COLUMN_CONFIGS
         
@@ -728,7 +726,7 @@ class BarcodeViewer(ctk.CTk):
         
         for row in rows:
             try:
-                barcode, drug, est_amount, exp_date_raw, type_, dose_size, item_type, item_loc = row[0], row[1], row[2], row[3], row[4], row[6], row[5], row[7]
+                barcode, drug, est_amount, exp_date_raw, type_, dose_size, item_loc = row[0], row[1], row[2], row[3], row[4], row[5], row[6]
             except Exception:
                 vals = list(row)
                 barcode = vals[0] if len(vals) > 0 else ""
@@ -737,8 +735,7 @@ class BarcodeViewer(ctk.CTk):
                 exp_date_raw = vals[3] if len(vals) > 3 else None
                 type_ = vals[4] if len(vals) > 4 else ""
                 dose_size = vals[6] if len(vals) > 5 else ""
-                item_type = vals[5] if len(vals) > 6 else ""
-                item_loc = vals[7] if len(vals) > 7 else ""
+                item_loc = vals[7] if len(vals) > 6 else ""
             
             # Search filter
             if q:
@@ -747,7 +744,6 @@ class BarcodeViewer(ctk.CTk):
                     str(barcode).lower(),
                     str(type_).lower(),
                     str(dose_size).lower(),
-                    str(item_type).lower(),
                     str(item_loc).lower()
                 ]
                 if not any(q in field for field in searchable_fields):
@@ -774,7 +770,7 @@ class BarcodeViewer(ctk.CTk):
                 if delta < 0 or delta > 30:
                     continue
             
-            display_row = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_type, item_loc)
+            display_row = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_loc)
             filtered_rows.append(display_row)
         
         # Sort alphabetically by drug name
