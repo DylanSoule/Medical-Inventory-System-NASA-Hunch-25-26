@@ -400,7 +400,7 @@ class DatabaseManager:
             #     result[i].append(new[0])
             #     result[i][6],result[i][7]=result[i][7],result[i][6]
         elif table =="drug_changes":
-            c.execute("""SELECT history.barcode, medications.name,history.change,people.name,history.type_of_use,history.time_of_use,history.reason FROM history
+            c.execute("""SELECT history.barcode, medications.name,history.amnt_change,people.name,history.type_of_use,history.time_of_use,history.reason FROM history
                       JOIN medications ON medications.barcode=history.barcode
                       JOIN people ON people.id=history.person_id
                       WHERE history.time_of_use >= %s and history.time_of_use <= %s
@@ -611,8 +611,20 @@ class PersonalDatabaseManager:
         )
         c = conn.cursor()
 
-        c.execute('SELECT * FROM history WHERE when_taken = %s',(date,))
+        c.execute("""SELECT history.barcode,medications.name,history.time_of_use,ABS(history.amnt_change),
+                  FROM history
+                  JOIN medications ON history.barcode=medications.barcode
+                  WHERE history.time_of_use = %s AND history.person_id = %s""",(date,self.user_id,))
         hist_logs = c.fetchall()
+        c.execute("""SELECT prescriptions.barcode,prescriptions.time,prescriptions.dose
+                  FROM prescriptions
+                  JOIN assigned_prescriptions ON prescription.id=assigned_prescriptions.prescription_id
+                  WHERE assigned_prescriptions.person_id = %s""",(self.user_id,))
+        prescription_logs=c.fetchall()
+        for i in range(len(hist_logs)):
+            hist_logs[i]=list(hist_logs[i])
+            for entry in prescription_logs:
+                if hist_logs[i][1] in entry
 
         c.execute('SELECT barcode, dname, dosage, frequency, time, leeway, start_date FROM prescription WHERE as_needed = %s', (False,))
         prescript_dates = c.fetchall()

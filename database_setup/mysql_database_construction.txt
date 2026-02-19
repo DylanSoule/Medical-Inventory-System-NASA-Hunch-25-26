@@ -31,6 +31,7 @@ CREATE TABLE `prescriptions` (
   `time` TIME,
   `leeway` INT,
   `as_needed` BOOLEAN NOT NULL,
+  `frequency` INT,
   PRIMARY KEY (`id`)
 );
 
@@ -51,7 +52,8 @@ CREATE TABLE `history` (
   `person_id` INT NOT NULL,
   `type_of_use` TEXT NOT NULL,
   `time_of_use` DATETIME NOT NULL,
-  `amnt_change` INT NOT NULL
+  `amnt_change` INT NOT NULL,
+  `reason` TEXT
   PRIMARY KEY (`id`),
   FOREIGN KEY (`barcode`)
       REFERENCES `medications`(`barcode`),
