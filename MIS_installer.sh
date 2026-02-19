@@ -110,29 +110,66 @@ else
     echo "  ⚠ No requirements.txt found — skipping pip install"
 fi
 
-# Force-install onnxruntime even if no matching platform wheel is found
-echo "  Installing onnxruntime (forced)..."
+# Force-install onnxruntime — try multiple variants until one works
+echo "  Installing onnxruntime..."
 set +e
-run_as_user "$VENV_DIR/bin/pip" install onnxruntime --force-reinstall --no-cache-dir --only-binary=:none: 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo "  ⚠ Standard install failed — attempting source/compat install..."
+ONNX_INSTALLED=false
+
+# Attempt 1: standard onnxruntime
+echo "  Trying: onnxruntime (standard wheel)..."
+run_as_user "$VENV_DIR/bin/pip" install onnxruntime --no-cache-dir -q 2>/dev/null
+if [ $? -eq 0 ]; then
+    ONNX_INSTALLED=true
+fi
+
+# Attempt 2: piwheels / extra-index (useful for Raspberry Pi / ARM)
+if [ "$ONNX_INSTALLED" = false ]; then
+    echo "  Trying: onnxruntime from piwheels..."
     run_as_user "$VENV_DIR/bin/pip" install onnxruntime \
-        --force-reinstall \
-        --no-cache-dir \
-        --no-deps \
-        --platform manylinux2014_$(uname -m) \
-        --python-version "$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')" \
-        --implementation cp \
-        --abi "cp$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')" \
-        --target "$VENV_DIR/lib/python3/site-packages" 2>/dev/null
-    if [ $? -ne 0 ]; then
-        echo "  ⚠ Platform-specific install failed — trying pip with no binary restriction..."
-        run_as_user "$VENV_DIR/bin/pip" install onnxruntime --no-binary=onnxruntime --force-reinstall --no-cache-dir 2>&1 || \
-            echo "  ✗ Could not install onnxruntime — you may need to install it manually"
+        --no-cache-dir -q \
+        --extra-index-url https://www.piwheels.org/simple 2>/dev/null
+    if [ $? -eq 0 ]; then
+        ONNX_INSTALLED=true
     fi
 fi
+
+# Attempt 3: onnxruntime-openvino (supports more platforms)
+if [ "$ONNX_INSTALLED" = false ]; then
+    echo "  Trying: onnxruntime-openvino..."
+    run_as_user "$VENV_DIR/bin/pip" install onnxruntime-openvino --no-cache-dir -q 2>/dev/null
+    if [ $? -eq 0 ]; then
+        ONNX_INSTALLED=true
+    fi
+fi
+
+# Attempt 4: onnxruntime-gpu
+if [ "$ONNX_INSTALLED" = false ]; then
+    echo "  Trying: onnxruntime-gpu..."
+    run_as_user "$VENV_DIR/bin/pip" install onnxruntime-gpu --no-cache-dir -q 2>/dev/null
+    if [ $? -eq 0 ]; then
+        ONNX_INSTALLED=true
+    fi
+fi
+
+# Attempt 5: build from source
+if [ "$ONNX_INSTALLED" = false ]; then
+    echo "  Trying: build onnxruntime from source (this may take a while)..."
+    apt-get install -y -qq cmake protobuf-compiler libprotobuf-dev build-essential 2>/dev/null
+    run_as_user "$VENV_DIR/bin/pip" install onnxruntime \
+        --no-cache-dir --no-binary=onnxruntime -q 2>/dev/null
+    if [ $? -eq 0 ]; then
+        ONNX_INSTALLED=true
+    fi
+fi
+
+if [ "$ONNX_INSTALLED" = true ]; then
+    echo "  ✓ onnxruntime installed successfully"
+else
+    echo "  ✗ Could not install onnxruntime automatically."
+    echo "    You may need to install a compatible version manually."
+    echo "    Check: https://onnxruntime.ai/docs/install/"
+fi
 set -e
-echo "  ✓ onnxruntime install step complete"
 
 # ── 5. Set up the database Docker container ─────────────────
 echo ""
