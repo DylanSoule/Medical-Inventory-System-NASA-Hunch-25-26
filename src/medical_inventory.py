@@ -28,7 +28,6 @@ from facial_recognition import FaceRecognitionError
 # CONSTANTS
 # ============================================================================
 
-DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Database/inventory.db")
 REFRESH_INTERVAL = 30000  # milliseconds
 
 # UI Configuration
@@ -1578,7 +1577,7 @@ class Personal_db_window(ctk.CTkToplevel):
         from database import PersonalDatabaseManager
         
         try:
-            self.personal_db = PersonalDatabaseManager(path_to_person_database = personal_db_path)
+            self.personal_db = PersonalDatabaseManager(self.user)
         except Exception as e:
             print(f"Error loading personal database: {e}")
             self.personal_db = None
