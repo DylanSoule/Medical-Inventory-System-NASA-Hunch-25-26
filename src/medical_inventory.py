@@ -1776,6 +1776,7 @@ class Personal_db_window(ctk.CTkToplevel):
             for prescription in all_prescriptions:
                 # prescription format: (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed)
                 # if len(prescription) >= 9 and prescription[8]:  # as_needed is True
+                print(prescription)
                 self.as_needed_prescriptions.append({
                     'name': prescription[0],
                     'dosage': prescription[1],
@@ -1844,7 +1845,7 @@ class Personal_db_window(ctk.CTkToplevel):
                 current_date_only = self.current_date
             
             # Query all history logs and filter by date
-            all_history = self.personal_db.get_personal_data('history')
+            all_history = self.personal_db.get_personal_data(current_date_only)
             
             for log in all_history:
                 try:

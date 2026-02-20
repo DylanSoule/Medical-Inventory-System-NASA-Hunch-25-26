@@ -425,13 +425,13 @@ class PersonalDatabaseManager:
         self.access_user = access_user
         conn = mysql.connector.connect(
             host="localhost",
-            user=self.user,
-            password=self.password,
-            database=self.database
+            user='root',
+            password='1234',
+            database='inventory_system'
         )
         c = conn.cursor()
         c.execute("SELECT id FROM people WHERE name=%s",(access_user,))
-        self.user_id=c.fetchone[0]
+        self.user_id=c.fetchone()[0]
         conn.close()
         #create_personal_database()
 
@@ -608,9 +608,9 @@ class PersonalDatabaseManager:
     def get_personal_data(self, date):
         conn = mysql.connector.connect(
             host="localhost",
-            user=self.user,
-            password=self.password,
-            database=self.database
+            user='root',
+            password='1234',
+            database='inventory_system'
         )
         c = conn.cursor()
 
@@ -618,7 +618,7 @@ class PersonalDatabaseManager:
                     h.barcode,
                     m.name,
                     h.time_of_use,
-                    ABS(h.change)
+                    ABS(h.amnt_change),
 
                     EXISTS (
                         SELECT 1
@@ -627,7 +627,7 @@ class PersonalDatabaseManager:
                             ON ap.prescription_id = p.id
                         WHERE ap.person_id = h.person_id
                         AND p.barcode = h.barcode
-                        AND ABS(h.change) = p.dose
+                        AND ABS(h.amnt_change) = p.dose
                         AND (
                                 p.as_needed = TRUE
                                 OR
@@ -727,9 +727,9 @@ class PersonalDatabaseManager:
         """
         conn = mysql.connector.connect(
             host="localhost",
-            user=self.user,
-            password=self.password,
-            database=self.database
+            user='root',
+            password='1234',
+            database='inventory_system'
         )
         c = conn.cursor()
 
@@ -738,20 +738,21 @@ class PersonalDatabaseManager:
                   JOIN medications m ON m.barcode=p.barcode
                   JOIN assigned_prescriptions ap ON ap.prescription_id = p.id
                   WHERE ap.person_id = %s AND p.as_needed = %s;""", (self.user_id,True,))
+            result = c.fetchall()
         else:
             c.execute(f"SELECT * FROM {table}")
-            table = c.fetchall()
+            result = c.fetchall()
         
         conn.close()
-        return table
+        return result
   
 
 
 if __name__ == "__main__":
-    # read = PersonalDatabaseManager('Database/dylan_records.db')
+    read = PersonalDatabaseManager('lucca')
     read1 = DatabaseManager()
 
-    print(read1.pattern_recognition())
+    print(read.pull_data('prescriptions'))
 
    
     # print(read.pull_data('history'))
