@@ -12,7 +12,6 @@ import customtkinter as ctk
 import os
 import sys
 import datetime
-import tkcalendar as tkcal
 import threading
 import time
 import tkinter.font as tkfont
@@ -28,7 +27,11 @@ from facial_recognition import FaceRecognitionError
 # CONSTANTS
 # ============================================================================
 
-REFRESH_INTERVAL = 30000  # milliseconds
+DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Database/inventory.db")
+REFRESH_INTERVAL = 300000  # milliseconds
+# Use CustomTkinter main window for modern look
+ctk.set_appearance_mode("Dark")         # "Dark", "Light", or "System"
+ctk.set_default_color_theme("dark-blue") # built-in themes: "blue", "green", "dark-blue"
 
 # UI Configuration
 ctk.set_appearance_mode("Dark")
@@ -116,7 +119,10 @@ class BarcodeViewer(ctk.CTk):
         style.configure("TLabel", font=("Arial", 28))
         style.configure("TButton", font=("Arial", 24), padding=20)
         style.configure("Treeview", font=("Arial", 22), rowheight=55)
+        style.configure("Treeview", background="#292929", foreground="#f8f8f8", fieldbackground="#292929")
         style.configure("Treeview.Heading", font=("Arial", 24, "bold"))
+        style.configure("Treeview.Heading", background="#646464", foreground="#292929")
+
         
         # Configure scrollbar thickness
         style.configure("Vertical.TScrollbar", width=30)  # Make vertical scrollbar 30 pixels wide
@@ -874,7 +880,7 @@ class BarcodeViewer(ctk.CTk):
     
     def log_scan(self, user=None):
         """Log item restock"""
-        time = datetime.datetime.now().strftime("%Y-%m-%d")
+        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         if user is None or user == "":
             return
@@ -904,7 +910,7 @@ class BarcodeViewer(ctk.CTk):
     
     def use_item(self, user=None):
         """Log item usage"""
-        time = datetime.datetime.now().strftime("%Y-%m-%d")
+        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         barcode = self._prompt_for_barcode(prompt="Scan item barcode", title="Item Usage - Scan Barcode")
         if barcode is None or barcode.strip() == "":
@@ -1030,6 +1036,7 @@ class BarcodeViewer(ctk.CTk):
         
         for row in self.db.pull_data("drug_changes"):
             tree.insert("", "end", values=row)
+
     #endregion
 
     # ========================================================================
@@ -1558,7 +1565,7 @@ class Personal_db_window(ctk.CTkToplevel):
         self.transient(parent)
         self.parent = parent
         self.user = user
-        self.current_date = datetime.datetime.today()
+        self.current_date = datetime.datetime.now()
         self.zoom_level = 10.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
         self.db = DatabaseManager()
         self.expanded_items = set()  # Track which items are expanded
@@ -1580,29 +1587,31 @@ class Personal_db_window(ctk.CTkToplevel):
     
         # Set fullscreen
         self.update_idletasks()
+
+        def screen():
+            screen_width = self.winfo_screenwidth()
+            screen_height = self.winfo_screenheight()
+            return (screen_width * screen_height)
         
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
+        def window():
+            window_width = self.winfo_width()
+            window_height = self.winfo_height()
+            return (window_width * window_height)
         
-        try:
+        if screen():
             self.attributes("-fullscreen", True)
-            self.after(0, lambda: self.attributes("-fullscreen", True))
-        except Exception:
+
+            if screen() != window():
+                self.attributes("-fullscreen", False)
+                window_width = self.winfo_screenwidth()
+                window_height = self.winfo_screenheight()
+                self.geometry(f"{window_width}x{window_height}+0+0")
+                pass 
+        else:
             pass
-        
-        def enforce_fullscreen():
-            try:
-                self.attributes("-fullscreen", True)
-            except Exception:
-                try:
-                    self.state("zoomed")
-                except Exception:
-                    pass
-            self.geometry(f"{screen_width}x{screen_height}+0+0")
-        
-        enforce_fullscreen()
-        self.after(100, enforce_fullscreen)
-        
+                
+                
+        self.resizable(False, True)
         self.lift()
         self.focus_force()
         
@@ -1704,12 +1713,22 @@ class Personal_db_window(ctk.CTkToplevel):
         
         ctk.CTkButton(
             controls_frame,
+            text="💊 Use Item",
+            command=self.use_item_from_timeline,
+            width=130,
+            height=42,
+            font=("Arial", 15),
+            fg_color="#3b82f6"
+        ).pack(side="left", padx=(16, 6))
+        
+        ctk.CTkButton(
+            controls_frame,
             text="Zoom In (+)",
             command=self.zoom_in,
             width=105,
             height=42,
             font=("Arial", 15)
-        ).pack(side="left", padx=(16, 6))
+        ).pack(side="left", padx=6)
         
         ctk.CTkButton(
             controls_frame,
@@ -1764,10 +1783,10 @@ class Personal_db_window(ctk.CTkToplevel):
         self.as_needed_scroll = ctk.CTkScrollableFrame(as_needed_frame, height=150)
         self.as_needed_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-    def _load_as_needed_prescriptions(self): #old code commented out, didn't want to delete just in case 
+    def _load_as_needed_prescriptions(self):
         """Load as-needed prescriptions from database"""
-        # if not self.personal_db:
-        #     return
+        if not self.personal_db:
+            return
         
         try:
             # Query all prescriptions where as_needed = True
@@ -1775,14 +1794,13 @@ class Personal_db_window(ctk.CTkToplevel):
             
             for prescription in all_prescriptions:
                 # prescription format: (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed)
-                # if len(prescription) >= 9 and prescription[8]:  # as_needed is True
-                print(prescription)
-                self.as_needed_prescriptions.append({
-                    'name': prescription[0],
-                    'dosage': prescription[1],
-                    'barcode': prescription[2],
-                    'type': 'as_needed'
-                })
+                if len(prescription) >= 9 and prescription[8]:  # as_needed is True
+                    self.as_needed_prescriptions.append({
+                        'name': prescription[1],
+                        'dosage': prescription[2],
+                        'barcode': prescription[0],
+                        'type': 'as_needed'
+                    })
         except Exception as e:
             print(f"Error loading as-needed prescriptions: {e}")
             import traceback
@@ -1830,7 +1848,6 @@ class Personal_db_window(ctk.CTkToplevel):
         self.activities = []
         self.prescriptions = []
         self.as_needed_prescriptions = []
-
     
         if not self.personal_db:
             self.draw_timeline()
@@ -1981,6 +1998,33 @@ class Personal_db_window(ctk.CTkToplevel):
             print(f"Error checking activity match: {e}")
             return False
 
+    def _get_pill_width(self):
+        """Get the current pill width based on zoom level"""
+        return max(100 * min(self.zoom_level, 2.0), 60)
+
+    def _resolve_overlaps(self, items_with_x):
+        """
+        Given a list of (index, item, x_position), return a list of 
+        (index, item, adjusted_x) so no two pills overlap horizontally.
+        """
+        pill_width = self._get_pill_width()
+        min_spacing = pill_width + 10  # pill width + small gap
+        
+        # Sort by x position for consistent placement
+        sorted_items = sorted(items_with_x, key=lambda t: t[2])
+        
+        placed = []  # list of (index, item, final_x)
+        
+        for idx, item, x in sorted_items:
+            final_x = x
+            # Only check against already-placed items, single pass
+            for _, _, placed_x in placed:
+                if abs(final_x - placed_x) < min_spacing:
+                    final_x = placed_x + min_spacing
+            placed.append((idx, item, final_x))
+        
+        return placed
+
     def draw_timeline(self):
         """Draw the 24-hour timeline with activities and prescriptions"""
         self.timeline_canvas.delete("all")
@@ -2080,15 +2124,6 @@ class Personal_db_window(ctk.CTkToplevel):
         self._draw_legend()
         
         print(f"Drawing timeline with {len(self.prescriptions)} prescriptions and {len(self.activities)} activities")
-
-    def _get_stacked_position(self, x, items_at_time, item_index):
-        """Calculate vertical offset for stacked items at the same time"""
-        if item_index == 0:
-            return 0
-        
-        # Stack items horizontally with small offset
-        offset = 30 * min(self.zoom_level, 1.5)
-        return offset * item_index
 
     def _draw_prescription_pill(self, x, timeline_y, prescription, item_id, is_expanded):
         """Draw a prescription pill above the timeline"""
@@ -2469,6 +2504,173 @@ class Personal_db_window(ctk.CTkToplevel):
         self.current_date = datetime.date.today()
         self.date_label.configure(text=self.current_date.strftime("%A, %B %d, %Y"))
         self.load_timeline_data()
+    
+    def use_item_from_timeline(self):
+        """Log item usage directly from the timeline, then refresh"""
+        barcode = self._prompt_for_input(
+            prompt="Scan item barcode",
+            title="Use Item - Scan Barcode",
+            numpad_mode=True
+        )
+        if barcode is None or barcode.strip() == "":
+            return
+        
+        exists = self.db.check_if_barcode_exists(barcode)
+        if not exists:
+            self._show_message("Invalid Barcode", f"Barcode {barcode} not found in inventory.", "error")
+            return
+        
+        barcode = exists[1]
+        
+        amount_str = self._prompt_for_input(
+            prompt="Enter amount used",
+            title="Use Item - Amount",
+            numpad_mode=True,
+            allow_decimal=True
+        )
+        if amount_str is None or amount_str.strip() == "":
+            return
+        
+        try:
+            amount = int(float(amount_str)) * -1
+        except ValueError:
+            self._show_message("Invalid Amount", "Please enter a valid number.", "error")
+            return
+        
+        try:
+            self.db.log_access_to_inventory(barcode=barcode, change=amount, user=self.user)
+            self._show_message("Item Used", f"Logged usage of {barcode} by {self.user}", "info")
+        except Exception as e:
+            self._show_message("Error", f"Failed to log item usage:\n{e}", "error")
+            return
+        
+        # Reload timeline to show the new activity
+        self.load_timeline_data()
+
+    def _prompt_for_input(self, prompt="Enter value", title="Input", numpad_mode=True, allow_decimal=False):
+        """Generic modal input dialog with numpad"""
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.transient(self)
+        dlg.resizable(False, False)
+        
+        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
+        
+        entry_var = tk.StringVar()
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=400, height=55, font=("Arial", 20))
+        entry.pack(padx=25, pady=(0, 22))
+        
+        result = {"value": None}
+        
+        def on_ok(event=None):
+            val = entry_var.get().strip()
+            if val == "":
+                return
+            if allow_decimal:
+                try:
+                    float(val)
+                except ValueError:
+                    self._show_message("Invalid", "Please enter a valid number.", "error")
+                    return
+            result["value"] = val
+            try:
+                dlg.grab_release()
+            except:
+                pass
+            dlg.destroy()
+        
+        def on_cancel(event=None):
+            try:
+                dlg.grab_release()
+            except:
+                pass
+            dlg.destroy()
+        
+        if numpad_mode:
+            numpad_frame = ctk.CTkFrame(dlg)
+            numpad_frame.pack(pady=(0, 18))
+            
+            last_row_keys = ['C', '0', '.' if allow_decimal else '<']
+            buttons = [
+                ['7', '8', '9'],
+                ['4', '5', '6'],
+                ['1', '2', '3'],
+                last_row_keys
+            ]
+            
+            def add_to_entry(value):
+                current = entry_var.get()
+                if value == '.' and '.' in current:
+                    return
+                entry_var.set(current + str(value))
+            
+            for i, row in enumerate(buttons):
+                for j, btn_text in enumerate(row):
+                    if btn_text == 'C':
+                        cmd = lambda: entry_var.set("")
+                    elif btn_text == '<':
+                        cmd = lambda: entry_var.set(entry_var.get()[:-1])
+                    else:
+                        cmd = lambda x=btn_text: add_to_entry(x)
+                    ctk.CTkButton(
+                        numpad_frame, text=btn_text, width=110, height=110,
+                        font=("Arial", 26), command=cmd
+                    ).grid(row=i, column=j, padx=10, pady=10)
+            
+            if allow_decimal:
+                ctk.CTkButton(
+                    numpad_frame, text="<", width=340, height=60,
+                    font=("Arial", 26), command=lambda: entry_var.set(entry_var.get()[:-1])
+                ).grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
+        
+        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
+        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
+        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55,
+                     font=("Arial", 20)).pack(side="left", padx=12, pady=12)
+        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55,
+                     font=("Arial", 20), fg_color="gray30").pack(side="right", padx=12, pady=12)
+        
+        entry.bind("<Return>", on_ok)
+        dlg.bind("<Escape>", on_cancel)
+        
+        dlg.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
+        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
+        dlg.geometry(f"+{x}+{y}")
+        
+        def do_grab():
+            try:
+                dlg.grab_set()
+                entry.focus_set()
+            except:
+                pass
+        dlg.after(50, do_grab)
+        
+        self.wait_window(dlg)
+        return result["value"]
+
+    def _show_message(self, title, message, msg_type="info"):
+        """Show a simple popup message from the personal DB window"""
+        popup = ctk.CTkToplevel(self)
+        popup.title(title)
+        popup.geometry("520x240")
+        popup.resizable(False, False)
+        
+        accent = {"error": "#dc2626", "warning": "#f59e0b"}.get(msg_type, "#3b82f6")
+        
+        ctk.CTkLabel(popup, text=title, font=("Arial", 22, "bold"), text_color=accent).pack(pady=(30, 18))
+        ctk.CTkLabel(popup, text=message, font=("Arial", 18), wraplength=460, justify="center").pack(pady=(0, 25))
+        ctk.CTkButton(popup, text="OK", command=popup.destroy, width=140, height=45,
+                     font=("Arial", 18), fg_color=accent).pack()
+        
+        self.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() // 2) - 260
+        y = self.winfo_rooty() + (self.winfo_height() // 2) - 120
+        popup.geometry(f"520x240+{x}+{y}")
+        
+        popup.transient(self)
+        popup.grab_set()
+        self.wait_window(popup)
 #endregion
 
 # ============================================================================
