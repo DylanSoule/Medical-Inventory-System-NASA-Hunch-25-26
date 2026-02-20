@@ -732,7 +732,7 @@ class BarcodeViewer(ctk.CTk):
         
         for row in rows:
             try:
-                barcode, drug, est_amount, exp_date_raw, type_, dose_size, item_loc = row[0], row[1], row[2], row[3], row[4], row[5], row[6]
+                barcode, drug, est_amount, exp_date_raw, type_, dose_size, item_loc = row[1], row[0], row[2], row[3], row[4], row[5], row[6]
             except Exception:
                 vals = list(row)
                 barcode = vals[0] if len(vals) > 0 else ""
@@ -740,8 +740,8 @@ class BarcodeViewer(ctk.CTk):
                 est_amount = vals[2] if len(vals) > 2 else ""
                 exp_date_raw = vals[3] if len(vals) > 3 else None
                 type_ = vals[4] if len(vals) > 4 else ""
-                dose_size = vals[6] if len(vals) > 5 else ""
-                item_loc = vals[7] if len(vals) > 6 else ""
+                dose_size = vals[5] if len(vals) > 5 else ""
+                item_loc = vals[6] if len(vals) > 6 else ""
             
             # Search filter
             if q:
