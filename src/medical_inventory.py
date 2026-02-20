@@ -1624,7 +1624,7 @@ class Personal_db_window(ctk.CTkToplevel):
         
         self._setup_ui()
         self.bind("<Escape>", lambda e: self.destroy())
-        self.load_timeline_data()
+        self.after(200, self.load_timeline_data)
 
     def _setup_ui(self):
         """Setup the personal database UI"""
@@ -1808,6 +1808,9 @@ class Personal_db_window(ctk.CTkToplevel):
     
     def _update_as_needed_display(self):
         """Update the as-needed medications display"""
+        if not hasattr(self, "as_needed_scroll") or not self.as_needed_scroll.winfo_exists():
+            return
+        
         # Clear existing widgets
         for widget in self.as_needed_scroll.winfo_children():
             widget.destroy()
@@ -1864,24 +1867,35 @@ class Personal_db_window(ctk.CTkToplevel):
             # Query all history logs and filter by date
             all_history = self.personal_db.get_personal_data(current_date_only)
             
-            for log in all_history:
+            for log in all_history[0]:
                 try:
                     # history format: (barcode, dname, when_taken, dose)
                     if len(log) < 4:
                         continue
                         
-                    barcode, name, when_taken, dose = log[0], log[1], log[2], log[3]
+                    barcode, name, when_taken, dose, matched = log[0], log[1], log[2], log[3], log[4]
                     
                     # Parse timestamp
+                    if isinstance(when_taken, (tuple,list)):
+                        when_taken = str(when_taken) if when_taken else None
+                    else:
+                        when_taken = str(when_taken)
+                    
+                    if not when_taken:
+                        continue
+
                     dt = None
                     try:
-                        #ignore the error it works fine
                         dt = datetime.datetime.strptime(when_taken, "%Y-%m-%d")
-                    except:
+                    except (ValueError, TypeError):
                         try:
-                            dt = datetime.datetime.fromisoformat(when_taken)
-                        except:
-                            continue
+                            dt = datetime.datetime.strptime(when_taken, "%Y-%m-%d %H:%M:%S")
+                        except (ValueError, TypeError):
+                            try:
+                                dt = datetime.datetime.fromtimestamp(when_taken)
+                            except (ValueError, TypeError):
+                                print(f"Could not parse date: {when_taken}")
+                                continue
                     
                     if dt is None:
                         continue
@@ -1893,7 +1907,8 @@ class Personal_db_window(ctk.CTkToplevel):
                             'name': name,
                             'amount': dose,
                             'barcode': barcode,
-                            'type': 'usage'
+                            'type': 'usage',
+                            'matched': matched
                         })
                 except Exception as e:
                     print(f"Error processing history log: {e}, log: {log}")
@@ -1981,15 +1996,9 @@ class Personal_db_window(ctk.CTkToplevel):
                 activity['time']
             ).strftime("%Y-%m-%d")
             
-            log = (
-                activity['barcode'],
-                activity['name'],
-                when_taken,
-                str(activity['amount'])
-            )
             
             # Use database comparison function
-            result = self.personal_db.compare_with_prescription(log)
+            result = self.activities["matched"]
             
             # result is (bool, string) - return the bool
             return result[0] if isinstance(result, tuple) else False
@@ -2001,7 +2010,33 @@ class Personal_db_window(ctk.CTkToplevel):
     def _get_pill_width(self):
         """Get the current pill width based on zoom level"""
         return max(100 * min(self.zoom_level, 2.0), 60)
-
+    
+    def _get_stacked_position(self, x, items, stack_idx):
+        """
+        Calculate horizontal offset for stacked items at the same time slot.
+        
+        Args:
+            x: Base x position on the timeline
+            items: List of (idx, item) tuples sharing the same time slot
+            stack_idx: Index of the current item within the group
+            
+        Returns:
+            Horizontal pixel offset from the base x position
+        """
+        num_items = len(items)
+        if num_items <= 1:
+            return 0
+        
+        pill_width = self._get_pill_width()
+        spacing = pill_width + 10  # pill width + gap between pills
+        
+        # Center the group around x=0 offset
+        # Total width of the group: (num_items - 1) * spacing
+        total_group_width = (num_items - 1) * spacing
+        start_offset = -total_group_width / 2.0
+        
+        return start_offset + (stack_idx * spacing)
+    
     def _resolve_overlaps(self, items_with_x):
         """
         Given a list of (index, item, x_position), return a list of 
@@ -2027,6 +2062,10 @@ class Personal_db_window(ctk.CTkToplevel):
 
     def draw_timeline(self):
         """Draw the 24-hour timeline with activities and prescriptions"""
+        #Guard to ensure canvas is ready
+        if not self.timeline_canvas.winfo_exists():
+            return
+        
         self.timeline_canvas.delete("all")
         
         canvas_width = self.timeline_canvas.winfo_width()
