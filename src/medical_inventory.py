@@ -1764,24 +1764,24 @@ class Personal_db_window(ctk.CTkToplevel):
         self.as_needed_scroll = ctk.CTkScrollableFrame(as_needed_frame, height=150)
         self.as_needed_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-    def _load_as_needed_prescriptions(self):
+    def _load_as_needed_prescriptions(self): #old code commented out, didn't want to delete just in case 
         """Load as-needed prescriptions from database"""
-        if not self.personal_db:
-            return
+        # if not self.personal_db:
+        #     return
         
         try:
             # Query all prescriptions where as_needed = True
-            all_prescriptions = self.personal_db.pull_data('prescription')
+            all_prescriptions = self.personal_db.pull_data('prescriptions')
             
             for prescription in all_prescriptions:
                 # prescription format: (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed)
-                if len(prescription) >= 9 and prescription[8]:  # as_needed is True
-                    self.as_needed_prescriptions.append({
-                        'name': prescription[1],
-                        'dosage': prescription[2],
-                        'barcode': prescription[0],
-                        'type': 'as_needed'
-                    })
+                # if len(prescription) >= 9 and prescription[8]:  # as_needed is True
+                self.as_needed_prescriptions.append({
+                    'name': prescription[0],
+                    'dosage': prescription[1],
+                    'barcode': prescription[2],
+                    'type': 'as_needed'
+                })
         except Exception as e:
             print(f"Error loading as-needed prescriptions: {e}")
             import traceback

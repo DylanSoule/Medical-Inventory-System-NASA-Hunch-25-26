@@ -263,15 +263,18 @@ class DatabaseManager:
     ):
         conn = mysql.connector.connect(
             host="localhost",
-            user=self.user,
-            password=self.password,
-            database=self.database
+            user='root',
+            password='1234',
+            database='inventory_system'
         )
         c = conn.cursor()
         today = datetime.today()
-
+        # user_ids = []
+        # for user in users:
+        #     c.execute("SELECT id FROM people WHERE name = %s",(user.lower()))
+        #     user_ids.append(c.fetchone[0])
         results = []
-
+        
         def analyze_series(values, label):
             anomalies = []
             values = np.array(values, dtype=float)
@@ -308,10 +311,10 @@ class DatabaseManager:
                     back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
 
                     c.execute("""
-                        SELECT COALESCE(SUM(change), 0)
+                        SELECT SUM(amnt_change)
                         FROM history
-                        WHERE time_of_use BETWEEN %s AND %s
-                    """, (back, front))
+                        WHERE time_of_use BETWEEN %s AND %s;
+                    """, (back, front,))
 
                     totals.append(c.fetchone()[0])
 
@@ -323,7 +326,7 @@ class DatabaseManager:
         if users:
             for user in users:
                 c.execute("SELECT id FROM people WHERE name=%s",(user,))
-                pid=c.fetchall()[0]
+                pid=c.fetchone()[0]
                 for period in periods:
                     totals = []
                     for i in range(periods_back):
@@ -331,12 +334,12 @@ class DatabaseManager:
                         back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
 
                         c.execute("""
-                            SELECT COALESCE(SUM(change), 0)
+                            SELECT SUM(amnt_change)
                             FROM history
                             WHERE time_of_use BETWEEN %s
                             AND %s
                             AND person_id = %s
-                        """, (back, front, pid))
+                        """, (back, front, pid,))
 
                         totals.append(c.fetchone()[0])
 
@@ -505,7 +508,7 @@ class PersonalDatabaseManager:
         conn.commit()
         conn.close()
 
-
+    """
     def compare_history_with_prescription(self, days_back=7):
         conn = mysql.connector.connect(
             host="localhost",
@@ -533,7 +536,7 @@ class PersonalDatabaseManager:
 
 
     def compare_most_recent_log_with_prescription(self):
-        """
+        ""
         Docstring for compare_most_recent_log_with_prescription
 
         function compares most recent log by the person who's inventory is being accessed with their prescriptions
@@ -541,7 +544,7 @@ class PersonalDatabaseManager:
         :param self: pulls inventory path to personal database from class call
 
         return True or False based on if match is found or not
-        """
+        ""
         conn = mysql.connector.connect(
             host="localhost",
             user=self.user,
@@ -600,7 +603,7 @@ class PersonalDatabaseManager:
                 continue
         conn.close()
         return False, "No Time Match"
-
+    """
 
     def get_personal_data(self, date):
         conn = mysql.connector.connect(
@@ -611,49 +614,65 @@ class PersonalDatabaseManager:
         )
         c = conn.cursor()
 
-        c.execute("""SELECT history.barcode,medications.name,history.time_of_use,ABS(history.amnt_change),
-                  FROM history
-                  JOIN medications ON history.barcode=medications.barcode
-                  WHERE history.time_of_use = %s AND history.person_id = %s""",(date,self.user_id,))
+        c.execute("""SELECT 
+                    h.barcode,
+                    m.name,
+                    h.time_of_use,
+                    ABS(h.change)
+
+                    EXISTS (
+                        SELECT 1
+                        FROM prescriptions p
+                        JOIN assigned_prescriptions ap
+                            ON ap.prescription_id = p.id
+                        WHERE ap.person_id = h.person_id
+                        AND p.barcode = h.barcode
+                        AND ABS(h.change) = p.dose
+                        AND (
+                                p.as_needed = TRUE
+                                OR
+                                TIME(h.time_of_use)
+                                    BETWEEN 
+                                        SUBTIME(p.time, SEC_TO_TIME(p.leeway * 60))
+                                    AND ADDTIME(p.time, SEC_TO_TIME(p.leeway * 60))
+                            )
+                    ) AS matches_prescription
+
+                FROM history h
+                JOIN medications m 
+                    ON h.barcode = m.barcode
+
+                WHERE h.person_id = %s AND date(h.time_of_use) = %s;""",(self.user_id,date,))
         hist_logs = c.fetchall()
-        c.execute("""SELECT prescriptions.barcode,prescriptions.time,prescriptions.dose
-                  FROM prescriptions
-                  JOIN assigned_prescriptions ON prescription.id=assigned_prescriptions.prescription_id
-                  WHERE assigned_prescriptions.person_id = %s""",(self.user_id,))
-        prescription_logs=c.fetchall()
-        for i in range(len(hist_logs)):
-            hist_logs[i]=list(hist_logs[i])
-            for entry in prescription_logs:
-                if hist_logs[i][1] in entry
 
-        c.execute('SELECT barcode, dname, dosage, frequency, time, leeway, start_date FROM prescription WHERE as_needed = %s', (False,))
-        prescript_dates = c.fetchall()
-        prescript_logs= []
-        for prescript in prescript_dates:
-            try:
-                frequency = prescript[3]
-                if not frequency or frequency <= 0:
-                    continue
+        c.execute("""SELECT p.barcode, m.name, p.dose, p.time, p.leeway FROM prescriptions p
+                  JOIN medications m ON m.barcode=p.barcode
+                  JOIN assigned_prescriptions ap ON ap.prescription_id = p.id
+                  WHERE ap.person_id = %s AND p.as_needed = %s;""", (self.user_id,False,))
+        prescript_logs = c.fetchall()
+        # prescript_logs= []
+        # for prescript in prescript_dates:
+        #     try:
+        #         frequency = prescript[3]
+        #         if not frequency or frequency <= 0:
+        #             continue
                 
-                start_date_str = prescript[6]
-                if not start_date_str:
-                    continue
+        #         start_date_str = prescript[6]
+        #         if not start_date_str:
+        #             continue
 
-                pdate = datetime.strptime(start_date_str, time_format).date()
+        #         pdate = datetime.strptime(start_date_str, time_format).date()
 
-                diff_days = abs((ndate - pdate).days)
+        #         diff_days = abs((ndate - pdate).days)
 
-                if diff_days % frequency == 0:
-                    cursor.execute("SELECT item_type, dose_size FROM drugs WHERE barcode = ?", (str(prescript[0]),))
-                    dose_list = cursor.fetchone()
-                    dose = dose_list[1] + ' '+dose_list[0]
-                    prescript_logs.append((prescript[0], prescript[1], prescript[2], prescript[4], prescript[5],dose))
-            except Exception as e:
-                print(f"Error processing prescription {prescript}: {e}")
-                continue
-
-        
-        
+        #         if diff_days % frequency == 0:
+        #             cursor.execute("SELECT item_type, dose_size FROM drugs WHERE barcode = ?", (str(prescript[0]),))
+        #             dose_list = cursor.fetchone()
+        #             dose = dose_list[1] + ' '+dose_list[0]
+        #             prescript_logs.append((prescript[0], prescript[1], prescript[2], prescript[4], prescript[5],dose))
+        #     except Exception as e:
+        #         print(f"Error processing prescription {prescript}: {e}")
+        #         continue
 
         conn.close()
         conn.close()
@@ -714,9 +733,14 @@ class PersonalDatabaseManager:
         )
         c = conn.cursor()
 
-
-        c.execute(f"SELECT * FROM {table}")
-        table = c.fetchall()
+        if table=='prescriptions':
+            c.execute("""SELECT m.name, p.dose, p.barcode FROM prescriptions p
+                  JOIN medications m ON m.barcode=p.barcode
+                  JOIN assigned_prescriptions ap ON ap.prescription_id = p.id
+                  WHERE ap.person_id = %s AND p.as_needed = %s;""", (self.user_id,True,))
+        else:
+            c.execute(f"SELECT * FROM {table}")
+            table = c.fetchall()
         
         conn.close()
         return table
@@ -727,7 +751,7 @@ if __name__ == "__main__":
     # read = PersonalDatabaseManager('Database/dylan_records.db')
     read1 = DatabaseManager()
 
-    read1.pull_data('drugs_in_inventory')
+    print(read1.pattern_recognition())
 
    
     # print(read.pull_data('history'))
