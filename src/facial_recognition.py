@@ -15,6 +15,10 @@ import threading
 import queue
 import insightface
 import gc  # Garbage collection
+import sys
+
+model_pack_name = 'buffalo_sc'
+insightface.app.FaceAnalysis(name=model_pack_name)
 
 logging.getLogger("insightface").setLevel(logging.ERROR)
 logging.getLogger("onnxruntime").setLevel(logging.ERROR)
@@ -43,58 +47,93 @@ class FaceRecognitionError(Enum):
         return f"FaceRecognitionError.{self.name}"
 
 def _initialize_camera_robust():
-    """Try multiple methods to initialize camera"""
+    """Try multiple methods to initialize camera (Windows & Linux compatible)
+    Optimized for USB webcams on Windows"""
+    import time
     
-    # Method 1: Try different backends first (often more reliable)
-    backends = [
-        (cv2.CAP_V4L2, "V4L2"),           # Default Linux backend - try first
-        (cv2.CAP_GSTREAMER, "GStreamer"), # Often works better on Linux
-        (cv2.CAP_ANY, "ANY")              # Let OpenCV choose
-        # Note: Removed FFMPEG as it's primarily for video files, not live cameras
-    ]
+    # Platform-specific backends
+    if sys.platform.startswith('win'):
+        # Windows: DSHOW is best for USB webcams
+        backends = [
+            (cv2.CAP_DSHOW, "DSHOW"),
+            (cv2.CAP_ANY, "ANY"),
+        ]
+    else:
+        # Linux: V4L2, GStreamer, then ANY
+        backends = [
+            (cv2.CAP_V4L2, "V4L2"),
+            (cv2.CAP_GSTREAMER, "GStreamer"),
+            (cv2.CAP_ANY, "ANY")
+        ]
     
     for backend, name in backends:
         try:
+            print(f"[DEBUG] Trying {name} backend for USB webcam...")
             cap = cv2.VideoCapture(0, backend)
+            
+            # Critical: Give USB webcam time to initialize and warm up
+            time.sleep(1.0)
+            
             if cap.isOpened():
-                # Give the camera a moment to initialize
-                time.sleep(0.2)  # Reduced wait time
+                # Flush the buffer - USB webcams buffer old frames
+                for _ in range(5):
+                    cap.read()
+                    time.sleep(0.1)
+                
+                # Now try to capture a fresh frame
                 ret, frame = cap.read()
-                if ret and frame is not None:
-                    # Set optimal settings
+                
+                if ret and frame is not None and frame.size > 0:
+                    # Optimize USB webcam settings for Windows
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                     cap.set(cv2.CAP_PROP_FPS, 30)
-                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Single frame buffer
+                    cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)   # Enable autofocus
+                    
+                    # Small delay to apply settings
+                    time.sleep(0.2)
+                    
+                    print(f"[SUCCESS] USB Webcam initialized with {name} backend")
                     return cap
                 else:
+                    print(f"[DEBUG] {name}: Failed to capture frame")
                     cap.release()
-        except Exception:
-            # Silently continue to next backend
+        except Exception as e:
+            print(f"[DEBUG] {name} backend error: {str(e)}")
             pass
     
-    # Method 2: Try different camera indices (fallback)
+    # Fallback: Try different camera indices without backend specification
+    print("[DEBUG] Trying fallback camera indices (0, 1, 2)...")
     for camera_index in [0, 1, 2]:
         try:
             cap = cv2.VideoCapture(camera_index)
+            time.sleep(1.0)
+            
             if cap.isOpened():
-                # Give the camera a moment to initialize
-                time.sleep(0.2)
-                # Test if we can actually read a frame
+                # Flush buffer
+                for _ in range(5):
+                    cap.read()
+                    time.sleep(0.1)
+                
                 ret, frame = cap.read()
-                if ret and frame is not None:
-                    # Set optimal settings
+                if ret and frame is not None and frame.size > 0:
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                     cap.set(cv2.CAP_PROP_FPS, 30)
                     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
+                    time.sleep(0.2)
+                    
+                    print(f"[SUCCESS] USB Webcam initialized at index {camera_index}")
                     return cap
                 else:
                     cap.release()
-        except Exception:
-            # Silently continue to next camera index
+        except Exception as e:
+            print(f"[DEBUG] Camera index {camera_index} error: {str(e)}")
             pass
     
+    print("[ERROR] Failed to initialize USB webcam on Windows")
     return None
 
 # Global model and app cache
@@ -127,71 +166,89 @@ def preload_everything():
     global app, reference_embeddings, preloading_complete, camera_ready, global_camera
     
     try:
-
+        print("[INFO] Starting preload...")
         
-        # Load InsightFace model
-        with suppress_native_output():
-            app = insightface.app.FaceAnalysis(name="buffalo_sc", providers=['CPUExecutionProvider'])
-            app.prepare(ctx_id=0, det_size=(320, 320))
-
+        # Step 1: Load InsightFace model
+        print("[INFO] Loading InsightFace model...")
+        try:
+            with suppress_native_output():
+                app = insightface.app.FaceAnalysis(name=model_pack_name)
+                app.prepare(ctx_id=0)
+        except OSError as e:
+            if "WinError 1" in str(e) or "Incorrect function" in str(e):
+                print("[WARN] Windows ONNX Runtime provider error (harmless), retrying...")
+                app = insightface.app.FaceAnalysis(name=model_pack_name)
+                app.prepare(ctx_id=0)
+            else:
+                raise
         
-        # Load reference embeddings
-        def normalize(emb):
-            return emb / np.linalg.norm(emb)
+        print("[INFO] InsightFace model loaded successfully")
         
+        # Step 2: Load reference embeddings
+        print("[INFO] Loading reference embeddings...")
         script_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(script_dir)
         ref_dir = os.path.join(project_root, "assets", "references")
         
+        if not os.path.exists(ref_dir):
+            print(f"[ERROR] Reference folder not found: {ref_dir}")
+            return FaceRecognitionError.REFERENCE_FOLDER_ERROR
+        
         reference_embeddings = {}
+        for ref_file in os.listdir(ref_dir):
+            if ref_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                try:
+                    ref_path = os.path.join(ref_dir, ref_file)
+                    ref_img = cv2.imread(ref_path)
+                    if ref_img is None:
+                        print(f"[WARN] Could not read reference image: {ref_file}")
+                        continue
+                    
+                    faces = app.get(ref_img)
+                    if len(faces) > 0:
+                        embedding = faces[0].embedding
+                        # NORMALIZE the reference embedding
+                        embedding = embedding / np.linalg.norm(embedding)
+                        name = os.path.splitext(ref_file)[0]
+                        reference_embeddings[name] = embedding
+                        print(f"[INFO] Loaded reference: {name}")
+                    else:
+                        print(f"[WARN] No face detected in reference image: {ref_file}")
+                except Exception as e:
+                    print(f"[ERROR] Failed to load reference {ref_file}: {str(e)}")
         
-        for filename in os.listdir(ref_dir):
-            if filename.lower().endswith((".jpg", ".jpeg", ".png")):
-                path = os.path.join(ref_dir, filename)
-                img = cv2.imread(path)
-                if img is None:
-                    continue
-
-                faces = app.get(img)
-                if len(faces) == 0:
-                    continue
-
-                embedding = normalize(faces[0].embedding)
-                label = os.path.splitext(filename)[0]
-                label = re.sub(r'\d+$', '', label)
-                label = re.sub(r'[^A-Za-z0-9_\-]', '_', label)
-                label = label.capitalize()  # Capitalize first character
-
-                if label not in reference_embeddings:
-                    reference_embeddings[label] = []
-                reference_embeddings[label].append(embedding)
-
-        for label in reference_embeddings:
-            reference_embeddings[label] = np.array(reference_embeddings[label])
-
+        if not reference_embeddings:
+            print("[ERROR] No reference embeddings loaded")
+            return FaceRecognitionError.REFERENCE_FOLDER_ERROR
         
-        # Pre-initialize camera 
+        print(f"[INFO] Loaded {len(reference_embeddings)} reference embeddings")
+        
+        # Step 3: Initialize camera
+        print("[INFO] Initializing camera...")
+        import time
+        camera_start = time.time()
+        
         global_camera = _initialize_camera_robust()
-        if global_camera is not None and global_camera.isOpened():
-            camera_ready = True
-        else:
-            camera_ready = False
+        
+        if global_camera is None:
+            print("[ERROR] Camera initialization failed")
+            return FaceRecognitionError.CAMERA_ERROR
+        
+        camera_ready = True
+        print(f"[INFO] Camera ready in {time.time() - camera_start:.2f}s")
         
         preloading_complete = True
-
+        print("[SUCCESS] Preloading complete!")
         return FaceRecognitionError.SUCCESS
         
     except FileNotFoundError as e:
-        print(f"Preloading failed: {e}")
-        if "references" in str(e):
-            print(FaceRecognitionError.REFERENCE_FOLDER_ERROR)
-            return FaceRecognitionError.REFERENCE_FOLDER_ERROR
-        print(FaceRecognitionError.PRELOAD_FAILED)
-        return FaceRecognitionError.PRELOAD_FAILED
+        print(f"[ERROR] File not found during preload: {str(e)}")
+        return FaceRecognitionError.REFERENCE_FOLDER_ERROR
     except Exception as e:
-        print(f"Preloading failed: {e}")
-        print(FaceRecognitionError.PRELOAD_FAILED)
-        return FaceRecognitionError.PRELOAD_FAILED
+        print(f"[ERROR] Unexpected error during preload: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return FaceRecognitionError.UNKNOWN_ERROR
 
 
 def reinitialize_camera():
@@ -287,19 +344,61 @@ def _run_detection_with_preloaded_camera():
     
     THRESHOLD = 1
 
-    def recognize_face(face_embedding):
-        best_match = None
-        best_score = float("inf")
-        for label, embeddings in reference_embeddings.items():
-            distances = np.linalg.norm(embeddings - face_embedding, axis=1)
-            score = np.min(distances)
-            if score < best_score:
-                best_score = score
-                best_match = label
-        if best_score < THRESHOLD:
-            return best_match, best_score
-        else:
-            return "Unknown", best_score
+    def recognize_face(face_embedding, threshold=1.0):
+        """Recognize a face by comparing embedding to references
+        
+        Args:
+            face_embedding: numpy array of face embedding (normalized 1D)
+            threshold: distance threshold for recognition (lower = stricter)
+                   For normalized embeddings, typically 0.5-1.5
+        
+        Returns:
+            tuple: (name, distance) or (None, None) if no match
+        """
+        global reference_embeddings
+    
+        if reference_embeddings is None or len(reference_embeddings) == 0:
+            print("[WARN] No reference embeddings loaded")
+            return None, None
+    
+        if face_embedding is None:
+            print("[WARN] Invalid face embedding")
+            return None, None
+    
+        try:
+            # Ensure face_embedding is 1D array (should already be normalized by caller)
+            face_embedding = np.asarray(face_embedding).flatten()
+            
+            # Convert reference embeddings dictionary to list of arrays
+            names = list(reference_embeddings.keys())
+            
+            # Calculate distance to each reference
+            distances = []
+            for name in names:
+                ref_emb = np.asarray(reference_embeddings[name]).flatten()
+                dist = np.linalg.norm(face_embedding - ref_emb)
+                distances.append(dist)
+            
+            distances = np.array(distances)
+            
+            # Find closest match
+            min_distance_idx = np.argmin(distances)
+            min_distance = distances[min_distance_idx]
+            
+            # Check if match is within threshold
+            if min_distance < threshold:
+                matched_name = names[min_distance_idx]
+                print(f"[INFO] Face recognized: {matched_name} (distance: {min_distance:.4f})")
+                return matched_name, min_distance
+            else:
+                print(f"[INFO] Face not recognized (closest distance: {min_distance:.4f}, threshold: {threshold})")
+                return None, min_distance
+                
+        except Exception as e:
+            print(f"[ERROR] Error in recognize_face: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None, None
 
     # Use pre-initialized camera - but check if it's still connected
     cap = global_camera
