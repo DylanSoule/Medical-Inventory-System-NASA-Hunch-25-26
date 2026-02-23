@@ -645,7 +645,7 @@ class PersonalDatabaseManager:
                 WHERE h.person_id = %s AND date(h.time_of_use) = %s;""",(self.user_id,date,))
         hist_logs = c.fetchall()
 
-        c.execute("""SELECT p.barcode, m.name, p.dose, p.time, p.leeway FROM prescriptions p
+        c.execute("""SELECT p.barcode, m.name, p.dose, p.time, p.leeway, p.as_needed FROM prescriptions p
                   JOIN medications m ON m.barcode=p.barcode
                   JOIN assigned_prescriptions ap ON ap.prescription_id = p.id
                   WHERE ap.person_id = %s AND p.as_needed = %s;""", (self.user_id,False,))
@@ -749,10 +749,10 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    read = PersonalDatabaseManager('lucca')
+    read = PersonalDatabaseManager('brody')
     read1 = DatabaseManager()
 
-    print(read.pull_data('prescriptions'))
+    print(read.get_personal_data('2026-02-20'))
 
    
     # print(read.pull_data('history'))
