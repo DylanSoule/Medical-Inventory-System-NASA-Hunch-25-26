@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Project Developments - H.E.L.I.O.S</title>
+        <title>The Project - H.E.L.I.O.S</title>
         <link rel="icon" href="./transparent_logo_cropped.png" />
         <link rel="stylesheet" href="style.css?v=11" />
     </head>
@@ -28,21 +28,10 @@
             <a href="index.html" style="text-decoration: none;">
                 <img src="./transparent_logo_cropped.png" alt="HELIOS logo">
             </a>
-            <h1>Project Developments</h1>
+            <h1>The Project</h1>
             <p>See how H.E.L.I.O.S evolved through design reviews, testing, and feedback from NASA engineers.</p>
         </div>
         
-        <section class="research-section">
-            <div class="research-container">
-                <h2>Research & Design Documentation</h2>
-                
-                <p><strong>Technology Selection:</strong> We are using facial recognition for quick authentication (under 1 second) that functions reliably in microgravity without making crew members carry additional equipment.</p>
-            
-                
-                <p><strong>Testing:</strong> Our testing included facial recognition accuracy across lighting conditions and different angles, UI responsiveness on Raspberry Pi hardware, testing of different python files using pytest, and error handling for different interruptions.</p>
-
-            </div>
-        </section>
         
         <section class="timeline">
             <ul>
@@ -138,38 +127,56 @@
                 </li>
             </ul>
         </section>
+        <hr style="margin: 40px auto; width: 80%; border: none; border-top: 2px solid rgb(255, 255, 255); height: 0;">
+        <section class="research-section database-section">
+            <div class="research-container">
+                <h2>Database Structure and Management</h2>
+                <div class="database-content">
+                    <div class="database-text">
+                        <p>The database backend is built using MySQL and is hosted inside a Docker container to ensure portability and ease of deployment. Using Docker allows the system to be transferred and run on different machines with minimal configuration, reducing compatibility issues and simplifying setup. <br> <br>The database schema is designed in Third Normal Form (3NF), an industry-standard approach to structuring relational databases. This design improves data integrity by organizing information into well-structured tables, reducing redundancy, and minimizing the risk of inconsistencies or errors.</p>
+                    </div>
+                    <div class="database-image">
+                        <img src="database_schema.png" alt="Database Structure">
+                    </div>
+                </div>
+            </div>
+        </section>
+        <div class="research-wrapper">
+            <section class="research-section">
+                <div class="research-container">
+                    <h2>Research & Design Documentation</h2>
+                    <p><strong>Technology Selection:</strong> We are using facial recognition for quick authentication (under 1 second) that functions reliably in microgravity without making crew members carry additional equipment.</p>
+                    <p><strong>Testing:</strong> Our testing included facial recognition accuracy across lighting conditions and different angles, UI responsiveness on Raspberry Pi hardware, testing of different python files using pytest, and error handling for different interruptions.</p>
 
+                </div>
+            </section>
+        </div>
+
+        
         <section class="citations-section">
             <div class="citations-container">
                 <h2>Citations and other research sources</h2>
                 <div class="citation-list">
                     <p class="citation-item">
-                        NASA HUNCH. Medical Inventory System Project Specifications
-                        <a href="https://cdn.nasahunch.com/Medical_Inventory_System_0bc51cdff5.pdf" target="_blank">https://cdn.nasahunch.com/Medical_Inventory_System_0bc51cdff5.pdf</a>
+
+                        <a href="https://cdn.nasahunch.com/Medical_Inventory_System_0bc51cdff5.pdf" target="_blank">Medical Inventory System Project Specifications.</a>
                     </p>
                     <p class="citation-item">
-                        NASA HUNCH. MCT System Requirements
-                        <a href="https://cdn.nasahunch.com/MCT_System_eb3ee91089.pdf" target="_blank">https://cdn.nasahunch.com/MCT_System_eb3ee91089.pdf</a>
+
+                        <a href="https://cdn.nasahunch.com/MCT_System_eb3ee91089.pdf" target="_blank">MCT System Requirements.</a>
                     </p>
                     <p class="citation-item">
-                        NASA. Packaging for medications on the ISS
-                        <a href="https://docs.google.com/gview?url=https%3A%2F%2Fcdn.nasahunch.com%2Fpackaging_for_medications_on_iss_and_future_space_2133900754.pptx&embedded=true" target="_blank">https://cdn.nasahunch.com/packaging_for_medications_on_iss_and_future_space_2133900754.pptx</a>
+
+                        <a href="https://docs.google.com/gview?url=https%3A%2F%2Fcdn.nasahunch.com%2Fpackaging_for_medications_on_iss_and_future_space_2133900754.pptx&embedded=true" target="_blank">Packaging for Medications on the ISS.</a>
                     </p>
                     <p class="citation-item">
-                        NASA HUNCH. Medical Inventory System Project Specifications.
-                        <a href="https://nasahunch.com/projects/modified-medical-inventory-system-l" target="_blank">https://nasahunch.com/projects/modified-medical-inventory-system-l</a>
+                        <a href="https://nasahunch.com/projects/modified-medical-inventory-system-l" target="_blank">Modified Medical Inventory System Project.</a>
                     </p>
                     <p class="citation-item">
-                        InsightFace 
-                        <a href="https://insightface.ai" target="_blank">https://insightface.ai  </a>
+                        <a href="https://insightface.ai" target="_blank">InsightFace</a>
                     </p>
                     <p class="citation-item">
-                        StackOverflow
-                        <a href="https://stackoverflow.com" target="_blank">https://stackoverflow.com</a>
-                    </p>
-                    <p class="citation-item">
-                        SQLite Documentation
-                        <a href="https://www.sqlite.org/docs.html" target="_blank">https://www.sqlite.org/docs.html</a>
+                        <a href="https://www.sqlite.org/docs.html" target="_blank">SQLite Documentation</a>
                     </p>
                 </div>
             </div>
