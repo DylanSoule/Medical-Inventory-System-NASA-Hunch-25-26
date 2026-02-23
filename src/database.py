@@ -231,9 +231,9 @@ class DatabaseManager:
         """
         conn = mysql.connector.connect(
             host="localhost",
-            user=self.user,
-            password=self.password,
-            database=self.database
+            user='root',
+            password='1243',
+            database='inventory_system'
         )
         c = conn.cursor()
 
@@ -255,7 +255,7 @@ class DatabaseManager:
         self,
         periods=[4,7,14,30],
         periods_back=5,
-        users=['dylan'],
+        users=['dylan','brody','lucca'],
         whole=True,
         z_thresh=2.0,
         ratio_thresh=1.5,
@@ -269,6 +269,7 @@ class DatabaseManager:
         )
         c = conn.cursor()
         today = datetime.today()
+        np.set_printoptions(legacy='1.25')
         # user_ids = []
         # for user in users:
         #     c.execute("SELECT id FROM people WHERE name = %s",(user.lower()))
@@ -494,9 +495,9 @@ class PersonalDatabaseManager:
     def add_prescription_med(self, barcode, dose, frequency=None, leeway=None, time=None, as_needed=True):
         conn = mysql.connector.connect(
             host="localhost",
-            user=self.user,
-            password=self.password,
-            database=self.database
+            user='root',
+            password='1234',
+            database='inventory_system'
         )
         c = conn.cursor()
 
@@ -752,7 +753,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('brody')
     read1 = DatabaseManager()
 
-    print(read.get_personal_data('2026-02-20')[1])
+    print(read1.pattern_recognition())
 
    
     # print(read.pull_data('history'))
