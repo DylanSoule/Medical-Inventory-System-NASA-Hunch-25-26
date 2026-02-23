@@ -648,7 +648,7 @@ class PersonalDatabaseManager:
         c.execute("""SELECT p.barcode, m.name, p.dose, p.time, p.leeway, p.as_needed FROM prescriptions p
                   JOIN medications m ON m.barcode=p.barcode
                   JOIN assigned_prescriptions ap ON ap.prescription_id = p.id
-                  WHERE ap.person_id = %s AND p.as_needed = %s;""", (self.user_id,False,))
+                  WHERE ap.person_id = %s;""", (self.user_id,))
         prescript_logs = c.fetchall()
         # prescript_logs= []
         # for prescript in prescript_dates:
@@ -752,7 +752,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('brody')
     read1 = DatabaseManager()
 
-    print(read.get_personal_data('2026-02-20'))
+    print(read.get_personal_data('2026-02-20')[1])
 
    
     # print(read.pull_data('history'))
