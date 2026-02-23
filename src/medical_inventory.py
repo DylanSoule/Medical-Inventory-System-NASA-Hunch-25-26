@@ -977,6 +977,9 @@ class BarcodeViewer(ctk.CTk):
         self.load_data()
         self.show_popup("Deleted", f"Deleted {len(sel)} row(s).", "info")
     
+    def pattern_rec(self):
+        self.show_popup(message=self.db.pattern_recognition(), title="Pattern Recognition Result")
+
     def show_history(self):
         """Show deletion history in a new window"""
         if not self.admin("View History"):
@@ -1012,9 +1015,11 @@ class BarcodeViewer(ctk.CTk):
         # Top bar with close button
         top_bar = ctk.CTkFrame(history, corner_radius=6)
         top_bar.pack(fill="x", padx=18, pady=(18, 0))
-        ctk.CTkButton(top_bar, text="Close", command=history.destroy, width=160, height=55, 
-                     font=("Arial", 22)).pack(side="right", padx=18, pady=18)
+        ctk.CTkButton(top_bar, text="Close", command=history.destroy, width=160, height=55, font=("Arial", 22)).pack(side="right", padx=18, pady=18)
+
         history.bind("<Escape>", lambda e: history.destroy())
+        
+        ctk.CTkButton(top_bar, text="Pattern Rec", command=self.pattern_rec, font=("Arial", 24, "bold"), fg_color="transparent").pack(side="left", padx=18, pady=18)
         
         # Create treeview
         columns = ("barcode", "name_of_item", "amount_changed", "user", "type", "time", "reason")
