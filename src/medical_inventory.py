@@ -1882,7 +1882,6 @@ class Personal_db_window(ctk.CTkToplevel):
                 print(f"Error processing history log: {e}, log: {log}")
             
             try:
-
                 for idx, log in enumerate(raw_prescriptions):
                     #prescription format: (barcode, dname, dosage, time, leeway, as_needed)
                     if len(log) < 6:
@@ -1896,7 +1895,7 @@ class Personal_db_window(ctk.CTkToplevel):
                     else:
                         leeway_formatted = 60
 
-                    if as_needed:
+                    if as_needed == True or as_needed == "True" or as_needed == 1:
                         self.as_needed_prescriptions.append({
                             'name': name,
                             'dosage': dosage,
