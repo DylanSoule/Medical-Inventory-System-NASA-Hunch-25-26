@@ -1019,7 +1019,7 @@ class BarcodeViewer(ctk.CTk):
 
         history.bind("<Escape>", lambda e: history.destroy())
         
-        ctk.CTkButton(top_bar, text="Pattern Rec", command=self.pattern_rec, font=("Arial", 24, "bold"), fg_color="transparent").pack(side="left", padx=18, pady=18)
+        ctk.CTkButton(top_bar, text="Pattern Rec", command=self.pattern_rec, width=160, height=55, font=("Arial", 22, "bold")).pack(side="left", padx=18, pady=18)
         
         # Create treeview
         columns = ("barcode", "name_of_item", "amount_changed", "user", "type", "time", "reason")
