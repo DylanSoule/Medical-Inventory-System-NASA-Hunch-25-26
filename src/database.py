@@ -1,6 +1,7 @@
 import mysql.connector
 from datetime import datetime, timedelta
 import numpy as np
+import matplotlib
 
 
 """
@@ -250,6 +251,97 @@ class DatabaseManager:
         conn.commit()
         conn.close()
     
+    def history_bar_graph(self, period,periods_back,user,barcode=None):
+        conn = mysql.connector.connect(
+            host="localhost",
+            user='root',
+            password='1234',
+            database='inventory_system'
+        )
+        c = conn.cursor()
+        today = datetime.today()
+        
+        change = []
+
+        if user=='whole':
+            if barcode==None:
+                for i in range(periods_back):
+                    front = (today - timedelta(days=i*period)).strftime(time_format)
+                    back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                    try:
+                        c.execute("""
+                            SELECT SUM(amnt_change)
+                            FROM history
+                            WHERE time_of_use BETWEEN %s AND %s;
+                        """, (back, front,))
+                        change.append(c.fetchone()[0])
+                    except:
+                        return LookupError
+            else:
+                for i in range(periods_back):
+                    front = (today - timedelta(days=i*period)).strftime(time_format)
+                    back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                    try:
+                        c.execute("""
+                            SELECT SUM(amnt_change)
+                            FROM history
+                            WHERE time_of_use BETWEEN %s AND %s AND barcode=%s;
+                        """, (back, front,barcode,))
+                        change.append(c.fetchone()[0])
+                    except:
+                        return LookupError
+        else:
+            try:
+                c.execute("SELECT id FROM people WHERE name=%s",(user.lower(),))
+                user_id=c.fetchone()[0]
+            except:
+                return NameError
+            if barcode==None:
+                for i in range(periods_back):
+                    front = (today - timedelta(days=i*period)).strftime(time_format)
+                    back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                    try:
+                        c.execute("""
+                                SELECT SUM(amnt_change)
+                                FROM history
+                                WHERE time_of_use BETWEEN %s
+                                AND %s
+                                AND person_id = %s
+                            """, (back, front, user_id,))
+                        change.append(c.fetchone()[0])
+                    except:
+                        return LookupError
+            else:
+                for i in range(periods_back):
+                    front = (today - timedelta(days=i*period)).strftime(time_format)
+                    back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                    try:
+                        c.execute("""
+                                SELECT SUM(amnt_change)
+                                FROM history
+                                WHERE time_of_use BETWEEN %s
+                                AND %s
+                                AND person_id = %s
+                                AND barcode = %s
+                            """, (back, front, user_id,barcode,))
+                        change.append(c.fetchone()[0])
+                    except:
+                        return LookupError
+
+    def user_names(self):
+        conn = mysql.connector.connect(
+            host="localhost",
+            user='root',
+            password='1234',
+            database='inventory_system'
+        )
+        c = conn.cursor()
+        c.execute("SELECT name FROM people;")
+        users = []
+        for user in c.fetchall():
+            users.append(user[0].capitalize())
+        return users
+
 
     def pattern_recognition(
         self,
@@ -349,7 +441,7 @@ class DatabaseManager:
                     )
 
         conn.close()
-        return results
+        return str(results).replace(', ','\n')
 
     
     def give_inventory_data(self): #for later, just transitioning to not change frontend right now
@@ -753,7 +845,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('brody')
     read1 = DatabaseManager()
 
-    print(read1.pattern_recognition())
+    print(read1.user_names())
 
    
     # print(read.pull_data('history'))
