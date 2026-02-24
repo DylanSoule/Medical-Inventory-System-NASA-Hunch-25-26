@@ -14,7 +14,7 @@ import sys
 import datetime
 import threading
 import time
-import tkinter.font as tkfont
+import matplotlib as graph
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -976,9 +976,6 @@ class BarcodeViewer(ctk.CTk):
         
         self.load_data()
         self.show_popup("Deleted", f"Deleted {len(sel)} row(s).", "info")
-    
-    def pattern_rec(self):
-        self.show_popup(message=self.db.pattern_recognition(), title="Pattern Recognition Result")
 
     def show_history(self):
         """Show deletion history in a new window"""
@@ -1019,7 +1016,7 @@ class BarcodeViewer(ctk.CTk):
 
         history.bind("<Escape>", lambda e: history.destroy())
         
-        ctk.CTkButton(top_bar, text="Pattern Rec", command=self.pattern_rec, width=160, height=55, font=("Arial", 22, "bold")).pack(side="left", padx=18, pady=18)
+        ctk.CTkButton(top_bar, text="Pattern Rec", command= lambda: [self.pattern_rec(), history.destroy()], width=160, height=55, font=("Arial", 22, "bold")).pack(side="left", padx=18, pady=18)
         
         # Create treeview
         columns = ("barcode", "name_of_item", "amount_changed", "user", "type", "time", "reason")
@@ -1041,6 +1038,65 @@ class BarcodeViewer(ctk.CTk):
         
         for row in self.db.pull_data("drug_changes"):
             tree.insert("", "end", values=row)
+
+    #endregion
+
+    #=========================================================================
+    # PATTERN RECOGNITION
+    #=========================================================================
+    #region pattern recognition
+    def pattern_rec(self):
+        self.show_popup(message=self.db.pattern_recognition(), title="Pattern Recognition Result")
+        pattern = ctk.CTkToplevel(self)
+        pattern.title("Pattern Recognition Graph")
+        pattern.update_idletasks()
+        screen_width = pattern.winfo_screenwidth()
+        screen_height = pattern.winfo_screenheight()
+
+        try:
+            pattern.attributes("-fullscreen", True)
+        except Exception:
+            pattern.geometry(f"{screen_width}x{screen_height}+0+0")
+        try:
+            pattern.transient(self)
+            pattern.lift()
+            pattern.focus_force()
+            def do_grab():
+                try:
+                    pattern.grab_set()
+                except Exception as e:
+                    print(f"Could not grab focus: {e}")
+            pattern.after(100, do_grab)
+        except Exception as e:
+            print(f"Could not make pattern window modal: {e}")
+
+        top_bar = ctk.CTkFrame(pattern, corner_radius=6)
+        top_bar.pack(fill="x", padx=18, pady=(18, 0))
+
+        ctk.CTkButton(top_bar, 
+                    text="Close",
+                    command=pattern.destroy,
+                    width=160,
+                    height=55, 
+                    font=("Arial", 22)
+                    ).pack(side="right", padx=18, pady=18)
+        
+        ctk.CTkLabel(top_bar, 
+                     text="Pattern Recognition Graph", 
+                     font=("Arial", 22, "bold")
+                     ).pack(side="left", padx=18, pady=18)
+        
+        filter_opts = ["All"] + self.db.user_name()
+        print("Filter options:", filter_opts)
+        ctk.CTkOptionMenu(
+            top_bar,
+            text= "Filter User",
+            values=filter_opts,
+            variable=self.filter_var,
+            height=50,
+            font=("Arial", 20),
+        ).pack(side="left", padx=18, pady=18)
+                      
 
     #endregion
 
