@@ -1112,10 +1112,14 @@ class BarcodeViewer(ctk.CTk):
 
         graph_frame = ctk.CTkFrame(pattern, corner_radius=6)
         graph_frame.pack(fill="both", expand=True, padx=18, pady=18)
-
-        data = self.db.pattern_line_graph(user=pattern_filter_var.get(), period=pattern_date_range_var.get())
+        if pattern_date_range_var.get() == "":
+            range_date = "2026-02-01 to 2026-02-12"
+        else:
+            range_date = pattern_date_range_var.get()
+        
+        data = self.db.pattern_line_graph(user=pattern_filter_var.get(), date=range_date)
         fig = Figure(figsize=(10, 6), dpi=100, facecolor="#2b2b2b")
-        print(pattern_filter_var.get(), pattern_date_range_var.get(), data)
+       
         ax = fig.add_subplot(111)
         ax.plot(data, color="#3b82f6")
         ax.set_title("Pattern Recognition Graph", color="white")
