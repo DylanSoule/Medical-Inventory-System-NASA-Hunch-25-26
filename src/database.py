@@ -175,9 +175,9 @@ class DatabaseManager:
         """
         conn = mysql.connector.connect(
             host="localhost",
-            user=self.user,
-            password=self.password,
-            database=self.database
+            user='root',
+            password='1234',
+            database='inventory_system'
         )
         c = conn.cursor()
 
@@ -203,9 +203,9 @@ class DatabaseManager:
         """
         conn = mysql.connector.connect(
             host="localhost",
-            user=self.user,
-            password=self.password,
-            database=self.database
+            user='root',
+            password='1234',
+            database='inventory_system'
         )
         c = conn.cursor()
 
@@ -259,46 +259,46 @@ class DatabaseManager:
             database='inventory_system'
         )
         c = conn.cursor()
-        today = datetime.today()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+        date_range = (datetime.strptime(start_date, '%Y-%m-%d') - end_date_obj).days
+        print(date_range)
         
         change = []
         periods = []
 
-        if user=='whole':
+        if user.lower()=='whole':
             if barcode==None:
-                for i in range(periods_back):
-                    front = (today - timedelta(days=i*period)).strftime(time_format)
-                    back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                for i in range(date_range):
+                    day = (end_date_obj + timedelta(days=(i+1))).strftime(time_format)
                     try:
                         c.execute("""
                             SELECT SUM(amnt_change)
                             FROM history
-                            WHERE time_of_use BETWEEN %s AND %s;
-                        """, (back, front,))
+                            WHERE date(time_of_use) = %s;
+                        """, (day,))
                         result = c.fetchone()
                         if result and result[0] is not None:
-                            change.append(int(result[0]))
+                            change.append(abs(int(result[0])))
                         else:
                             change.append(0)
-                        periods.append(front.split()[0] + ' - ' + back.split()[0])
+                        periods.append(day)
                     except Exception as e:
                         return e
             else:
-                for i in range(periods_back):
-                    front = (today - timedelta(days=i*period)).strftime(time_format)
-                    back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                for i in range(date_range):
+                    day = (end_date_obj + timedelta(days=(i+1))).strftime(time_format)
                     try:
                         c.execute("""
                             SELECT SUM(amnt_change)
                             FROM history
-                            WHERE time_of_use BETWEEN %s AND %s AND barcode=%s;
-                        """, (back, front,barcode,))
+                            WHERE date(time_of_use) = %s AND barcode=%s;
+                        """, (day,barcode,))
                         result = c.fetchone()
                         if result and result[0] is not None:
-                            change.append(int(result[0]))
+                            change.append(abs(int(result[0])))
                         else:
                             change.append(0)
-                        periods.append(front.split()[0] + ' - ' + back.split()[0])
+                        periods.append(day)
                     except Exception as e:
                         return e
         else:
@@ -308,44 +308,40 @@ class DatabaseManager:
             except:
                 return NameError
             if barcode==None:
-                for i in range(periods_back):
-                    front = (today - timedelta(days=i*period)).strftime(time_format)
-                    back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                for i in range(date_range):
+                    day = (end_date_obj + timedelta(days=(i+1))).strftime(time_format)
                     try:
                         c.execute("""
                                 SELECT SUM(amnt_change)
                                 FROM history
-                                WHERE time_of_use BETWEEN %s
-                                AND %s
+                                WHERE date(time_of_use) =%s
                                 AND person_id = %s
-                            """, (back, front, user_id,))
+                            """, (day, user_id,))
                         result = c.fetchone()
                         if result and result[0] is not None:
-                            change.append(int(result[0]))
+                            change.append(abs(int(result[0])))
                         else:
                             change.append(0)
-                        periods.append(front.split()[0] + ' - ' + back.split()[0])
+                        periods.append(day)
                     except:
                         return LookupError
             else:
-                for i in range(periods_back):
-                    front = (today - timedelta(days=i*period)).strftime(time_format)
-                    back = (today - timedelta(days=(i+1)*period)).strftime(time_format)
+                for i in range(date_range):
+                    day = (end_date_obj + timedelta(days=(i+1))).strftime(time_format)
                     try:
                         c.execute("""
                                 SELECT SUM(amnt_change)
                                 FROM history
-                                WHERE time_of_use BETWEEN %s
-                                AND %s
+                                WHERE date(time_of_use) = %s
                                 AND person_id = %s
                                 AND barcode = %s
-                            """, (back, front, user_id,barcode,))
+                            """, (day, user_id,barcode,))
                         result = c.fetchone()
                         if result and result[0] is not None:
-                            change.append(int(result[0]))
+                            change.append(abs(int(result[0])))
                         else:
                             change.append(0)
-                        periods.append(front.split()[0] + ' - ' + back.split()[0])
+                        periods.append(day)
                     except:
                         return LookupError
         return change, periods
@@ -867,7 +863,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('brody')
     read1 = DatabaseManager()
 
-    print(read1.history_bar_graph(7,9,'Dylan'))
+    print(read1.history_bar_graph('2026-02-24','2026-02-09','Lucca'))
 
    
     # print(read.pull_data('history'))
