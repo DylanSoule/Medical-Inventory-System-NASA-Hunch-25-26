@@ -185,9 +185,10 @@ class DatabaseManager:
 
         c.execute("SELECT id, estimated_amount_remaining FROM in_inventory WHERE barcode = %s", (barcode,))
         drug_info = c.fetchone()
+        print(drug_info)
         try:
-            c.execute("UPDATE drugs_in_inventory SET estimated_amount = %s WHERE barcode = %s", (drug_info[1] + change, barcode))
-            c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use, change) VALUES (%s,%s,%s,%s,%s)", (barcode, drug_info[0], uid, 'Access', datetime.now().strftime(time_format),change))
+            c.execute("UPDATE in_inventory SET estimated_amount_remaining = %s WHERE barcode = %s", (drug_info[1] + change, barcode))
+            c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use, amnt_change) VALUES (%s,%s,%s,%s,%s,%s)", (barcode, drug_info[0], uid, 'Access', datetime.now().strftime(time_format),change))
         except Exception as e:
             print("Error:",e)
         
@@ -866,7 +867,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('brody')
     read1 = DatabaseManager()
 
-    print(read1.pattern_line_graph('2026-02-24','2026-02-09','Lucca'))
+    print(read1.log_access_to_inventory('910348161816',-2,'dylan'))
 
    
     # print(read.pull_data('history'))
