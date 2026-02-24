@@ -1105,10 +1105,11 @@ class BarcodeViewer(ctk.CTk):
         ctk.CTkButton(top_bar,
                             text="Set Date Range",
                             font=("Arial", 18),
-                            command=lambda: ctk.CTkInputDialog(title="Set Date Range", text="Enter date range in format YYYY-MM-DD to YYYY-MM-DD").get_input(),
-                            textvariable=pattern_date_range_var
+                            command=lambda: pattern_date_range_var.set(self._prompt_for_date_range() or ""),
+                            width=200,
+                            height=50
                             ).pack(side="left", padx=18, pady=18)
-        
+
         graph_frame = ctk.CTkFrame(pattern, corner_radius=6)
         graph_frame.pack(fill="both", expand=True, padx=18, pady=18)
 
@@ -1123,6 +1124,174 @@ class BarcodeViewer(ctk.CTk):
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
+    def _prompt_for_date_range(self, prompt="Enter date range (YYYY-MM-DD to YYYY-MM-DD)", title="Set Date Range"):
+        """Open modal dialog for date range entry with auto-formatting numpad"""
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.transient(self)
+        dlg.resizable(False, False)
+        
+        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
+        
+        entry_var = tk.StringVar()
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=500, height=55, font=("Arial", 20),
+                             placeholder_text="YYYY-MM-DD to YYYY-MM-DD")
+        entry.pack(padx=25, pady=(0, 22))
+        
+        result = {"value": None}
+        
+        def auto_format_date(raw):
+            """Auto-insert dashes and ' to ' separator as digits are typed"""
+            # Strip everything except digits
+            digits = ''.join(c for c in raw if c.isdigit())
+            
+            # Build formatted string
+            # Format: YYYY-MM-DD to YYYY-MM-DD
+            # Digit positions:
+            #   0-3: first year
+            #   4-5: first month
+            #   6-7: first day
+            #   8-11: second year
+            #   12-13: second month
+            #   14-15: second day
+            
+            parts = []
+            for i, d in enumerate(digits):
+                if i == 4 or i == 6:       # dash after first year, first month
+                    parts.append('-')
+                elif i == 8:               # " to " separator between dates
+                    parts.append(' to ')
+                elif i == 12 or i == 14:   # dash after second year, second month
+                    parts.append('-')
+                parts.append(d)
+                if i >= 15:                # max 16 digits (2 full dates)
+                    break
+            
+            return ''.join(parts)
+        
+        def add_digit(digit):
+            raw = entry_var.get()
+            # Count existing digits
+            digit_count = sum(1 for c in raw if c.isdigit())
+            if digit_count >= 16:
+                return
+            formatted = auto_format_date(raw + str(digit))
+            entry_var.set(formatted)
+        
+        def backspace():
+            raw = entry_var.get()
+            if not raw:
+                return
+            # Remove last character, but if it's a dash or space, keep removing
+            # until we remove an actual digit
+            stripped = raw.rstrip()
+            while stripped and not stripped[-1].isdigit():
+                stripped = stripped[:-1]
+            if stripped:
+                stripped = stripped[:-1]  # remove the last digit
+            # Re-format from remaining digits
+            formatted = auto_format_date(stripped)
+            entry_var.set(formatted)
+        
+        def clear_entry():
+            entry_var.set("")
+        
+        def on_ok(event=None):
+            val = entry_var.get().strip()
+            if val == "":
+                return
+            
+            # Validate format: YYYY-MM-DD to YYYY-MM-DD
+            try:
+                if ' to ' not in val:
+                    self.show_popup("Invalid Format", "Please enter two dates separated by ' to '\nExample: 2026-01-01 to 2026-12-31", "error")
+                    return
+                
+                date_parts = val.split(' to ')
+                if len(date_parts) != 2:
+                    self.show_popup("Invalid Format", "Please enter exactly two dates.", "error")
+                    return
+                
+                start_str = date_parts[0].strip()
+                end_str = date_parts[1].strip()
+                
+                # Validate both dates parse correctly
+                start_date = datetime.datetime.strptime(start_str, "%Y-%m-%d").date()
+                end_date = datetime.datetime.strptime(end_str, "%Y-%m-%d").date()
+                
+                if end_date < start_date:
+                    self.show_popup("Invalid Range", "End date must be after start date.", "error")
+                    return
+                
+                result["value"] = val
+                try:
+                    dlg.grab_release()
+                except:
+                    pass
+                dlg.destroy()
+                
+            except ValueError:
+                self.show_popup("Invalid Date", "Please enter valid dates in YYYY-MM-DD format.", "error")
+                return
+        
+        def on_cancel(event=None):
+            try:
+                dlg.grab_release()
+            except:
+                pass
+            dlg.destroy()
+        
+        # Numpad
+        numpad_frame = ctk.CTkFrame(dlg)
+        numpad_frame.pack(pady=(0, 18))
+        
+        buttons = [
+            ['7', '8', '9'],
+            ['4', '5', '6'],
+            ['1', '2', '3'],
+            ['C', '0', '<']
+        ]
+        
+        for i, row in enumerate(buttons):
+            for j, btn_text in enumerate(row):
+                if btn_text == 'C':
+                    cmd = clear_entry
+                elif btn_text == '<':
+                    cmd = backspace
+                else:
+                    cmd = lambda x=btn_text: add_digit(x)
+                ctk.CTkButton(
+                    numpad_frame, text=btn_text, width=110, height=110,
+                    font=("Arial", 26), command=cmd
+                ).grid(row=i, column=j, padx=10, pady=10)
+        
+        # OK / Cancel buttons
+        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
+        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
+        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55,
+                     font=("Arial", 20)).pack(side="left", padx=12, pady=12)
+        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55,
+                     font=("Arial", 20), fg_color="gray30").pack(side="left", padx=12, pady=12)
+        
+        entry.bind("<Return>", on_ok)
+        dlg.bind("<Escape>", on_cancel)
+        
+        dlg.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
+        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
+        dlg.geometry(f"+{x}+{y}")
+        
+        def do_grab():
+            try:
+                dlg.grab_set()
+                entry.focus_set()
+            except:
+                pass
+        dlg.after(50, do_grab)
+        
+        self.wait_window(dlg)
+        return result["value"]
+    
     #endregion
 
     # ========================================================================
