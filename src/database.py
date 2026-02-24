@@ -183,9 +183,11 @@ class DatabaseManager:
         c.execute("SELECT id FROM people WHERE name = %s", (user.lower(),))
         uid = c.fetchone()[0]
 
+        c.execute("SELECT barcode FROM medications WHERE name = %s", (barcode,))
+        barcode = c.fetchone()[0]
+
         c.execute("SELECT id, estimated_amount_remaining FROM in_inventory WHERE barcode = %s", (barcode,))
         drug_info = c.fetchone()
-        print(drug_info)
         try:
             c.execute("UPDATE in_inventory SET estimated_amount_remaining = %s WHERE barcode = %s", (drug_info[1] + change, barcode))
             c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use, amnt_change) VALUES (%s,%s,%s,%s,%s,%s)", (barcode, drug_info[0], uid, 'Access', datetime.now().strftime(time_format),change))
@@ -867,7 +869,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('brody')
     read1 = DatabaseManager()
 
-    print(read1.log_access_to_inventory('910348161816',-2,'dylan'))
+    print(read1.log_access_to_inventory('Ibuprofen',-2,'dylan'))
 
    
     # print(read.pull_data('history'))
