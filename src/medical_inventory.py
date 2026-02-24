@@ -14,8 +14,8 @@ import sys
 import datetime
 import threading
 import time
-import matplotlib as graph
-
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -1016,7 +1016,7 @@ class BarcodeViewer(ctk.CTk):
 
         history.bind("<Escape>", lambda e: history.destroy())
         
-        ctk.CTkButton(top_bar, text="Pattern Rec", command= lambda: [self.pattern_rec(), history.destroy()], width=160, height=55, font=("Arial", 22, "bold")).pack(side="left", padx=18, pady=18)
+        ctk.CTkButton(top_bar, text="Pattern Rec", command=self.pattern_rec, width=160, height=55, font=("Arial", 22, "bold")).pack(side="left", padx=18, pady=18)
         
         # Create treeview
         columns = ("barcode", "name_of_item", "amount_changed", "user", "type", "time", "reason")
@@ -1052,7 +1052,8 @@ class BarcodeViewer(ctk.CTk):
         pattern.update_idletasks()
         screen_width = pattern.winfo_screenwidth()
         screen_height = pattern.winfo_screenheight()
-
+        pattern_filter_var = tk.StringVar(value="All")
+        pattern_date_range_var = tk.StringVar(value="")
         try:
             pattern.attributes("-fullscreen", True)
         except Exception:
@@ -1078,25 +1079,49 @@ class BarcodeViewer(ctk.CTk):
                     command=pattern.destroy,
                     width=160,
                     height=55, 
-                    font=("Arial", 22)
+                    font=("Arial", 22),
                     ).pack(side="right", padx=18, pady=18)
         
         ctk.CTkLabel(top_bar, 
                      text="Pattern Recognition Graph", 
                      font=("Arial", 22, "bold")
+                     ).pack(side="top", padx=18, pady=18)
+        
+        ctk.CTkLabel(top_bar, 
+                     text="Filter by user:", 
+                     font=("Arial", 18),
                      ).pack(side="left", padx=18, pady=18)
         
-        filter_opts = ["All"] + self.db.user_name()
-        print("Filter options:", filter_opts)
+        filter_opts = ["All"] + self.db.user_names()
         ctk.CTkOptionMenu(
             top_bar,
-            text= "Filter User",
             values=filter_opts,
-            variable=self.filter_var,
+            variable=pattern_filter_var,
             height=50,
             font=("Arial", 20),
+            dynamic_resizing=True
         ).pack(side="left", padx=18, pady=18)
-                      
+        
+        ctk.CTkButton(top_bar,
+                            text="Set Date Range",
+                            font=("Arial", 18),
+                            command=lambda: ctk.CTkInputDialog(title="Set Date Range", text="Enter date range in format YYYY-MM-DD to YYYY-MM-DD").get_input(),
+                            textvariable=pattern_date_range_var
+                            ).pack(side="left", padx=18, pady=18)
+        
+        graph_frame = ctk.CTkFrame(pattern, corner_radius=6)
+        graph_frame.pack(fill="both", expand=True, padx=18, pady=18)
+
+        data = self.db.pattern_line_graph(user=pattern_filter_var.get(), period=pattern_date_range_var.get())
+        fig = Figure(figsize=(10, 6), dpi=100, facecolor="#2b2b2b")
+        ax = fig.add_subplot(111)
+        ax.plot(data, color="#3b82f6")
+        ax.set_title("Pattern Recognition Graph", color="white")
+        ax.set_facecolor("#2b2b2b")
+        ax.tick_params(colors="white")
+        canvas = FigureCanvasTkAgg(fig, master=graph_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
 
     #endregion
 

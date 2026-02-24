@@ -251,7 +251,7 @@ class DatabaseManager:
         conn.commit()
         conn.close()
     
-    def history_bar_graph(self, period,periods_back,user,barcode=None):
+    def pattern_line_graph(self, period,periods_back,user,barcode=None):
         conn = mysql.connector.connect(
             host="localhost",
             user='root',
