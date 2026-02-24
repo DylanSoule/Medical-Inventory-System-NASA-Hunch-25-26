@@ -1115,15 +1115,39 @@ class BarcodeViewer(ctk.CTk):
 
         data = self.db.pattern_line_graph(user=pattern_filter_var.get(), period=pattern_date_range_var.get())
         fig = Figure(figsize=(10, 6), dpi=100, facecolor="#2b2b2b")
+        print(pattern_filter_var.get(), pattern_date_range_var.get(), data)
         ax = fig.add_subplot(111)
         ax.plot(data, color="#3b82f6")
         ax.set_title("Pattern Recognition Graph", color="white")
         ax.set_facecolor("#2b2b2b")
         ax.tick_params(colors="white")
+
+        for spine in ax.spines.values():
+            spine.set_color("#4a4a4a")
+
         canvas = FigureCanvasTkAgg(fig, master=graph_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
+        def update_graph(*args):
+            ax.clear()
+            ax.set_facecolor("#2b2b2b")
+            data = self.db.pattern_line_graph(
+                user=pattern_filter_var.get(), 
+                period=pattern_date_range_var.get()
+            )
+            ax.plot(data, color="#3b82f6")
+            ax.set_title("Pattern Recognition Graph", color="white")
+            ax.tick_params(colors="white")
+            for spine in ax.spines.values():
+                spine.set_color("#4a4a4a")
+            fig.tight_layout()
+            canvas.draw()
+
+        pattern_filter_var.trace_add("write", update_graph)
+        pattern_date_range_var.trace_add("write", update_graph)
+
+# ...existing code...
     def _prompt_for_date_range(self, prompt="Enter date range (YYYY-MM-DD to YYYY-MM-DD)", title="Set Date Range"):
         """Open modal dialog for date range entry with auto-formatting numpad"""
         dlg = ctk.CTkToplevel(self)
@@ -1291,7 +1315,7 @@ class BarcodeViewer(ctk.CTk):
         
         self.wait_window(dlg)
         return result["value"]
-    
+
     #endregion
 
     # ========================================================================
