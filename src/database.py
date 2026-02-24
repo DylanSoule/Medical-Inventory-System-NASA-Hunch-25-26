@@ -262,6 +262,7 @@ class DatabaseManager:
         today = datetime.today()
         
         change = []
+        periods = []
 
         if user=='whole':
             if barcode==None:
@@ -274,9 +275,14 @@ class DatabaseManager:
                             FROM history
                             WHERE time_of_use BETWEEN %s AND %s;
                         """, (back, front,))
-                        change.append(c.fetchone()[0])
-                    except:
-                        return LookupError
+                        result = c.fetchone()
+                        if result and result[0] is not None:
+                            change.append(int(result[0]))
+                        else:
+                            change.append(0)
+                        periods.append(front.split()[0] + ' - ' + back.split()[0])
+                    except Exception as e:
+                        return e
             else:
                 for i in range(periods_back):
                     front = (today - timedelta(days=i*period)).strftime(time_format)
@@ -287,9 +293,14 @@ class DatabaseManager:
                             FROM history
                             WHERE time_of_use BETWEEN %s AND %s AND barcode=%s;
                         """, (back, front,barcode,))
-                        change.append(c.fetchone()[0])
-                    except:
-                        return LookupError
+                        result = c.fetchone()
+                        if result and result[0] is not None:
+                            change.append(int(result[0]))
+                        else:
+                            change.append(0)
+                        periods.append(front.split()[0] + ' - ' + back.split()[0])
+                    except Exception as e:
+                        return e
         else:
             try:
                 c.execute("SELECT id FROM people WHERE name=%s",(user.lower(),))
@@ -308,7 +319,12 @@ class DatabaseManager:
                                 AND %s
                                 AND person_id = %s
                             """, (back, front, user_id,))
-                        change.append(c.fetchone()[0])
+                        result = c.fetchone()
+                        if result and result[0] is not None:
+                            change.append(int(result[0]))
+                        else:
+                            change.append(0)
+                        periods.append(front.split()[0] + ' - ' + back.split()[0])
                     except:
                         return LookupError
             else:
@@ -324,9 +340,15 @@ class DatabaseManager:
                                 AND person_id = %s
                                 AND barcode = %s
                             """, (back, front, user_id,barcode,))
-                        change.append(c.fetchone()[0])
+                        result = c.fetchone()
+                        if result and result[0] is not None:
+                            change.append(int(result[0]))
+                        else:
+                            change.append(0)
+                        periods.append(front.split()[0] + ' - ' + back.split()[0])
                     except:
                         return LookupError
+        return change, periods
 
     def user_names(self):
         conn = mysql.connector.connect(
@@ -845,7 +867,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('brody')
     read1 = DatabaseManager()
 
-    print(read1.user_names())
+    print(read1.history_bar_graph(7,9,'Dylan'))
 
    
     # print(read.pull_data('history'))
