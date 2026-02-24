@@ -180,13 +180,14 @@ class DatabaseManager:
             database='inventory_system'
         )
         c = conn.cursor()
-
+        c.execute("SELECT id FROM people WHERE name = %s", (user.lower(),))
+        uid = c.fetchone()[0]
 
         c.execute("SELECT id, estimated_amount_remaining FROM in_inventory WHERE barcode = %s", (barcode,))
         drug_info = c.fetchone()
         try:
             c.execute("UPDATE drugs_in_inventory SET estimated_amount = %s WHERE barcode = %s", (drug_info[1] + change, barcode))
-            c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use, change) VALUES (%s,%s,%s,%s,%s)", (barcode, drug_info[0], change, user, 'Access', datetime.now().strftime(time_format),change))
+            c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use, change) VALUES (%s,%s,%s,%s,%s)", (barcode, drug_info[0], uid, 'Access', datetime.now().strftime(time_format),change))
         except Exception as e:
             print("Error:",e)
         
@@ -216,7 +217,7 @@ class DatabaseManager:
             conn.close()
             return False
         conn.close()
-        return True, check[1]
+        return True, check[0]
 
 
     def delete_entry(self, barcode, reason):
@@ -251,7 +252,7 @@ class DatabaseManager:
         conn.commit()
         conn.close()
     
-    def pattern_line_graph(self, period,periods_back,user,barcode=None):
+    def pattern_line_graph(self, date,user,barcode=None):
         conn = mysql.connector.connect(
             host="localhost",
             user='root',
@@ -259,6 +260,8 @@ class DatabaseManager:
             database='inventory_system'
         )
         c = conn.cursor()
+        end_date = date.split()[0]
+        start_date = date.split()[2]
         end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
         date_range = (datetime.strptime(start_date, '%Y-%m-%d') - end_date_obj).days
         print(date_range)
@@ -863,7 +866,7 @@ if __name__ == "__main__":
     read = PersonalDatabaseManager('brody')
     read1 = DatabaseManager()
 
-    print(read1.history_bar_graph('2026-02-24','2026-02-09','Lucca'))
+    print(read1.pattern_line_graph('2026-02-24','2026-02-09','Lucca'))
 
    
     # print(read.pull_data('history'))
