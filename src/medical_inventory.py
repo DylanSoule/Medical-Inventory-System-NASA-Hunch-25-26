@@ -1046,7 +1046,7 @@ class BarcodeViewer(ctk.CTk):
     #=========================================================================
     #region pattern recognition
     def pattern_rec(self):
-        self.show_popup(message=self.db.pattern_recognition(), title="Pattern Recognition Result")
+        self.show_error(message=self.db.pattern_recognition(), title="Pattern Recognition Result")
         pattern = ctk.CTkToplevel(self)
         pattern.title("Pattern Recognition Graph")
         pattern.update_idletasks()
