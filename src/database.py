@@ -329,8 +329,8 @@ class DatabaseManager:
                         else:
                             change.append(0)
                         periods.append(day)
-                    except:
-                        return LookupError
+                    except Exception as e:
+                        return e
             else:
                 for i in range(date_range):
                     day = (end_date_obj + timedelta(days=(i+1))).strftime(time_format)
@@ -348,8 +348,8 @@ class DatabaseManager:
                         else:
                             change.append(0)
                         periods.append(day)
-                    except:
-                        return LookupError
+                    except Exception as e:
+                        return e
         return change, periods
 
     def user_names(self):
