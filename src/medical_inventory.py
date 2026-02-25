@@ -6,7 +6,6 @@ This application manages medical inventory with barcode scanning,
 facial recognition, and usage tracking.
 """
 
-from ast import pattern
 import tkinter as tk
 from tkinter import ttk
 import customtkinter as ctk
@@ -1046,185 +1045,111 @@ class BarcodeViewer(ctk.CTk):
     # PATTERN RECOGNITION
     #=========================================================================
     #region pattern recognition
-    def pattern_rec(self):
+def pattern_rec(self):
+        self.show_popup(message=self.db.pattern_recognition(), title="Pattern Recognition Result")
         pattern = ctk.CTkToplevel(self)
         pattern.title("Pattern Recognition Graph")
         pattern.update_idletasks()
-
         screen_width = pattern.winfo_screenwidth()
         screen_height = pattern.winfo_screenheight()
-
+        pattern_filter_var = tk.StringVar(value="All")
+        pattern_date_range_var = tk.StringVar(value="")
         try:
             pattern.attributes("-fullscreen", True)
         except Exception:
             pattern.geometry(f"{screen_width}x{screen_height}+0+0")
+        try:
+            pattern.transient(self)
+            pattern.lift()
+            pattern.focus_force()
+            def do_grab():
+                try:
+                    pattern.grab_set()
+                except Exception as e:
+                    print(f"Could not grab focus: {e}")
+            pattern.after(100, do_grab)
+        except Exception as e:
+            print(f"Could not make pattern window modal: {e}")
 
-        # ✅ FORCE WINDOW TO FRONT (Windows fix)
-        pattern.transient(self)
-        pattern.lift()
-        pattern.attributes("-topmost", True)
-        pattern.after(100, lambda: pattern.attributes("-topmost", False))
-        pattern.focus_force()
-
-        # ===============================
-        # Variables
-        # ===============================
-        pattern_filter_var = tk.StringVar(value="All")
-        pattern_date_range_var = tk.StringVar(value="2026-02-01 to 2026-02-12")
-        barcode_var = tk.StringVar(value="")
-
-        # ===============================
-        # Top Bar
-        # ===============================
         top_bar = ctk.CTkFrame(pattern, corner_radius=6)
         top_bar.pack(fill="x", padx=18, pady=(18, 0))
 
-        ctk.CTkButton(
-            top_bar,
-            text="Close",
-            command=pattern.destroy,
-            width=160,
-            height=55,
-            font=("Arial", 22),
-        ).pack(side="right", padx=18, pady=18)
-
-        ctk.CTkLabel(
-            top_bar,
-            text="Pattern Recognition Graph",
-            font=("Arial", 22, "bold"),
-        ).pack(side="top", pady=18)
-
-        # ===============================
-        # User Filter
-        # ===============================
-        ctk.CTkLabel(top_bar, text="User:", font=("Arial", 18)).pack(side="left", padx=10)
-
+        ctk.CTkButton(top_bar, 
+                    text="Close",
+                    command=pattern.destroy,
+                    width=160,
+                    height=55, 
+                    font=("Arial", 22),
+                    ).pack(side="right", padx=18, pady=18)
+        
+        ctk.CTkLabel(top_bar, 
+                     text="Pattern Recognition Graph", 
+                     font=("Arial", 22, "bold")
+                     ).pack(side="top", padx=18, pady=18)
+        
+        ctk.CTkLabel(top_bar, 
+                     text="Filter by user:", 
+                     font=("Arial", 18),
+                     ).pack(side="left", padx=18, pady=18)
+        
         filter_opts = ["All"] + self.db.user_names()
-
         ctk.CTkOptionMenu(
             top_bar,
             values=filter_opts,
             variable=pattern_filter_var,
-            height=45,
-            font=("Arial", 18),
+            height=50,
+            font=("Arial", 20),
             dynamic_resizing=True
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=18, pady=18)
+        
+        ctk.CTkButton(top_bar,
+                            text="Set Date Range",
+                            font=("Arial", 18),
+                            command=lambda: pattern_date_range_var.set(self._prompt_for_date_range() or ""),
+                            width=200,
+                            height=50
+                            ).pack(side="left", padx=18, pady=18)
 
-        # ===============================
-        # Barcode Filter
-        # ===============================
-        ctk.CTkLabel(top_bar, text="Barcode:", font=("Arial", 18)).pack(side="left", padx=10)
-
-        barcode_entry = ctk.CTkEntry(
-            top_bar,
-            textvariable=barcode_var,
-            width=180,
-            height=45,
-            font=("Arial", 16),
-            placeholder_text="Optional"
-        )
-        barcode_entry.pack(side="left", padx=5)
-
-        def scan_barcode():
-            code = self._prompt_for_barcode(
-                prompt="Scan barcode for filter",
-                title="Scan Barcode"
-            )
-            if code:
-                barcode_var.set(code)
-
-        ctk.CTkButton(
-            top_bar,
-            text="Scan",
-            width=100,
-            height=45,
-            command=scan_barcode
-        ).pack(side="left", padx=5)
-
-        # ===============================
-        # Date Range Button
-        # ===============================
-        ctk.CTkButton(
-            top_bar,
-            text="Set Date Range",
-            font=("Arial", 18),
-            command=lambda: pattern_date_range_var.set(
-                self._prompt_for_date_range() or pattern_date_range_var.get()
-            ),
-            width=200,
-            height=45
-        ).pack(side="left", padx=10)
-
-        # ===============================
-        # Graph Frame
-        # ===============================
         graph_frame = ctk.CTkFrame(pattern, corner_radius=6)
         graph_frame.pack(fill="both", expand=True, padx=18, pady=18)
-
+        if pattern_date_range_var.get() == "":
+            range_date = "2026-02-01 to 2026-02-12"
+        else:
+            range_date = pattern_date_range_var.get()
+        
+        data = self.db.pattern_line_graph(user=pattern_filter_var.get(), date=range_date)
         fig = Figure(figsize=(10, 6), dpi=100, facecolor="#2b2b2b")
+       
         ax = fig.add_subplot(111)
+        ax.plot(data, color="#3b82f6")
+        ax.set_title("Pattern Recognition Graph", color="white")
+        ax.set_facecolor("#2b2b2b")
+        ax.tick_params(colors="white")
+
+        for spine in ax.spines.values():
+            spine.set_color("#4a4a4a")
+
         canvas = FigureCanvasTkAgg(fig, master=graph_frame)
+        canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
-        # ===============================
-        # Graph Update Function
-        # ===============================
         def update_graph(*args):
             ax.clear()
             ax.set_facecolor("#2b2b2b")
-
-            selected_user = pattern_filter_var.get()
-            date_range = pattern_date_range_var.get()
-            barcode_value = barcode_var.get().strip()
-
-            if barcode_value == "":
-                barcode_value = None
-
-            try:
-                result = self.db.pattern_line_graph(
-                    date=date_range,
-                    user=selected_user,
-                    barcode=barcode_value
-                )
-
-                # ✅ Safe unpack protection
-                if not isinstance(result, tuple) or len(result) != 2:
-                    print("Pattern line graph returned error:", result)
-                    return
-
-                change, periods = result
-
-            except Exception as e:
-                print("Graph update failed:", e)
-                return
-
-            # Prevent crash if empty
-            if not change or not periods:
-                return
-
-            ax.plot(periods, change, color="#3b82f6")
-            ax.set_title("Inventory Usage Over Time", color="white")
-            ax.set_ylabel("Total Usage", color="white")
-            ax.set_xlabel("Date", color="white")
+            data = self.db.pattern_line_graph(
+                user=pattern_filter_var.get(), 
+                period=pattern_date_range_var.get()
+            )
+            ax.plot(data, color="#3b82f6")
+            ax.set_title("Pattern Recognition Graph", color="white")
             ax.tick_params(colors="white")
-
-            # Rotate dates for readability
-            for label in ax.get_xticklabels():
-                label.set_rotation(45)
-
             for spine in ax.spines.values():
                 spine.set_color("#4a4a4a")
-
             fig.tight_layout()
             canvas.draw()
 
-        # Dynamic updates
         pattern_filter_var.trace_add("write", update_graph)
         pattern_date_range_var.trace_add("write", update_graph)
-        barcode_var.trace_add("write", update_graph)
-
-        # Initial draw
-        update_graph()
 
 # ...existing code...
     def _prompt_for_date_range(self, prompt="Enter date range (YYYY-MM-DD to YYYY-MM-DD)", title="Set Date Range"):
