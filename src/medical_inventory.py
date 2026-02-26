@@ -12,11 +12,10 @@ import customtkinter as ctk
 import os
 import sys
 import datetime
-import tkcalendar as tkcal
 import threading
 import time
-import tkinter.font as tkfont
-
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -29,7 +28,10 @@ from facial_recognition import FaceRecognitionError
 # ============================================================================
 
 DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Database/inventory.db")
-REFRESH_INTERVAL = 30000  # milliseconds
+REFRESH_INTERVAL = 300000  # milliseconds
+# Use CustomTkinter main window for modern look
+ctk.set_appearance_mode("Dark")         # "Dark", "Light", or "System"
+ctk.set_default_color_theme("dark-blue") # built-in themes: "blue", "green", "dark-blue"
 
 # UI Configuration
 ctk.set_appearance_mode("Dark")
@@ -46,7 +48,6 @@ COLUMN_CONFIGS = {
     "exp_date": {"text": "Expiration", "width": 140},
     "type_": {"text": "Type", "width": 120},
     "dose_size": {"text": "Dose Size", "width": 140},
-    "item_type": {"text": "Item Type", "width": 140},
     "item_loc": {"text": "Location", "width": 100}
 }
 
@@ -57,7 +58,6 @@ COLUMN_LABELS = {
     "exp_date": "Expiration",
     "type_": "Type",
     "dose_size": "Dose Size",
-    "item_type": "Item Type",
     "item_loc": "Location"
 }
 #endregion
@@ -73,7 +73,7 @@ class BarcodeViewer(ctk.CTk):
         super().__init__()
         
         # Initialize core components
-        self.db = DatabaseManager(DB_FILE)
+        self.db = DatabaseManager()
         self._all_rows = []
         self.fr_ready = False
         self.camera_ready = False
@@ -119,7 +119,10 @@ class BarcodeViewer(ctk.CTk):
         style.configure("TLabel", font=("Arial", 28))
         style.configure("TButton", font=("Arial", 24), padding=20)
         style.configure("Treeview", font=("Arial", 22), rowheight=55)
+        style.configure("Treeview", background="#292929", foreground="#f8f8f8", fieldbackground="#292929")
         style.configure("Treeview.Heading", font=("Arial", 24, "bold"))
+        style.configure("Treeview.Heading", background="#646464", foreground="#292929")
+
         
         # Configure scrollbar thickness
         style.configure("Vertical.TScrollbar", width=30)  # Make vertical scrollbar 30 pixels wide
@@ -175,7 +178,7 @@ class BarcodeViewer(ctk.CTk):
         content_frame.grid_columnconfigure(0, weight=1)
         
         # Create treeview
-        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_type", "item_loc")
+        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_loc")
         self.tree = ttk.Treeview(content_frame, columns=columns, show="headings", selectmode="extended")
         
         # Configure columns
@@ -309,7 +312,7 @@ class BarcodeViewer(ctk.CTk):
         )
         
         # Initialize column visibility tracking
-        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_type", "item_loc")
+        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_loc")
         self.column_visibility = {col: tk.BooleanVar(value=True) for col in columns}
         self.column_configs = COLUMN_CONFIGS
         
@@ -729,7 +732,7 @@ class BarcodeViewer(ctk.CTk):
         
         for row in rows:
             try:
-                barcode, drug, est_amount, exp_date_raw, type_, dose_size, item_type, item_loc = row[0], row[1], row[2], row[3], row[4], row[6], row[5], row[7]
+                barcode, drug, est_amount, exp_date_raw, type_, dose_size, item_loc = row[1], row[0], row[2], row[3], row[4], row[5], row[6]
             except Exception:
                 vals = list(row)
                 barcode = vals[0] if len(vals) > 0 else ""
@@ -737,9 +740,8 @@ class BarcodeViewer(ctk.CTk):
                 est_amount = vals[2] if len(vals) > 2 else ""
                 exp_date_raw = vals[3] if len(vals) > 3 else None
                 type_ = vals[4] if len(vals) > 4 else ""
-                dose_size = vals[6] if len(vals) > 5 else ""
-                item_type = vals[5] if len(vals) > 6 else ""
-                item_loc = vals[7] if len(vals) > 7 else ""
+                dose_size = vals[5] if len(vals) > 5 else ""
+                item_loc = vals[6] if len(vals) > 6 else ""
             
             # Search filter
             if q:
@@ -748,7 +750,6 @@ class BarcodeViewer(ctk.CTk):
                     str(barcode).lower(),
                     str(type_).lower(),
                     str(dose_size).lower(),
-                    str(item_type).lower(),
                     str(item_loc).lower()
                 ]
                 if not any(q in field for field in searchable_fields):
@@ -775,7 +776,7 @@ class BarcodeViewer(ctk.CTk):
                 if delta < 0 or delta > 30:
                     continue
             
-            display_row = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_type, item_loc)
+            display_row = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_loc)
             filtered_rows.append(display_row)
         
         # Sort alphabetically by drug name
@@ -879,7 +880,7 @@ class BarcodeViewer(ctk.CTk):
     
     def log_scan(self, user=None):
         """Log item restock"""
-        time = datetime.datetime.now().strftime("%Y-%m-%d")
+        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         if user is None or user == "":
             return
@@ -909,7 +910,7 @@ class BarcodeViewer(ctk.CTk):
     
     def use_item(self, user=None):
         """Log item usage"""
-        time = datetime.datetime.now().strftime("%Y-%m-%d")
+        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         barcode = self._prompt_for_barcode(prompt="Scan item barcode", title="Item Usage - Scan Barcode")
         if barcode is None or barcode.strip() == "":
@@ -975,7 +976,7 @@ class BarcodeViewer(ctk.CTk):
         
         self.load_data()
         self.show_popup("Deleted", f"Deleted {len(sel)} row(s).", "info")
-    
+
     def show_history(self):
         """Show deletion history in a new window"""
         if not self.admin("View History"):
@@ -1011,9 +1012,11 @@ class BarcodeViewer(ctk.CTk):
         # Top bar with close button
         top_bar = ctk.CTkFrame(history, corner_radius=6)
         top_bar.pack(fill="x", padx=18, pady=(18, 0))
-        ctk.CTkButton(top_bar, text="Close", command=history.destroy, width=160, height=55, 
-                     font=("Arial", 22)).pack(side="right", padx=18, pady=18)
+        ctk.CTkButton(top_bar, text="Close", command=history.destroy, width=160, height=55, font=("Arial", 22)).pack(side="right", padx=18, pady=18)
+
         history.bind("<Escape>", lambda e: history.destroy())
+        
+        ctk.CTkButton(top_bar, text="Pattern Rec", command=self.pattern_rec, width=160, height=55, font=("Arial", 22, "bold")).pack(side="left", padx=18, pady=18)
         
         # Create treeview
         columns = ("barcode", "name_of_item", "amount_changed", "user", "type", "time", "reason")
@@ -1035,6 +1038,412 @@ class BarcodeViewer(ctk.CTk):
         
         for row in self.db.pull_data("drug_changes"):
             tree.insert("", "end", values=row)
+
+    #endregion
+
+    #=========================================================================
+    # PATTERN RECOGNITION
+    #=========================================================================
+    #region pattern recognition
+    def pattern_rec(self):
+        pattern = ctk.CTkToplevel(self)
+        pattern.title("Pattern Recognition Graph")
+        pattern.update_idletasks()
+        screen_width = pattern.winfo_screenwidth()
+        screen_height = pattern.winfo_screenheight()
+        pattern_filter_var = tk.StringVar(value="All")
+        pattern_date_range_var = tk.StringVar(value="")
+        try:
+            pattern.attributes("-fullscreen", True)
+        except Exception:
+            pattern.geometry(f"{screen_width}x{screen_height}+0+0")
+        try:
+            pattern.transient(self)
+            pattern.lift()
+            pattern.focus_force()
+            def do_grab():
+                try:
+                    pattern.grab_set()
+                except Exception as e:
+                    print(f"Could not grab focus: {e}")
+            pattern.after(100, do_grab)
+        except Exception as e:
+            print(f"Could not make pattern window modal: {e}")
+
+        top_bar = ctk.CTkFrame(pattern, corner_radius=6)
+        top_bar.pack(fill="x", padx=18, pady=(18, 0))
+
+        ctk.CTkButton(top_bar, 
+                    text="Close",
+                    command=pattern.destroy,
+                    width=160,
+                    height=55, 
+                    font=("Arial", 22),
+                    ).pack(side="right", padx=18, pady=18)
+        
+        ctk.CTkLabel(top_bar, 
+                     text="Pattern Recognition Graph", 
+                     font=("Arial", 22, "bold")
+                     ).pack(side="top", padx=18, pady=18)
+        
+        ctk.CTkLabel(top_bar, 
+                     text="Filter by user:", 
+                     font=("Arial", 18),
+                     ).pack(side="left", padx=18, pady=18)
+        
+        filter_opts = ["All"] + self.db.user_names()
+        ctk.CTkOptionMenu(
+            top_bar,
+            values=filter_opts,
+            variable=pattern_filter_var,
+            height=50,
+            font=("Arial", 20),
+            dynamic_resizing=True
+        ).pack(side="left", padx=18, pady=18)
+        
+        ctk.CTkButton(top_bar,
+                            text="Set Date Range",
+                            font=("Arial", 18),
+                            command=lambda: pattern_date_range_var.set(self._prompt_for_date_range() or ""),
+                            width=200,
+                            height=50
+                            ).pack(side="left", padx=18, pady=18)
+
+        graph_frame = ctk.CTkFrame(pattern, corner_radius=6)
+        graph_frame.pack(fill="both", expand=True, padx=18, pady=18)
+
+        fig = Figure(figsize=(10, 6), dpi=100, facecolor="#2b2b2b")
+        ax = fig.add_subplot(111)
+        ax.set_facecolor("#2b2b2b")
+
+        def render_graph():
+            ax.clear()
+            ax.set_facecolor("#2b2b2b")
+            
+            user_filter = pattern_filter_var.get()
+            date_range = pattern_date_range_var.get()
+            
+            # Map UI user filter to what the DB method expects
+            db_user = "whole" if (not user_filter or user_filter == "All") else user_filter.lower()
+            
+            # Ensure we have a date range; default to last 30 days
+            if not date_range or not date_range.strip() or ' to ' not in date_range:
+                end_dt = datetime.date.today()
+                start_dt = end_dt - datetime.timedelta(days=30)
+                date_range = f"{start_dt.strftime('%Y-%m-%d')} to {end_dt.strftime('%Y-%m-%d')}"
+            
+            # Try the DB method first, fall back to building data manually
+            data = None
+            try:
+                result = self.db.pattern_line_graph(date=date_range, user=db_user)
+                # pattern_line_graph returns (change_list, periods_list) on success
+                if isinstance(result, tuple) and len(result) == 2:
+                    changes, periods = result
+                    if changes and periods and len(changes) == len(periods):
+                        # Build a dict of {date_label: value}
+                        data = {}
+                        for p, c in zip(periods, changes):
+                            # periods may be full datetime strings; take first 10 chars for date
+                            label = str(p)[:10] if len(str(p)) >= 10 else str(p)
+                            data[label] = c
+                elif isinstance(result, Exception) or result is NameError:
+                    print(f"pattern_line_graph returned error: {result}")
+                    data = None
+                else:
+                    data = result
+            except Exception as e:
+                print(f"pattern_line_graph failed: {e}")
+                data = None
+            
+            # If DB method failed or returned nothing, build data from drug_changes
+            if data is None or (isinstance(data, (list, tuple)) and len(data) == 0):
+                try:
+                    changes = self.db.pull_data("drug_changes")
+                    if changes:
+                        date_counts = {}
+                        
+                        # Parse date range filter
+                        start_date = None
+                        end_date = None
+                        if date_range and ' to ' in date_range:
+                            try:
+                                parts = date_range.split(' to ')
+                                start_date = datetime.datetime.strptime(parts[0].strip(), "%Y-%m-%d").date()
+                                end_date = datetime.datetime.strptime(parts[1].strip(), "%Y-%m-%d").date()
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        for row in changes:
+                            try:
+                                if not row or len(row) < 6:
+                                    continue
+                                # drug_changes columns: (barcode, name, amount, user, type, time, reason)
+                                row_user = str(row[3]) if row[3] is not None else ""
+                                row_time = str(row[5]) if row[5] is not None else ""
+                                
+                                # Filter by user
+                                if db_user != "whole" and row_user.lower() != db_user:
+                                    continue
+                                
+                                # Extract date portion (YYYY-MM-DD)
+                                date_key = row_time[:10] if len(row_time) >= 10 else ""
+                                if not date_key or len(date_key) < 10:
+                                    continue
+                                
+                                # Filter by date range
+                                if start_date or end_date:
+                                    try:
+                                        row_date = datetime.datetime.strptime(date_key, "%Y-%m-%d").date()
+                                        if start_date and row_date < start_date:
+                                            continue
+                                        if end_date and row_date > end_date:
+                                            continue
+                                    except ValueError:
+                                        continue
+                                
+                                date_counts[date_key] = date_counts.get(date_key, 0) + 1
+                            except (IndexError, TypeError) as row_err:
+                                print(f"Skipping row due to error: {row_err}")
+                                continue
+            
+                        if date_counts:
+                            data = date_counts
+                except Exception as e:
+                    print(f"Fallback data build failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            # ---- Plot the data ----
+            if data is None or data is type or isinstance(data, type):
+                ax.text(0.5, 0.5, "No data available",
+                       transform=ax.transAxes, ha="center", va="center",
+                       color="white", fontsize=16)
+            elif isinstance(data, dict):
+                if data:
+                    sorted_dates = sorted(data.keys())
+                    values = [float(data[d]) for d in sorted_dates]
+                    ax.plot(range(len(sorted_dates)), values, color="#3b82f6", marker="o", markersize=6, linewidth=2, markerfacecolor="#60a5fa", markeredgecolor="#60a5fa")
+                    ax.fill_between(range(len(sorted_dates)), values, alpha=0.15, color="#3b82f6")
+                    ax.set_xticks(range(len(sorted_dates)))
+                    ax.set_xticklabels(sorted_dates, rotation=45, ha="right", fontsize=8, color="white")
+                else:
+                    ax.text(0.5, 0.5, "No data available",
+                           transform=ax.transAxes, ha="center", va="center",
+                           color="white", fontsize=16)
+            elif isinstance(data, (list, tuple)):
+                if len(data) == 0:
+                    ax.text(0.5, 0.5, "No data available",
+                           transform=ax.transAxes, ha="center", va="center",
+                           color="white", fontsize=16)
+                elif isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
+                    x_vals = [row[0] for row in data]
+                    y_vals = [float(row[1]) for row in data]
+                    ax.plot(range(len(x_vals)), y_vals, color="#3b82f6", marker="o", markersize=6, linewidth=2, markerfacecolor="#60a5fa", markeredgecolor="#60a5fa")
+                    ax.fill_between(range(len(x_vals)), y_vals, alpha=0.15, color="#3b82f6")
+                    ax.set_xticks(range(len(x_vals)))
+                    ax.set_xticklabels(x_vals, rotation=45, ha="right", fontsize=8, color="white")
+                else:
+                    try:
+                        y_vals = [float(v) for v in data]
+                        ax.plot(range(len(y_vals)), y_vals, color="#3b82f6", marker="o", markersize=6, linewidth=2, markerfacecolor="#60a5fa", markeredgecolor="#60a5fa")
+                        ax.fill_between(range(len(y_vals)), y_vals, alpha=0.15, color="#3b82f6")
+                    except (ValueError, TypeError):
+                        ax.text(0.5, 0.5, "Unable to plot data",
+                               transform=ax.transAxes, ha="center", va="center",
+                               color="white", fontsize=16)
+            else:
+                ax.text(0.5, 0.5, f"Unexpected data format: {type(data).__name__}",
+                       transform=ax.transAxes, ha="center", va="center",
+                       color="white", fontsize=16)
+            
+            ax.set_title("Inventory Changes Over Time", color="white", fontsize=16)
+            ax.set_ylabel("Number of Changes", color="white")
+            ax.set_xlabel("Date", color="white")
+            ax.tick_params(colors="white")
+            for spine in ax.spines.values():
+                spine.set_color("#4a4a4a")
+            fig.tight_layout()
+            canvas.draw()
+
+        canvas = FigureCanvasTkAgg(fig, master=graph_frame)
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+        
+        render_graph()
+
+        def update_graph(*args):
+            render_graph()
+
+        pattern_filter_var.trace_add("write", update_graph)
+        pattern_date_range_var.trace_add("write", update_graph)
+
+    def _prompt_for_date_range(self, prompt="Enter date range (YYYY-MM-DD to YYYY-MM-DD)", title="Set Date Range"):
+        """Open modal dialog for date range entry with auto-formatting numpad"""
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.transient(self)
+        dlg.resizable(False, False)
+        
+        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
+        
+        entry_var = tk.StringVar()
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=500, height=55, font=("Arial", 20),
+                             placeholder_text="YYYY-MM-DD to YYYY-MM-DD")
+        entry.pack(padx=25, pady=(0, 22))
+        
+        result = {"value": None}
+        
+        def auto_format_date(raw):
+            """Auto-insert dashes and ' to ' separator as digits are typed"""
+            # Strip everything except digits
+            digits = ''.join(c for c in raw if c.isdigit())
+            
+            # Build formatted string
+            # Format: YYYY-MM-DD to YYYY-MM-DD
+            # Digit positions:
+            #   0-3: first year
+            #   4-5: first month
+            #   6-7: first day
+            #   8-11: second year
+            #   12-13: second month
+            #   14-15: second day
+            
+            parts = []
+            for i, d in enumerate(digits):
+                if i == 4 or i == 6:       # dash after first year, first month
+                    parts.append('-')
+                elif i == 8:               # " to " separator between dates
+                    parts.append(' to ')
+                elif i == 12 or i == 14:   # dash after second year, second month
+                    parts.append('-')
+                parts.append(d)
+                if i >= 15:                # max 16 digits (2 full dates)
+                    break
+            
+            return ''.join(parts)
+        
+        def add_digit(digit):
+            raw = entry_var.get()
+            # Count existing digits
+            digit_count = sum(1 for c in raw if c.isdigit())
+            if digit_count >= 16:
+                return
+            formatted = auto_format_date(raw + str(digit))
+            entry_var.set(formatted)
+        
+        def backspace():
+            raw = entry_var.get()
+            if not raw:
+                return
+            # Remove last character, but if it's a dash or space, keep removing
+            # until we remove an actual digit
+            stripped = raw.rstrip()
+            while stripped and not stripped[-1].isdigit():
+                stripped = stripped[:-1]
+            if stripped:
+                stripped = stripped[:-1]  # remove the last digit
+            # Re-format from remaining digits
+            formatted = auto_format_date(stripped)
+            entry_var.set(formatted)
+        
+        def clear_entry():
+            entry_var.set("")
+        
+        def on_ok(event=None):
+            val = entry_var.get().strip()
+            if val == "":
+                return
+            
+            # Validate format: YYYY-MM-DD to YYYY-MM-DD
+            try:
+                if ' to ' not in val:
+                    self.show_popup("Invalid Format", "Please enter two dates separated by ' to '\nExample: 2026-01-01 to 2026-12-31", "error")
+                    return
+                
+                date_parts = val.split(' to ')
+                if len(date_parts) != 2:
+                    self.show_popup("Invalid Format", "Please enter exactly two dates.", "error")
+                    return
+                
+                start_str = date_parts[0].strip()
+                end_str = date_parts[1].strip()
+                
+                # Validate both dates parse correctly
+                start_date = datetime.datetime.strptime(start_str, "%Y-%m-%d").date()
+                end_date = datetime.datetime.strptime(end_str, "%Y-%m-%d").date()
+                
+                if end_date < start_date:
+                    self.show_popup("Invalid Range", "End date must be after start date.", "error")
+                    return
+                
+                result["value"] = val
+                try:
+                    dlg.grab_release()
+                except:
+                    pass
+                dlg.destroy()
+                
+            except ValueError:
+                self.show_popup("Invalid Date", "Please enter valid dates in YYYY-MM-DD format.", "error")
+                return
+        
+        def on_cancel(event=None):
+            try:
+                dlg.grab_release()
+            except:
+                pass
+            dlg.destroy()
+        
+        # Numpad
+        numpad_frame = ctk.CTkFrame(dlg)
+        numpad_frame.pack(pady=(0, 18))
+        
+        buttons = [
+            ['7', '8', '9'],
+            ['4', '5', '6'],
+            ['1', '2', '3'],
+            ['C', '0', '<']
+        ]
+        
+        for i, row in enumerate(buttons):
+            for j, btn_text in enumerate(row):
+                if btn_text == 'C':
+                    cmd = clear_entry
+                elif btn_text == '<':
+                    cmd = backspace
+                else:
+                    cmd = lambda x=btn_text: add_digit(x)
+                ctk.CTkButton(
+                    numpad_frame, text=btn_text, width=110, height=110,
+                    font=("Arial", 26), command=cmd
+                ).grid(row=i, column=j, padx=10, pady=10)
+        
+        # OK / Cancel buttons
+        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
+        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
+        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55,
+                     font=("Arial", 20)).pack(side="left", padx=12, pady=12)
+        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55,
+                     font=("Arial", 20), fg_color="gray30").pack(side="left", padx=12, pady=12)
+        
+        entry.bind("<Return>", on_ok)
+        dlg.bind("<Escape>", on_cancel)
+        
+        dlg.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
+        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
+        dlg.geometry(f"+{x}+{y}")
+        
+        def do_grab():
+            try:
+                dlg.grab_set()
+                entry.focus_set()
+            except:
+                pass
+        dlg.after(50, do_grab)
+        
+        self.wait_window(dlg)
+        return result["value"]
+
     #endregion
 
     # ========================================================================
@@ -1114,7 +1523,7 @@ class BarcodeViewer(ctk.CTk):
         ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55, 
                      font=("Arial", 20)).pack(side="left", padx=12, pady=12)
         ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55, 
-                     font=("Arial", 20), fg_color="gray30").pack(side="left", padx=12, pady=12)
+                     font=("Arial", 20), fg_color="gray30").pack(side="right", padx=12, pady=12)
         
         entry.bind("<Return>", on_ok)
         dlg.bind("<Escape>", on_cancel)
@@ -1482,6 +1891,8 @@ class BarcodeViewer(ctk.CTk):
                 except Exception:
                     total_width = sum(self.column_configs[c]["width"] for c in visible_columns) or 600
             
+
+            
             if total_width < 100:
                 return
             
@@ -1542,7 +1953,7 @@ def create_round_rectangle(canvas, x1, y1, x2, y2, radius=25, **kwargs):
         x1, y2-radius,
         x1, y2-radius,
         x1, y1+radius,
-        x1, y1+radius,
+               x1, y1+radius,
         x1, y1
     ]
     return canvas.create_polygon(points, **kwargs, smooth=True)
@@ -1563,9 +1974,9 @@ class Personal_db_window(ctk.CTkToplevel):
         self.transient(parent)
         self.parent = parent
         self.user = user
-        self.current_date = datetime.datetime.today()
+        self.current_date = datetime.datetime.now()
         self.zoom_level = 10.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
-        self.db = DatabaseManager(DB_FILE)
+        self.db = DatabaseManager()
         self.expanded_items = set()  # Track which items are expanded
         
         # Initialize personal database
@@ -1578,36 +1989,38 @@ class Personal_db_window(ctk.CTkToplevel):
         from database import PersonalDatabaseManager
         
         try:
-            self.personal_db = PersonalDatabaseManager(path_to_person_database = personal_db_path)
+            self.personal_db = PersonalDatabaseManager(self.user)
         except Exception as e:
             print(f"Error loading personal database: {e}")
             self.personal_db = None
     
         # Set fullscreen
         self.update_idletasks()
+
+        def screen():
+            screen_width = self.winfo_screenwidth()
+            screen_height = self.winfo_screenheight()
+            return (screen_width * screen_height)
         
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
+        def window():
+            window_width = self.winfo_width()
+            window_height = self.winfo_height()
+            return (window_width * window_height)
         
-        try:
+        if screen():
             self.attributes("-fullscreen", True)
-            self.after(0, lambda: self.attributes("-fullscreen", True))
-        except Exception:
+
+            if screen() != window():
+                self.attributes("-fullscreen", False)
+                window_width = self.winfo_screenwidth()
+                window_height = self.winfo_screenheight()
+                self.geometry(f"{window_width}x{window_height}+0+0")
+                pass 
+        else:
             pass
-        
-        def enforce_fullscreen():
-            try:
-                self.attributes("-fullscreen", True)
-            except Exception:
-                try:
-                    self.state("zoomed")
-                except Exception:
-                    pass
-            self.geometry(f"{screen_width}x{screen_height}+0+0")
-        
-        enforce_fullscreen()
-        self.after(100, enforce_fullscreen)
-        
+                
+                
+        self.resizable(False, True)
         self.lift()
         self.focus_force()
         
@@ -1620,7 +2033,7 @@ class Personal_db_window(ctk.CTkToplevel):
         
         self._setup_ui()
         self.bind("<Escape>", lambda e: self.destroy())
-        self.load_timeline_data()
+        self.after(200, self.load_timeline_data)
 
     def _setup_ui(self):
         """Setup the personal database UI"""
@@ -1709,12 +2122,22 @@ class Personal_db_window(ctk.CTkToplevel):
         
         ctk.CTkButton(
             controls_frame,
+            text="💊 Use Item",
+            command=self.use_item_from_timeline,
+            width=130,
+            height=42,
+            font=("Arial", 15),
+            fg_color="#3b82f6"
+        ).pack(side="left", padx=(16, 6))
+        
+        ctk.CTkButton(
+            controls_frame,
             text="Zoom In (+)",
             command=self.zoom_in,
             width=105,
             height=42,
             font=("Arial", 15)
-        ).pack(side="left", padx=(16, 6))
+        ).pack(side="left", padx=6)
         
         ctk.CTkButton(
             controls_frame,
@@ -1769,31 +2192,11 @@ class Personal_db_window(ctk.CTkToplevel):
         self.as_needed_scroll = ctk.CTkScrollableFrame(as_needed_frame, height=150)
         self.as_needed_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-    def _load_as_needed_prescriptions(self):
-        """Load as-needed prescriptions from database"""
-        if not self.personal_db:
-            return
-        
-        try:
-            # Query all prescriptions where as_needed = True
-            all_prescriptions = self.personal_db.pull_data('prescription')
-            
-            for prescription in all_prescriptions:
-                # prescription format: (barcode, dname, dosage, frequency, time, leeway, start_date, end_date, as_needed)
-                if len(prescription) >= 9 and prescription[8]:  # as_needed is True
-                    self.as_needed_prescriptions.append({
-                        'name': prescription[1],
-                        'dosage': prescription[2],
-                        'barcode': prescription[0],
-                        'type': 'as_needed'
-                    })
-        except Exception as e:
-            print(f"Error loading as-needed prescriptions: {e}")
-            import traceback
-            traceback.print_exc()
-    
     def _update_as_needed_display(self):
         """Update the as-needed medications display"""
+        if not hasattr(self, "as_needed_scroll") or not self.as_needed_scroll.winfo_exists():
+            return
+        
         # Clear existing widgets
         for widget in self.as_needed_scroll.winfo_children():
             widget.destroy()
@@ -1829,84 +2232,85 @@ class Personal_db_window(ctk.CTkToplevel):
                 anchor="w"
             ).pack(fill="x", padx=10, pady=(0, 8))
     
+    
     def load_timeline_data(self):
-        """Load user's activity data and prescriptions for the selected date"""
-        self.activities = []
+        self.history_logs = []
         self.prescriptions = []
         self.as_needed_prescriptions = []
-
-    
         if not self.personal_db:
             self.draw_timeline()
             self._update_as_needed_display()
             return
-        
         try:
-            # Get the current date for comparison
             if isinstance(self.current_date, datetime.datetime):
                 current_date_only = self.current_date.date()
             else:
                 current_date_only = self.current_date
+
+            raw_hist, raw_prescriptions = self.personal_db.get_personal_data(current_date_only)
             
-            # Query all history logs and filter by date
-            all_history = self.personal_db.get_personal_data('history')
-            
-            for log in all_history:
-                try:
-                    # history format: (barcode, dname, when_taken, dose)
-                    if len(log) < 4:
+            try:
+                for log in raw_hist:
+                    #history format: (barcode, dname, when_taken, dose, matched)
+                    if len(log) < 5:
                         continue
-                        
-                    barcode, name, when_taken, dose = log[0], log[1], log[2], log[3]
-                    
-                    # Parse timestamp
+                    barcode, name, when_taken, dose, matched = log[0], log[1], log[2], log[3], log[4]
+                    if isinstance(when_taken, (tuple,list)):
+                        when_taken = str(when_taken) if when_taken else None
+                    else:
+                        when_taken = str(when_taken)
+                    if not when_taken:
+                        continue
                     dt = None
+
                     try:
-                        #ignore the error it works fine
                         dt = datetime.datetime.strptime(when_taken, "%Y-%m-%d")
-                    except:
+                    except (ValueError, TypeError):
                         try:
-                            dt = datetime.datetime.fromisoformat(when_taken)
-                        except:
-                            continue
-                    
+                            dt = datetime.datetime.strptime(when_taken, "%Y-%m-%d %H:%M:%S")
+                        except (ValueError, TypeError):
+                            try:
+                                dt = datetime.datetime.fromtimestamp(when_taken)
+                            except (ValueError, TypeError):
+                                print(f"Could not parse date: {when_taken}")
+                                continue
+
                     if dt is None:
                         continue
-                    
-                    # Only include if it's on the current date
+
                     if dt.date() == current_date_only:
-                        self.activities.append({
+                        self.history_logs.append({
                             'time': dt.time(),
                             'name': name,
                             'amount': dose,
                             'barcode': barcode,
-                            'type': 'usage'
+                            'type': 'usage',
+                            'matched': matched
                         })
-                except Exception as e:
-                    print(f"Error processing history log: {e}, log: {log}")
-                    continue
+            except Exception as e:
+                print(f"Error processing history log: {e}, log: {log}")
             
-            # Get scheduled prescriptions for this date
-            date_str = self.current_date.strftime("%Y-%m-%d %H:%M:%S")
             try:
-                prescript_logs = self.personal_db.get_personal_data(date_str)
-                
-                for prescription in prescript_logs:
-                    try:
-                        if len(prescription) < 5:
-                            continue
-                            
-                        barcode, name, dosage, time_str, leeway = prescription[0], prescription[1], prescription[2], prescription[3], prescription[4]
-                        
-                        # Parse scheduled time
-                        scheduled_time = self._parse_time(time_str)
+                for idx, log in enumerate(raw_prescriptions):
+                    #prescription format: (barcode, dname, dosage, time, leeway, as_needed)
+                    if len(log) < 6:
+                        continue
+                    barcode, name, dosage, time_str, leeway, as_needed = log[0], log[1], log[2], log[3], log[4], log[5]
+                    scheduled_time = self._parse_time(time_str)
 
-                        if leeway:
-                            leeway_formatted = leeway * 60
-                            leeway_formatted = int(leeway_formatted)
-                        else:
-                            leeway_formatted = 60
-                    
+                    if leeway:
+                        leeway_formatted = leeway * 60
+                        leeway_formatted = int(leeway_formatted)
+                    else:
+                        leeway_formatted = 60
+
+                    if as_needed == True or as_needed == "True" or as_needed == 1:
+                        self.as_needed_prescriptions.append({
+                            'name': name,
+                            'dosage': dosage,
+                            'barcode': barcode
+                        })
+                    else:
                         self.prescriptions.append({
                             'time': scheduled_time,
                             'name': name,
@@ -1915,15 +2319,8 @@ class Personal_db_window(ctk.CTkToplevel):
                             'leeway': leeway_formatted,
                             'type': 'prescription'
                         })
-                    
-                    except Exception as e:
-                        print(f"Error processing prescription: {e}, prescription: {prescription}")
-                        continue
             except Exception as e:
-                print(f"Error getting prescription data: {e}")
-            
-            # Query as-needed prescriptions separately
-            self._load_as_needed_prescriptions()
+                print(f"Error processing prescription: {e}, prescription: {idx}, data: {log}")
                 
         except Exception as e:
             print(f"Error loading timeline data: {e}")
@@ -1933,7 +2330,7 @@ class Personal_db_window(ctk.CTkToplevel):
         self.draw_timeline()
         self._update_as_needed_display()
         self.after(100, lambda: self.reset_zoom())
-    
+
     def _parse_time(self, time_str):
         """Parse time string to datetime.time object"""
         if isinstance(time_str, datetime.time):
@@ -1950,43 +2347,65 @@ class Personal_db_window(ctk.CTkToplevel):
                 pass
         return datetime.time(9, 0, 0)
     
-    def _check_activity_match(self, activity):
-        """Check if an activity matches a prescription using database comparison"""
-        if not self.personal_db:
-            return False
+    def _get_pill_width(self):
+        """Get the current pill width based on zoom level"""
+        return max(100 * min(self.zoom_level, 2.0), 60)
+    
+    def _get_stacked_position(self, x, items, stack_idx):
+        """
+        Calculate horizontal offset for stacked items at the same time slot.
         
-        try:
-            # Get the current date for combining
-            if isinstance(self.current_date, datetime.datetime):
-                current_date_only = self.current_date.date()
-            else:
-                current_date_only = self.current_date
+        Args:
+            x: Base x position on the timeline
+            items: List of (idx, item) tuples sharing the same time slot
+            stack_idx: Index of the current item within the group
             
-            # Create a log tuple matching database format
-            when_taken = datetime.datetime.combine(
-                current_date_only,
-                activity['time']
-            ).strftime("%Y-%m-%d")
-            
-            log = (
-                activity['barcode'],
-                activity['name'],
-                when_taken,
-                str(activity['amount'])
-            )
-            
-            # Use database comparison function
-            result = self.personal_db.compare_with_prescription(log)
-            
-            # result is (bool, string) - return the bool
-            return result[0] if isinstance(result, tuple) else False
-            
-        except Exception as e:
-            print(f"Error checking activity match: {e}")
-            return False
+        Returns:
+            Horizontal pixel offset from the base x position
+        """
+        num_items = len(items)
+        if num_items <= 1:
+            return 0
+        
+        pill_width = self._get_pill_width()
+        spacing = pill_width + 10  # pill width + gap between pills
+        
+        # Center the group around x=0 offset
+        # Total width of the group: (num_items - 1) * spacing
+        total_group_width = (num_items - 1) * spacing
+        start_offset = -total_group_width / 2.0
+        
+        return start_offset + (stack_idx * spacing)
+    
+    def _resolve_overlaps(self, items_with_x):
+        """
+        Given a list of (index, item, x_position), return a list of 
+        (index, item, adjusted_x) so no two pills overlap horizontally.
+        """
+        pill_width = self._get_pill_width()
+        min_spacing = pill_width + 10  # pill width + small gap
+        
+        # Sort by x position for consistent placement
+        sorted_items = sorted(items_with_x, key=lambda t: t[2])
+        
+        placed = []  # list of (index, item, final_x)
+        
+        for idx, item, x in sorted_items:
+            final_x = x
+            # Only check against already-placed items, single pass
+            for _, _, placed_x in placed:
+                if abs(final_x - placed_x) < min_spacing:
+                    final_x = placed_x + min_spacing
+            placed.append((idx, item, final_x))
+        
+        return placed
 
     def draw_timeline(self):
         """Draw the 24-hour timeline with activities and prescriptions"""
+        #Guard to ensure canvas is ready
+        if not self.timeline_canvas.winfo_exists():
+            return
+        
         self.timeline_canvas.delete("all")
         
         canvas_width = self.timeline_canvas.winfo_width()
@@ -2041,7 +2460,7 @@ class Personal_db_window(ctk.CTkToplevel):
             prescription_times[time_key].append((idx, prescription))
         
         activity_times = {}
-        for idx, activity in enumerate(self.activities):
+        for idx, activity in enumerate(self.history_logs):
             time_key = (activity['time'].hour, activity['time'].minute)
             if time_key not in activity_times:
                 activity_times[time_key] = []
@@ -2071,28 +2490,19 @@ class Personal_db_window(ctk.CTkToplevel):
                 x = (hour + minute / 60.0) * hour_width
                 x_offset = self._get_stacked_position(x, items, stack_idx)
                 
-                # Check for prescription match using database comparison
-                matched_prescription = self._check_activity_match(activity)
+                # Check for prescription match using the activity's own matched field
+                matched = bool(activity.get('matched', False))
                 
                 item_id = f"activity_{idx}"
                 is_expanded = item_id in self.expanded_items
                 
                 # Draw activity pill below timeline
-                self._draw_activity_pill(x + x_offset, timeline_y, activity, item_id, is_expanded, matched = matched_prescription)
+                self._draw_activity_pill(x + x_offset, timeline_y, activity, item_id, is_expanded, matched)
         
         # Draw legend
         self._draw_legend()
         
-        print(f"Drawing timeline with {len(self.prescriptions)} prescriptions and {len(self.activities)} activities")
-
-    def _get_stacked_position(self, x, items_at_time, item_index):
-        """Calculate vertical offset for stacked items at the same time"""
-        if item_index == 0:
-            return 0
-        
-        # Stack items horizontally with small offset
-        offset = 30 * min(self.zoom_level, 1.5)
-        return offset * item_index
+        print(f"Drawing timeline with {len(self.prescriptions)} prescriptions and {len(self.history_logs)} activities")
 
     def _draw_prescription_pill(self, x, timeline_y, prescription, item_id, is_expanded):
         """Draw a prescription pill above the timeline"""
@@ -2473,6 +2883,173 @@ class Personal_db_window(ctk.CTkToplevel):
         self.current_date = datetime.date.today()
         self.date_label.configure(text=self.current_date.strftime("%A, %B %d, %Y"))
         self.load_timeline_data()
+    
+    def use_item_from_timeline(self):
+        """Log item usage directly from the timeline, then refresh"""
+        barcode = self._prompt_for_input(
+            prompt="Scan item barcode",
+            title="Use Item - Scan Barcode",
+            numpad_mode=True
+        )
+        if barcode is None or barcode.strip() == "":
+            return
+        
+        exists = self.db.check_if_barcode_exists(barcode)
+        if not exists:
+            self._show_message("Invalid Barcode", f"Barcode {barcode} not found in inventory.", "error")
+            return
+        
+        barcode = exists[1]
+        
+        amount_str = self._prompt_for_input(
+            prompt="Enter amount used",
+            title="Use Item - Amount",
+            numpad_mode=True,
+            allow_decimal=True
+        )
+        if amount_str is None or amount_str.strip() == "":
+            return
+        
+        try:
+            amount = int(float(amount_str)) * -1
+        except ValueError:
+            self._show_message("Invalid Amount", "Please enter a valid number.", "error")
+            return
+        
+        try:
+            self.db.log_access_to_inventory(barcode=barcode, change=amount, user=self.user)
+            self._show_message("Item Used", f"Logged usage of {barcode} by {self.user}", "info")
+        except Exception as e:
+            self._show_message("Error", f"Failed to log item usage:\n{e}", "error")
+            return
+        
+        # Reload timeline to show the new activity
+        self.load_timeline_data()
+
+    def _prompt_for_input(self, prompt="Enter value", title="Input", numpad_mode=True, allow_decimal=False):
+        """Generic modal input dialog with numpad"""
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.transient(self)
+        dlg.resizable(False, False)
+        
+        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
+        
+        entry_var = tk.StringVar()
+        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=400, height=55, font=("Arial", 20))
+        entry.pack(padx=25, pady=(0, 22))
+        
+        result = {"value": None}
+        
+        def on_ok(event=None):
+            val = entry_var.get().strip()
+            if val == "":
+                return
+            if allow_decimal:
+                try:
+                    float(val)
+                except ValueError:
+                    self._show_message("Invalid", "Please enter a valid number.", "error")
+                    return
+            result["value"] = val
+            try:
+                dlg.grab_release()
+            except:
+                pass
+            dlg.destroy()
+        
+        def on_cancel(event=None):
+            try:
+                dlg.grab_release()
+            except:
+                pass
+            dlg.destroy()
+        
+        if numpad_mode:
+            numpad_frame = ctk.CTkFrame(dlg)
+            numpad_frame.pack(pady=(0, 18))
+            
+            last_row_keys = ['C', '0', '.' if allow_decimal else '<']
+            buttons = [
+                ['7', '8', '9'],
+                ['4', '5', '6'],
+                ['1', '2', '3'],
+                last_row_keys
+            ]
+            
+            def add_to_entry(value):
+                current = entry_var.get()
+                if value == '.' and '.' in current:
+                    return
+                entry_var.set(current + str(value))
+            
+            for i, row in enumerate(buttons):
+                for j, btn_text in enumerate(row):
+                    if btn_text == 'C':
+                        cmd = lambda: entry_var.set("")
+                    elif btn_text == '<':
+                        cmd = lambda: entry_var.set(entry_var.get()[:-1])
+                    else:
+                        cmd = lambda x=btn_text: add_to_entry(x)
+                    ctk.CTkButton(
+                        numpad_frame, text=btn_text, width=110, height=110,
+                        font=("Arial", 26), command=cmd
+                    ).grid(row=i, column=j, padx=10, pady=10)
+            
+            if allow_decimal:
+                ctk.CTkButton(
+                    numpad_frame, text="<", width=340, height=60,
+                    font=("Arial", 26), command=lambda: entry_var.set(entry_var.get()[:-1])
+                ).grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
+        
+        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
+        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
+        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55,
+                     font=("Arial", 20)).pack(side="left", padx=12, pady=12)
+        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55,
+                     font=("Arial", 20), fg_color="gray30").pack(side="right", padx=12, pady=12)
+        
+        entry.bind("<Return>", on_ok)
+        dlg.bind("<Escape>", on_cancel)
+        
+        dlg.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
+        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
+        dlg.geometry(f"+{x}+{y}")
+        
+        def do_grab():
+            try:
+                dlg.grab_set()
+                entry.focus_set()
+            except:
+                pass
+        dlg.after(50, do_grab)
+        
+        self.wait_window(dlg)
+        return result["value"]
+
+    def _show_message(self, title, message, msg_type="info"):
+        """Show a simple popup message from the personal DB window"""
+        popup = ctk.CTkToplevel(self)
+        popup.title(title)
+        popup.geometry("520x240")
+        popup.resizable(False, False)
+        
+        accent = {"error": "#dc2626", "warning": "#f59e0b"}.get(msg_type, "#3b82f6")
+        
+        ctk.CTkLabel(popup, text=title, font=("Arial", 22, "bold"), text_color=accent).pack(pady=(30, 18))
+        ctk.CTkLabel(popup, text=message, font=("Arial", 18), wraplength=460, justify="center").pack(pady=(0, 25))
+        ctk.CTkButton(popup, text="OK", command=popup.destroy, width=140, height=45,
+                     font=("Arial", 18), fg_color=accent).pack()
+        
+        self.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() // 2) - 260
+        y = self.winfo_rooty() + (self.winfo_height() // 2) - 120
+        popup.geometry(f"520x240+{x}+{y}")
+        
+        popup.transient(self)
+        popup.grab_set()
+        self.wait_window(popup)
 #endregion
 
 # ============================================================================

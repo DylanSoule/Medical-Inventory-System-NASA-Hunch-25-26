@@ -1,93 +1,92 @@
 barcode,name,amount_in_unit,type,dosage,expiration_date
-103850211663,Sertraline,141,Behavioral Health,Tablet 50 mg,2026-04-17
-104219040581,Loratadine,112,Antihistamine,Tablet 10 mg,2025-12-27
-105721833617,Norethindrone and Ethinyl Estradiol,149,Hormones,Dose Pack 21 dose pack,2026-08-30
-107191382899,Lorazepam,157,Behavioral Health,Tablet 1 mg,2026-08-21
-114581785831,Levetiracetam,154,Anti-epileptics,Tablet 500 mg,2026-08-14
-116201440367,Sterile Water Injection,132,Behavioral Health,Vial 10 mL,2026-05-28
-118139526546,Metoprolol XL,136,Cardiac,Tablet 50 mg,2026-07-29
-148388606079,Azithromycin,158,Antibiotics,Tablet 250 mg,2026-09-25
-155555489059,Ketorolac,135,Analgesic,Vial 2 mL,2026-08-27
-167928307462,Cyanoacrylate (Dermabond),140,Wound Care,Swab 0.7 mL,2026-11-09
-181641969075,Acetazolamide,143,Altitude sickness,Tablet 250 mg,2026-04-03
-188048531457,Dexamethasone,140,Steroid,Vial 1 mL,2026-05-29
-196641690036,Modafinil,147,Stimulant,Tablet 200 mg,2026-11-06
-216703345251,Pseudoephedrine,132,Decongestant,Tablet 30 mg,2026-05-20
-244610611314,Lidocaine,138,Anesthetics,Multi-dose Vial 10 mL,2026-06-21
-248423875210,Valacyclovir,146,Antiviral,Tablet 1 g,2026-12-05
-262299280945,Mupirocin,150,Antibiotics,Tube 22 g,2026-10-03
-281772244185,Olopatadine,152,Antihistamine,Bottle 2.5 mL,2026-01-15
-293052432148,Epinephrine,190,Emergency Treatments,Syringe 10 mL,2026-09-03
-301230338732,Fexofenadine,195,Antihistamine,Tablet 180 mg,2026-08-27
-304620254178,Sulfamethoxazole/Trimethoprim,120,Antibiotics,Tablet 800/160 mg,2026-12-12
-320247142087,Silver Nitrate,125,Wound Care,Each 60,2026-07-12
-327486057958,Carboxymethylcellulose Sodium,56,Lubricant,Unit Dose Packet 0.4 mL,2026-10-17
-333597981303,"Dextran, Glycerin and Hypromellose",172,Lubricant,Bottle 15 mL,2026-07-12
-341904070393,Hydromorphone,128,Analgesic,Syringe 1 mL,2026-06-15
-353873976494,Clotrimazole,128,Antifungal,Tube 30 g,2026-09-17
-354232121169,Glycopyrrolate,142,Intubation,Vial 2 mL,2026-07-18
-363058642556,Ciprofloxacin/Dexamethasone,145,Antibiotics,Bottle 7.5 mL,2026-06-30
-374506973694,Venlafaxine,168,Behavioral Health,Tablet 75 mg,2026-10-03
-383038191301,Salmeterol,136,Breathing,Inhaler 50 mcg,2026-07-25
-392967344872,Fluticasone,148,Breathing,Inhaler 12 g,2026-09-30
-411899740020,Mometasone,134,Steroid,Bottle 17 gm,2026-09-02
-413615908573,Aspirin,128,Pain Reliever,Tablet 325 mg,2026-06-30
-420239914846,Zolpidem,168,Pain Reliever,Tablet 5 mg,2026-11-15
-430687083902,Diphenhydramine,143,Antihistamine,Capsule 25 mg,2026-04-11
-446404580601,Methylprednisolone,150,Steroid,Dose Pack 21 dose pack,2026-07-14
-459720603311,Tropicamide,130,Ophthalmic,Bottle 15 mL,2026-09-05
-464784707322,Acetaminophen,157,Pain Reliever,Tablet 325 mg,2026-02-14
-470038531098,Erythromycin,135,Antibiotics,Tube 3.5 g,2026-12-15
-472697964768,Albuterol,150,Breathing,Inhaler 6.7 g,2026-08-12
-483770087100,Naloxone,167,Overdose treatment,Syringe 2 mL,2026-05-27
-492346025761,Ceftriaxone,160,Antibiotics,Vial 1 g,2026-11-03
-493414910061,Amoxicillin,172,Antibiotics,Capsule 500 mg,2026-07-18
-505186266550,Fluconazole,138,Antifungal,Tablet 150 mg,2026-05-30
-515137828287,Flumazenil,102,Overdose treatment,Vial 10 mL,2026-07-12
-517803599150,Loperamide,178,Antidiarrheal,Tablet 2 mg,2026-06-25
-531040594875,Lidocaine with Epinephrine,149,Anesthetics,Multi-dose Vial 20 mL,2026-08-14
-556404900851,Ertapenem,152,Antibiotics,Vial 1 g,2026-09-08
-579944595686,Diphenhydramine,130,Antihistamine,Vial 1 mL,2026-05-19
-597832813342,Ziprasidone,147,Behavioral Health,Medication Kit N/A,2026-11-06
-599283971191,Oxymetazoline,121,Decongestant,Bottle 15 mL,2026-03-11
-600832053119,Zaleplon,141,Pain Reliever,Bottle 10 mg,2026-01-19
-602246304071,Carbamide Peroxide,140,Earwax Removal,Bottle 15 mL,2026-10-19
-602798878354,Hydrocortisone,110,Steroid,Unit Dose Packet 0.9 gm,2026-03-06
-604581468157,Eugenol,122,Dental,Oral Syringe 1 mL,2026-06-11
-612603497886,Promethazine,132,Space motion sickness,Vial 1 mL,2026-09-18
-639472370728,Levofloxacin,151,Antibiotics,Tablet 500 mg,2026-06-20
-640823347065,Dextromethorphan,95,Cough Relief,Capsule 15 mg,2026-05-17
-647859382842,Medroxyprogesterone,137,Hormones,Tablet 10 mg,2026-06-19
-674176083062,Benzonatate,144,Cough Relief,Softgel 100 mg,2026-09-08
-689607954985,Prednisone,165,Steroid,Tablet 10 mg,2026-08-18
-718098556004,Bacitracin,150,Antibiotics,Tube 28 gm,2026-10-17
-720192857273,Cyclopentolate,128,Ophthalmic,Bottle 15 mL,2026-08-22
-723142981719,Tobramycin/Dexamethasone,138,Antibiotics,Bottle 10 mL,2026-11-21
-723496001479,Hydrocodone/Acetaminophen,176,Pain Reliever,Tablet 10 mg/300 mg,2026-04-27
+103850211663,Sertraline,141,Behavioral Health,50 mg Tablet,2026-04-17
+104219040581,Loratadine,112,Antihistamine,10 mg Tablet,2025-12-27
+105721833617,Norethindrone and Ethinyl Estradiol,149,Hormones,1 mg and 0.035 mg dose pack,2026-08-30
+107191382899,Lorazepam,157,Behavioral Health,1 mg Tablet,2026-08-21
+114581785831,Levetiracetam,154,Anti-epileptics,500 mg Tablet,2026-08-14
+116201440367,Sterile Water Injection,132,Behavioral Health,10 mL Vial,2026-05-28
+118139526546,Metoprolol XL,136,Cardiac,50 mg Tablet,2026-07-29
+148388606079,Azithromycin,158,Antibiotics,250 mg Tablet,2026-09-25
+155555489059,Ketorolac,135,Analgesic,2 mL Vial,2026-08-27
+167928307462,Cyanoacrylate (Dermabond),140,Wound Care,0.7 mL Swab,2026-11-09
+181641969075,Acetazolamide,143,Altitude sickness,250 mg Tablet,2026-04-03
+188048531457,Dexamethasone,140,Steroid,1 mL Vial,2026-05-29
+196641690036,Modafinil,147,Stimulant,200 mg Tablet,2026-11-06
+216703345251,Pseudoephedrine,132,Decongestant,30 mg Tablet,2026-05-20
+244610611314,Lidocaine,138,Anesthetics,10 mL Multi-Dose Vial,2026-06-21
+248423875210,Valacyclovir,146,Antiviral,1 g Tablet,2026-12-05
+262299280945,Mupirocin,150,Antibiotics,22 g Tube,2026-10-03
+281772244185,Olopatadine,152,Antihistamine,2.5 mL Bottle,2026-01-15
+293052432148,Epinephrine,190,Emergency Treatments,10 mL Syringe,2026-09-03
+301230338732,Fexofenadine,195,Antihistamine,180 mg Tablet,2026-08-27
+304620254178,Sulfamethoxazole/Trimethoprim,120,Antibiotics,800/160 mg Tablet,2026-12-12
+327486057958,Carboxymethylcellulose Sodium,56,Lubricant,0.4 mL Unit Dose Packet,2026-10-17
+333597981303,"Dextran, Glycerin and Hypromellose",172,Lubricant,15 mL Bottle,2026-07-12
+341904070393,Hydromorphone,128,Analgesic,1 mL Syringe,2026-06-15
+353873976494,Clotrimazole,128,Antifungal,30 g Tube,2026-09-17
+354232121169,Glycopyrrolate,142,Intubation,2 mL Vial,2026-07-18
+363058642556,Ciprofloxacin/Dexamethasone,145,Antibiotics,7.5 mL Bottle,2026-06-30
+374506973694,Venlafaxine,168,Behavioral Health,75 mg Tablet,2026-10-03
+383038191301,Salmeterol,136,Breathing,50 mcg Inhaler,2026-07-25
+392967344872,Fluticasone,148,Breathing,12 g Inhaler,2026-09-30
+411899740020,Mometasone,134,Steroid,17 gm Bottle,2026-09-02
+413615908573,Aspirin,128,Pain Reliever,325 mg Tablet,2026-06-30
+420239914846,Zolpidem,168,Pain Reliever,5 mg Tablet,2026-11-15
+430687083902,Diphenhydramine,143,Antihistamine,25 mg Capsule,2026-04-11
+446404580601,Methylprednisolone,150,Steroid,4 mg Dose Pack,2026-07-14
+459720603311,Tropicamide,130,Ophthalmic,15 mL Bottle,2026-09-05
+464784707322,Acetaminophen,157,Pain Reliever,325 mg Tablet,2026-02-14
+470038531098,Erythromycin,135,Antibiotics,3.5 g Tube,2026-12-15
+472697964768,Albuterol,150,Breathing,6.7 g Inhaler,2026-08-12
+483770087100,Naloxone,167,Overdose treatment,2 mL Syringe,2026-05-27
+492346025761,Ceftriaxone,160,Antibiotics,1 g Vial,2026-11-03
+493414910061,Amoxicillin,172,Antibiotics,500 mg Capsule,2026-07-18
+505186266550,Fluconazole,138,Antifungal,150 mg Tablet,2026-05-30
+515137828287,Flumazenil,102,Overdose treatment,10 mL Vial,2026-07-12
+517803599150,Loperamide,178,Antidiarrheal,2 mg Tablet,2026-06-25
+531040594875,Lidocaine with Epinephrine,149,Anesthetics,20 ML Multi-Dose Vial,2026-08-14
+556404900851,Ertapenem,152,Antibiotics,1 g Vial,2026-09-08
+579944595686,Diphenhydramine,130,Antihistamine,1 mL Vial,2026-05-19
+597832813342,Ziprasidone,147,Behavioral Health,Kit N/A Medication,2026-11-06
+599283971191,Oxymetazoline,121,Decongestant,15 mL Bottle,2026-03-11
+600832053119,Zaleplon,141,Pain Reliever,10 mg Bottle,2026-01-19
+602246304071,Carbamide Peroxide,140,Earwax Removal,15 mL Bottle,2026-10-19
+602798878354,Hydrocortisone,110,Steroid,0.9 gm Unit Dose Packer,2026-03-06
+604581468157,Eugenol,122,Dental,1 mL Oral Syring,2026-06-11
+612603497886,Promethazine,132,Space motion sickness,1 mL Vial,2026-09-18
+639472370728,Levofloxacin,151,Antibiotics,500 mg Tablet,2026-06-20
+640823347065,Dextromethorphan,95,Cough Relief,15 mg Capsule,2026-05-17
+647859382842,Medroxyprogesterone,137,Hormones,10 mg Tablet,2026-06-19
+674176083062,Benzonatate,144,Cough Relief,100 mg Softgel,2026-09-08
+689607954985,Prednisone,165,Steroid,10 mg Tablet,2026-08-18
+718098556004,Bacitracin,150,Antibiotics,28 gm Tube,2026-10-17
+720192857273,Cyclopentolate,128,Ophthalmic,15 mL Bottle,2026-08-22
+723142981719,Tobramycin/Dexamethasone,138,Antibiotics,10 mL Bottle,2026-11-21
+723496001479,Hydrocodone/Acetaminophen,176,Pain Reliever,10 mg/300 mg Tablet,2026-04-27
 746614579092,Bacitracin,153,Antibiotics,Unit Dose Packet 0.9 mL,2026-12-04
-765111804493,Fexofenadine,169,Antihistamine,Tablet 180 mg,2026-07-06
-766490599880,Melatonin,92,Pain Reliever,Tablet 3 mg,2026-05-09
-766987468230,Tetracaine,135,Anesthetics,Bottle 15 mL,2026-09-05
-778309208462,Benzocaine Swabstick,128,Anesthetics,Swab 0.15 mL,2026-07-12
-793402680681,Lidocaine Jelly,122,Anesthetics,Tube 30 mL,2026-12-09
-814935297846,Desoximetasone,158,Steroid,Tube 60 g,2026-10-30
-829091962214,Pseudoephedrine,167,Decongestant,Tablet 120 mg,2026-10-04
-830808295836,Sodium Chloride,103,Lubricant,Bottle 22 mL,2026-11-23
-831740579796,Clindamycin,135,Antibiotics,Capsule 300 mg,2026-05-14
-851462816628,Mineral Oil and White Petrolatum,119,Lubricant,Tube 3.5 gm,2026-08-05
-859027997796,Flucinonide,122,Steroid,Tube 30 g,2026-12-09
-861173648063,Doxycycline,144,Antibiotics,Capsule 100 mg,2026-11-02
-863262256797,Cromolyn,142,Antihistamine,Bottle 26 mL,2026-07-03
-877992792102,Moxifloxacin,140,Antibiotics,Bottle 3 mL,2026-08-27
-879589668070,Aripiprazole,132,Behavioral Health,Tablet 5 mg,2026-06-09
-888233818456,Metronidazole,165,Antibiotics,Tablet 500 mg,2026-08-08
-892059246720,Lisinopril,123,Cardiac,Tablet 10 mg,2026-03-11
-902366742687,Ziprasidone,140,Behavioral Health,Vial 1.2 mL,2026-06-15
-907366507418,Bisacodyl,136,Stool Softener,Tablet 5 mg,2026-06-14
-910348161816,Ibuprofen,183,Pain Reliever,Tablet 400 mg,2026-08-21
-911215906835,Diazepam,155,Behavioral Health,Syringe 2 mL,2026-12-04
-945355533611,Nitroglycerin,151,Cardiac,Tablet 0.4 mg,2026-05-23
-947505107004,Ketamine,155,Intubation,Multi-dose Vial 10 mL,2026-11-03
-960217503408,Epinephrine,158,Allergic reaction,Autoinjector 0.3 mL,2026-08-11
-980748121791,Fluorescein Strip,115,Ophthalmic,Strip 1 mg,2026-05-14
-982136058275,Caffeine,125,Stimulant,Tablet 200 mg,2026-03-22
+765111804493,Fexofenadine,169,Antihistamine,180 mg Tablet,2026-07-06
+766490599880,Melatonin,92,Pain Reliever,3 mg Tablet,2026-05-09
+766987468230,Tetracaine,135,Anesthetics,15 mL Bottle,2026-09-05
+778309208462,Benzocaine Swabstick,128,Anesthetics,0.15 mL Swab,2026-07-12
+793402680681,Lidocaine Jelly,122,Anesthetics,30 mL Tube,2026-12-09
+814935297846,Desoximetasone,158,Steroid,60 g Tube,2026-10-30
+829091962214,Pseudoephedrine,167,Decongestant,120 mg Tablet,2026-10-04
+830808295836,Sodium Chloride,103,Lubricant,22 mL Bottle,2026-11-23
+831740579796,Clindamycin,135,Antibiotics,300 mg Capsule,2026-05-14
+851462816628,Mineral Oil and White Petrolatum,119,Lubricant,3.5 gm Tube,2026-08-05
+859027997796,Flucinonide,122,Steroid,30 g Tube,2026-12-09
+861173648063,Doxycycline,144,Antibiotics,100 mg Capsule,2026-11-02
+863262256797,Cromolyn,142,Antihistamine,26 mL Bottle,2026-07-03
+877992792102,Moxifloxacin,140,Antibiotics,3 mL Bottle,2026-08-27
+879589668070,Aripiprazole,132,Behavioral Health,5 mg Tablet,2026-06-09
+888233818456,Metronidazole,165,Antibiotics,500 mg Tablet,2026-08-08
+892059246720,Lisinopril,123,Cardiac,10 mg Tablet,2026-03-11
+902366742687,Ziprasidone,140,Behavioral Health,1.2 mL Vial,2026-06-15
+907366507418,Bisacodyl,136,Stool Softener,5 mg Tablet,2026-06-14
+910348161816,Ibuprofen,183,Pain Reliever,400 mg Tablet,2026-08-21
+911215906835,Diazepam,155,Behavioral Health,2 mL Syringe,2026-12-04
+945355533611,Nitroglycerin,151,Cardiac,0.4 mg Tablet,2026-05-23
+947505107004,Ketamine,155,Intubation,10 mL Multi-Dose Vial,2026-11-03
+960217503408,Epinephrine,158,Allergic reaction,0.3 mL Autoinjector,2026-08-11
+980748121791,Fluorescein Strip,115,Ophthalmic,1 mg Strip,2026-05-14
+982136058275,Caffeine,125,Stimulant,200 mg Tablet,2026-03-22
