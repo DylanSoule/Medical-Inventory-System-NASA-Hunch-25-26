@@ -1112,46 +1112,144 @@ class BarcodeViewer(ctk.CTk):
 
         graph_frame = ctk.CTkFrame(pattern, corner_radius=6)
         graph_frame.pack(fill="both", expand=True, padx=18, pady=18)
-        if pattern_date_range_var.get() == "":
-            range_date = "2026-02-01 to 2026-02-12"
-        else:
-            range_date = pattern_date_range_var.get()
-        
-        data = self.db.pattern_line_graph(user=pattern_filter_var.get(), date=range_date)
+
         fig = Figure(figsize=(10, 6), dpi=100, facecolor="#2b2b2b")
-       
         ax = fig.add_subplot(111)
-        ax.plot(data, color="#3b82f6")
-        ax.set_title("Pattern Recognition Graph", color="white")
         ax.set_facecolor("#2b2b2b")
-        ax.tick_params(colors="white")
 
-        for spine in ax.spines.values():
-            spine.set_color("#4a4a4a")
-
-        canvas = FigureCanvasTkAgg(fig, master=graph_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True)
-
-        def update_graph(*args):
+        def render_graph():
             ax.clear()
             ax.set_facecolor("#2b2b2b")
-            data = self.db.pattern_line_graph(
-                user=pattern_filter_var.get(), 
-                period=pattern_date_range_var.get()
-            )
-            ax.plot(data, color="#3b82f6")
-            ax.set_title("Pattern Recognition Graph", color="white")
+            
+            user_filter = pattern_filter_var.get()
+            date_range = pattern_date_range_var.get()
+            
+            # Try the DB method first, fall back to building data manually
+            data = None
+            try:
+                data = self.db.pattern_line_graph(
+                    user=user_filter,
+                    date=date_range
+                )
+            except Exception as e:
+                print(f"pattern_line_graph failed: {e}")
+                data = None
+            
+            # If DB method failed or returned nothing, build data from drug_changes
+            if data is None or (isinstance(data, (list, tuple)) and len(data) == 0):
+                try:
+                    changes = self.db.pull_data("drug_changes")
+                    if changes:
+                        date_counts = {}
+                        
+                        # Parse date range filter
+                        start_date = None
+                        end_date = None
+                        if date_range and ' to ' in date_range:
+                            try:
+                                parts = date_range.split(' to ')
+                                start_date = datetime.datetime.strptime(parts[0].strip(), "%Y-%m-%d").date()
+                                end_date = datetime.datetime.strptime(parts[1].strip(), "%Y-%m-%d").date()
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        for row in changes:
+                            try:
+                                # drug_changes columns: (barcode, name, amount, user, type, time, reason)
+                                row_user = str(row[3]) if len(row) > 3 else ""
+                                row_time = str(row[5]) if len(row) > 5 else ""
+                                
+                                # Filter by user
+                                if user_filter != "All" and row_user != user_filter:
+                                    continue
+                                
+                                # Extract date portion (YYYY-MM-DD)
+                                date_key = row_time[:10] if len(row_time) >= 10 else ""
+                                if not date_key or len(date_key) < 10:
+                                    continue
+                                
+                                # Filter by date range
+                                if start_date or end_date:
+                                    try:
+                                        row_date = datetime.datetime.strptime(date_key, "%Y-%m-%d").date()
+                                        if start_date and row_date < start_date:
+                                            continue
+                                        if end_date and row_date > end_date:
+                                            continue
+                                    except ValueError:
+                                        continue
+                                
+                                date_counts[date_key] = date_counts.get(date_key, 0) + 1
+                            except (IndexError, TypeError):
+                                continue
+            
+                        if date_counts:
+                            data = date_counts
+                except Exception as e:
+                    print(f"Fallback data build failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            # ---- Plot the data ----
+            if data is None or data is type or isinstance(data, type):
+                ax.text(0.5, 0.5, "No data available",
+                       transform=ax.transAxes, ha="center", va="center",
+                       color="white", fontsize=16)
+            elif isinstance(data, dict):
+                if data:
+                    sorted_dates = sorted(data.keys())
+                    values = [float(data[d]) for d in sorted_dates]
+                    ax.bar(range(len(sorted_dates)), values, color="#3b82f6", edgecolor="#60a5fa", width=0.7)
+                    ax.set_xticks(range(len(sorted_dates)))
+                    ax.set_xticklabels(sorted_dates, rotation=45, ha="right", fontsize=8, color="white")
+                else:
+                    ax.text(0.5, 0.5, "No data available",
+                           transform=ax.transAxes, ha="center", va="center",
+                           color="white", fontsize=16)
+            elif isinstance(data, (list, tuple)):
+                if len(data) == 0:
+                    ax.text(0.5, 0.5, "No data available",
+                           transform=ax.transAxes, ha="center", va="center",
+                           color="white", fontsize=16)
+                elif isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
+                    x_vals = [row[0] for row in data]
+                    y_vals = [float(row[1]) for row in data]
+                    ax.bar(range(len(x_vals)), y_vals, color="#3b82f6", edgecolor="#60a5fa", width=0.7)
+                    ax.set_xticks(range(len(x_vals)))
+                    ax.set_xticklabels(x_vals, rotation=45, ha="right", fontsize=8, color="white")
+                else:
+                    try:
+                        y_vals = [float(v) for v in data]
+                        ax.bar(range(len(y_vals)), y_vals, color="#3b82f6", edgecolor="#60a5fa", width=0.7)
+                    except (ValueError, TypeError):
+                        ax.text(0.5, 0.5, "Unable to plot data",
+                               transform=ax.transAxes, ha="center", va="center",
+                               color="white", fontsize=16)
+            else:
+                ax.text(0.5, 0.5, f"Unexpected data format: {type(data).__name__}",
+                       transform=ax.transAxes, ha="center", va="center",
+                       color="white", fontsize=16)
+            
+            ax.set_title("Inventory Changes Over Time", color="white", fontsize=16)
+            ax.set_ylabel("Number of Changes", color="white")
+            ax.set_xlabel("Date", color="white")
             ax.tick_params(colors="white")
             for spine in ax.spines.values():
                 spine.set_color("#4a4a4a")
             fig.tight_layout()
             canvas.draw()
 
+        canvas = FigureCanvasTkAgg(fig, master=graph_frame)
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+        
+        render_graph()
+
+        def update_graph(*args):
+            render_graph()
+
         pattern_filter_var.trace_add("write", update_graph)
         pattern_date_range_var.trace_add("write", update_graph)
 
-# ...existing code...
     def _prompt_for_date_range(self, prompt="Enter date range (YYYY-MM-DD to YYYY-MM-DD)", title="Set Date Range"):
         """Open modal dialog for date range entry with auto-formatting numpad"""
         dlg = ctk.CTkToplevel(self)
@@ -1399,7 +1497,7 @@ class BarcodeViewer(ctk.CTk):
         ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55, 
                      font=("Arial", 20)).pack(side="left", padx=12, pady=12)
         ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55, 
-                     font=("Arial", 20), fg_color="gray30").pack(side="left", padx=12, pady=12)
+                     font=("Arial", 20), fg_color="gray30").pack(side="right", padx=12, pady=12)
         
         entry.bind("<Return>", on_ok)
         dlg.bind("<Escape>", on_cancel)
@@ -1767,6 +1865,8 @@ class BarcodeViewer(ctk.CTk):
                 except Exception:
                     total_width = sum(self.column_configs[c]["width"] for c in visible_columns) or 600
             
+
+            
             if total_width < 100:
                 return
             
@@ -1827,7 +1927,7 @@ def create_round_rectangle(canvas, x1, y1, x2, y2, radius=25, **kwargs):
         x1, y2-radius,
         x1, y2-radius,
         x1, y1+radius,
-        x1, y1+radius,
+               x1, y1+radius,
         x1, y1
     ]
     return canvas.create_polygon(points, **kwargs, smooth=True)
