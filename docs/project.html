@@ -141,6 +141,19 @@
                 </div>
             </div>
         </section>
+        <section class="research-section database-section">
+            <div class="research-container">
+                <h2>Pattern Analysis</h2>
+                <div class="database-content">
+                    <div class="database-text">
+                        <p>Using a combination of z-score and shifting average analysis we can look at the use history of database use for the full inventory or for individual users during short periods of time or over long ranges. This will allow personnel on earth to possibly diagnose a problem before it becomes a large issue or better plan for usage over a long term mission where there is only a finite amount of medications on board. </p>
+                    </div>
+                    <div class="database-image">
+                        <img src="data_analysis.png" alt="Data Analysis">
+                    </div>
+                </div>
+            </div>
+        </section>
         <div class="research-wrapper">
             <section class="research-section">
                 <div class="research-container">
@@ -265,7 +278,7 @@
             const lightboxImg = document.getElementById('lightbox-img');
             const lightboxClose = document.querySelector('.lightbox-close');
 
-            document.querySelectorAll('.timeline-image').forEach(function(imageContainer) {
+            document.querySelectorAll('.timeline-image, .database-image').forEach(function(imageContainer) {
                 imageContainer.addEventListener('click', function() {
                     const img = this.querySelector('img');
                     if (img) {
