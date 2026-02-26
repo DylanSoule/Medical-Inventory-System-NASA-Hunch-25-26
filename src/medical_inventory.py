@@ -1046,7 +1046,6 @@ class BarcodeViewer(ctk.CTk):
     #=========================================================================
     #region pattern recognition
     def pattern_rec(self):
-        self.show_error(message=self.db.pattern_recognition(), title="Pattern Recognition Result")
         pattern = ctk.CTkToplevel(self)
         pattern.title("Pattern Recognition Graph")
         pattern.update_idletasks()
@@ -1124,13 +1123,34 @@ class BarcodeViewer(ctk.CTk):
             user_filter = pattern_filter_var.get()
             date_range = pattern_date_range_var.get()
             
+            # Map UI user filter to what the DB method expects
+            db_user = "whole" if (not user_filter or user_filter == "All") else user_filter.lower()
+            
+            # Ensure we have a date range; default to last 30 days
+            if not date_range or not date_range.strip() or ' to ' not in date_range:
+                end_dt = datetime.date.today()
+                start_dt = end_dt - datetime.timedelta(days=30)
+                date_range = f"{start_dt.strftime('%Y-%m-%d')} to {end_dt.strftime('%Y-%m-%d')}"
+            
             # Try the DB method first, fall back to building data manually
             data = None
             try:
-                data = self.db.pattern_line_graph(
-                    user=user_filter,
-                    date=date_range
-                )
+                result = self.db.pattern_line_graph(date=date_range, user=db_user)
+                # pattern_line_graph returns (change_list, periods_list) on success
+                if isinstance(result, tuple) and len(result) == 2:
+                    changes, periods = result
+                    if changes and periods and len(changes) == len(periods):
+                        # Build a dict of {date_label: value}
+                        data = {}
+                        for p, c in zip(periods, changes):
+                            # periods may be full datetime strings; take first 10 chars for date
+                            label = str(p)[:10] if len(str(p)) >= 10 else str(p)
+                            data[label] = c
+                elif isinstance(result, Exception) or result is NameError:
+                    print(f"pattern_line_graph returned error: {result}")
+                    data = None
+                else:
+                    data = result
             except Exception as e:
                 print(f"pattern_line_graph failed: {e}")
                 data = None
@@ -1155,12 +1175,14 @@ class BarcodeViewer(ctk.CTk):
                         
                         for row in changes:
                             try:
+                                if not row or len(row) < 6:
+                                    continue
                                 # drug_changes columns: (barcode, name, amount, user, type, time, reason)
-                                row_user = str(row[3]) if len(row) > 3 else ""
-                                row_time = str(row[5]) if len(row) > 5 else ""
+                                row_user = str(row[3]) if row[3] is not None else ""
+                                row_time = str(row[5]) if row[5] is not None else ""
                                 
                                 # Filter by user
-                                if user_filter != "All" and row_user != user_filter:
+                                if db_user != "whole" and row_user.lower() != db_user:
                                     continue
                                 
                                 # Extract date portion (YYYY-MM-DD)
@@ -1180,7 +1202,8 @@ class BarcodeViewer(ctk.CTk):
                                         continue
                                 
                                 date_counts[date_key] = date_counts.get(date_key, 0) + 1
-                            except (IndexError, TypeError):
+                            except (IndexError, TypeError) as row_err:
+                                print(f"Skipping row due to error: {row_err}")
                                 continue
             
                         if date_counts:
@@ -1199,7 +1222,8 @@ class BarcodeViewer(ctk.CTk):
                 if data:
                     sorted_dates = sorted(data.keys())
                     values = [float(data[d]) for d in sorted_dates]
-                    ax.bar(range(len(sorted_dates)), values, color="#3b82f6", edgecolor="#60a5fa", width=0.7)
+                    ax.plot(range(len(sorted_dates)), values, color="#3b82f6", marker="o", markersize=6, linewidth=2, markerfacecolor="#60a5fa", markeredgecolor="#60a5fa")
+                    ax.fill_between(range(len(sorted_dates)), values, alpha=0.15, color="#3b82f6")
                     ax.set_xticks(range(len(sorted_dates)))
                     ax.set_xticklabels(sorted_dates, rotation=45, ha="right", fontsize=8, color="white")
                 else:
@@ -1214,13 +1238,15 @@ class BarcodeViewer(ctk.CTk):
                 elif isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
                     x_vals = [row[0] for row in data]
                     y_vals = [float(row[1]) for row in data]
-                    ax.bar(range(len(x_vals)), y_vals, color="#3b82f6", edgecolor="#60a5fa", width=0.7)
+                    ax.plot(range(len(x_vals)), y_vals, color="#3b82f6", marker="o", markersize=6, linewidth=2, markerfacecolor="#60a5fa", markeredgecolor="#60a5fa")
+                    ax.fill_between(range(len(x_vals)), y_vals, alpha=0.15, color="#3b82f6")
                     ax.set_xticks(range(len(x_vals)))
                     ax.set_xticklabels(x_vals, rotation=45, ha="right", fontsize=8, color="white")
                 else:
                     try:
                         y_vals = [float(v) for v in data]
-                        ax.bar(range(len(y_vals)), y_vals, color="#3b82f6", edgecolor="#60a5fa", width=0.7)
+                        ax.plot(range(len(y_vals)), y_vals, color="#3b82f6", marker="o", markersize=6, linewidth=2, markerfacecolor="#60a5fa", markeredgecolor="#60a5fa")
+                        ax.fill_between(range(len(y_vals)), y_vals, alpha=0.15, color="#3b82f6")
                     except (ValueError, TypeError):
                         ax.text(0.5, 0.5, "Unable to plot data",
                                transform=ax.transAxes, ha="center", va="center",
