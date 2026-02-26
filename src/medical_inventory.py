@@ -1,3290 +1,1421 @@
 """
-Medical Inventory System - Main Application
+Medical Inventory System - Main Application (Kivy)
 NASA HUNCH Project 2025-26
 
-This application manages medical inventory with barcode scanning,
+Manages medical inventory with barcode scanning,
 facial recognition, and usage tracking.
 """
 
-import tkinter as tk
-from tkinter import ttk
-import customtkinter as ctk
 import os
 import sys
 import datetime
 import threading
 import time
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from kivy.app import App
+from kivy.lang import Builder
+from kivy.clock import Clock
+from kivy.properties import (
+    StringProperty, ListProperty, BooleanProperty,
+    NumericProperty, ObjectProperty
+)
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.popup import Popup
+from kivy.uix.label import Label
+from kivy.uix.button import Button
+from kivy.uix.textinput import TextInput
+from kivy.uix.checkbox import CheckBox
+from kivy.uix.spinner import Spinner
+from kivy.uix.widget import Widget
+from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.core.window import Window
+from kivy.graphics import Color, Rectangle, RoundedRectangle
+from kivy.metrics import dp
+
 import facial_recognition as fr
-from database import DatabaseManager
+from database import DatabaseManager, PersonalDatabaseManager
 from facial_recognition import FaceRecognitionError
 
 # ============================================================================
 # CONSTANTS
 # ============================================================================
 
-DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Database/inventory.db")
-REFRESH_INTERVAL = 300000  # milliseconds
-# Use CustomTkinter main window for modern look
-ctk.set_appearance_mode("Dark")         # "Dark", "Light", or "System"
-ctk.set_default_color_theme("dark-blue") # built-in themes: "blue", "green", "dark-blue"
+REFRESH_INTERVAL = 300  # seconds
+ADMIN_CODE = "1234"
 
-# UI Configuration
-ctk.set_appearance_mode("Dark")
-ctk.set_default_color_theme("dark-blue")
-
-# ============================================================================
-# COLUMN CONFIGURATION
-# ============================================================================
-#region Column Configurations
-COLUMN_CONFIGS = {
-    "drug": {"text": "Drug", "width": 220},
-    "barcode": {"text": "Barcode", "width": 170},
-    "est_amount": {"text": "Amt~", "width": 100},
-    "exp_date": {"text": "Expiration", "width": 140},
-    "type_": {"text": "Type", "width": 120},
-    "dose_size": {"text": "Dose Size", "width": 140},
-    "item_loc": {"text": "Location", "width": 100}
-}
-
-COLUMN_LABELS = {
-    "drug": "Drug",
-    "barcode": "Barcode",
-    "est_amount": "Amt~",
-    "exp_date": "Expiration",
-    "type_": "Type",
-    "dose_size": "Dose Size",
-    "item_loc": "Location"
-}
-#endregion
+COLUMNS = [
+    ("drug",       "Drug",       220),
+    ("barcode",    "Barcode",    170),
+    ("est_amount", "Amt~",       100),
+    ("exp_date",   "Expiration", 140),
+    ("type_",      "Type",       120),
+    ("dose_size",  "Dose Size",  140),
+    ("item_loc",   "Location",   100),
+]
 
 # ============================================================================
-# MAIN APPLICATION CLASS
+# KV LANGUAGE
 # ============================================================================
-#region Main Application Class
-class BarcodeViewer(ctk.CTk):
-    """Main application window for Medical Inventory System"""
-    
-    def __init__(self):
-        super().__init__()
-        
-        # Initialize core components
+
+KV = """
+#:import dp kivy.metrics.dp
+
+<ThemedLabel@Label>:
+    font_size: dp(16)
+    color: 1, 1, 1, 1
+
+<ThemedButton@Button>:
+    font_size: dp(16)
+    size_hint_y: None
+    height: dp(50)
+    background_color: 0.24, 0.51, 0.78, 1
+    background_normal: ''
+
+<DangerButton@ThemedButton>:
+    background_color: 0.7, 0.13, 0.13, 1
+
+<SuccessButton@ThemedButton>:
+    background_color: 0.13, 0.77, 0.37, 1
+
+# --- Numpad Widget (reusable) ---
+<NumpadWidget>:
+    cols: 3
+    spacing: dp(8)
+    size_hint_y: None
+    height: dp(280)
+
+# --- Message Popup ---
+<MessagePopup>:
+    size_hint: 0.5, 0.4
+    auto_dismiss: True
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(20)
+        spacing: dp(15)
+        canvas.before:
+            Color:
+                rgba: 0.16, 0.16, 0.18, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(12)]
+        Label:
+            text: root.message
+            font_size: dp(16)
+            text_size: self.width, None
+            halign: 'center'
+            valign: 'middle'
+            size_hint_y: 0.7
+        ThemedButton:
+            text: 'OK'
+            on_release: root.dismiss()
+            size_hint_x: 0.5
+            pos_hint: {'center_x': 0.5}
+
+# --- Confirm Popup ---
+<ConfirmPopup>:
+    size_hint: 0.5, 0.4
+    auto_dismiss: False
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(20)
+        spacing: dp(15)
+        canvas.before:
+            Color:
+                rgba: 0.16, 0.16, 0.18, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(12)]
+        Label:
+            text: root.message
+            font_size: dp(16)
+            text_size: self.width, None
+            halign: 'center'
+            valign: 'middle'
+            size_hint_y: 0.6
+        BoxLayout:
+            size_hint_y: 0.4
+            spacing: dp(12)
+            ThemedButton:
+                text: 'Yes'
+                on_release: root.on_yes()
+            DangerButton:
+                text: 'No'
+                on_release: root.on_no()
+
+# --- Input Popup (barcode / amount / admin / date) ---
+<InputPopup>:
+    size_hint: 0.55, 0.75
+    auto_dismiss: False
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(15)
+        spacing: dp(10)
+        canvas.before:
+            Color:
+                rgba: 0.16, 0.16, 0.18, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(12)]
+        Label:
+            text: root.prompt
+            font_size: dp(18)
+            size_hint_y: None
+            height: dp(40)
+        TextInput:
+            id: input_field
+            text: root.input_text
+            font_size: dp(20)
+            size_hint_y: None
+            height: dp(50)
+            multiline: False
+            password: root.is_password
+            on_text: root.input_text = self.text
+            on_text_validate: root.on_ok()
+        NumpadWidget:
+            id: numpad
+            on_key: root.on_numpad_key(args[1])
+        BoxLayout:
+            size_hint_y: None
+            height: dp(50)
+            spacing: dp(12)
+            ThemedButton:
+                text: 'OK'
+                on_release: root.on_ok()
+            Button:
+                text: 'Cancel'
+                font_size: dp(16)
+                size_hint_y: None
+                height: dp(50)
+                background_color: 0.35, 0.35, 0.35, 1
+                background_normal: ''
+                on_release: root.on_cancel()
+
+# --- Virtual Keyboard Popup ---
+<VirtualKeyboardPopup>:
+    size_hint: 0.85, 0.8
+    auto_dismiss: False
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(15)
+        spacing: dp(8)
+        canvas.before:
+            Color:
+                rgba: 0.16, 0.16, 0.18, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(12)]
+        Label:
+            text: root.prompt
+            font_size: dp(18)
+            size_hint_y: None
+            height: dp(35)
+        TextInput:
+            id: kb_input
+            text: root.input_text
+            font_size: dp(18)
+            size_hint_y: None
+            height: dp(48)
+            multiline: False
+            on_text: root.input_text = self.text
+        BoxLayout:
+            id: keyboard_rows
+            orientation: 'vertical'
+            spacing: dp(4)
+            size_hint_y: 0.65
+        BoxLayout:
+            size_hint_y: None
+            height: dp(50)
+            spacing: dp(12)
+            SuccessButton:
+                text: 'OK'
+                on_release: root.on_ok()
+            Button:
+                text: 'Cancel'
+                font_size: dp(16)
+                size_hint_y: None
+                height: dp(50)
+                background_color: 0.35, 0.35, 0.35, 1
+                background_normal: ''
+                on_release: root.on_cancel()
+
+# --- Choice Popup (Restock / Use Item) ---
+<ChoicePopup>:
+    size_hint: 0.5, 0.45
+    auto_dismiss: False
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(20)
+        spacing: dp(15)
+        canvas.before:
+            Color:
+                rgba: 0.16, 0.16, 0.18, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(12)]
+        Label:
+            text: 'Select Action Type'
+            font_size: dp(22)
+            bold: True
+            size_hint_y: None
+            height: dp(40)
+        Label:
+            text: 'Choose whether to restock an item or log usage:'
+            font_size: dp(15)
+            text_size: self.width, None
+            halign: 'center'
+            size_hint_y: None
+            height: dp(40)
+        BoxLayout:
+            spacing: dp(12)
+            size_hint_y: None
+            height: dp(55)
+            SuccessButton:
+                text: 'Restock'
+                on_release: root.choose('restock')
+            ThemedButton:
+                text: 'Use Item'
+                on_release: root.choose('use')
+            Button:
+                text: 'Cancel'
+                font_size: dp(16)
+                size_hint_y: None
+                height: dp(50)
+                background_color: 0.35, 0.35, 0.35, 1
+                background_normal: ''
+                on_release: root.choose(None)
+
+# --- Data Row ---
+<DataRow>:
+    size_hint_y: None
+    height: dp(44)
+    spacing: dp(2)
+    canvas.before:
+        Color:
+            rgba: (0.24, 0.44, 0.65, 0.6) if self.selected else (0.17, 0.17, 0.17, 1)
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+# --- Header Row ---
+<HeaderRow>:
+    size_hint_y: None
+    height: dp(44)
+    spacing: dp(2)
+    canvas.before:
+        Color:
+            rgba: 0.25, 0.25, 0.28, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+# --- Main Screen ---
+<MainScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        canvas.before:
+            Color:
+                rgba: 0.11, 0.11, 0.12, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        # Title bar
+        Label:
+            text: 'Medical Inventory System'
+            font_size: dp(28)
+            bold: True
+            size_hint_y: None
+            height: dp(60)
+
+        BoxLayout:
+            padding: dp(10)
+            spacing: dp(10)
+
+            # Sidebar
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_x: 0.28
+                spacing: dp(10)
+                padding: dp(8)
+                canvas.before:
+                    Color:
+                        rgba: 0.14, 0.14, 0.16, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(8)]
+
+                # Search
+                Label:
+                    text: 'Search'
+                    font_size: dp(16)
+                    size_hint_y: None
+                    height: dp(30)
+                    halign: 'left'
+                    text_size: self.width, None
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(42)
+                    spacing: dp(6)
+                    TextInput:
+                        id: search_input
+                        hint_text: 'Search all fields...'
+                        font_size: dp(15)
+                        multiline: False
+                        size_hint_x: 0.8
+                        on_text: root.apply_filters()
+                    Button:
+                        text: chr(0x2328)
+                        font_size: dp(18)
+                        size_hint_x: 0.2
+                        background_normal: ''
+                        background_color: 0.24, 0.51, 0.78, 1
+                        on_release: root.show_search_keyboard()
+
+                # Filter
+                Label:
+                    text: 'Filters'
+                    font_size: dp(16)
+                    size_hint_y: None
+                    height: dp(30)
+                    halign: 'left'
+                    text_size: self.width, None
+                Spinner:
+                    id: filter_spinner
+                    text: 'All'
+                    values: ['All', 'Expiring Soon', 'Expired']
+                    size_hint_y: None
+                    height: dp(42)
+                    font_size: dp(15)
+                    on_text: root.apply_filters()
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(36)
+                    spacing: dp(6)
+                    CheckBox:
+                        id: low_stock_cb
+                        size_hint_x: None
+                        width: dp(36)
+                        active: False
+                        on_active: root.apply_filters()
+                    Label:
+                        text: 'Show low stock only'
+                        font_size: dp(14)
+                        halign: 'left'
+                        text_size: self.width, None
+
+                # Column visibility
+                Label:
+                    text: 'Show Columns'
+                    font_size: dp(16)
+                    size_hint_y: None
+                    height: dp(30)
+                    halign: 'left'
+                    text_size: self.width, None
+                ScrollView:
+                    size_hint_y: 1
+                    GridLayout:
+                        id: col_checks
+                        cols: 1
+                        size_hint_y: None
+                        height: self.minimum_height
+                        spacing: dp(4)
+
+                # Action buttons
+                BoxLayout:
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: dp(330)
+                    spacing: dp(8)
+                    padding: [0, dp(6)]
+
+                    ThemedButton:
+                        id: log_btn
+                        text: 'Log Item Use'
+                        on_release: root.log_item_use()
+                    ThemedButton:
+                        id: personal_btn
+                        text: 'View Personal Database'
+                        on_release: root.personal_run()
+                    ThemedButton:
+                        text: 'Delete Selected'
+                        on_release: root.delete_selected()
+                    ThemedButton:
+                        text: 'View History'
+                        on_release: root.show_history()
+                    DangerButton:
+                        text: 'Quit'
+                        on_release: app.stop()
+
+            # Content (data table)
+            BoxLayout:
+                orientation: 'vertical'
+                canvas.before:
+                    Color:
+                        rgba: 0.14, 0.14, 0.16, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(8)]
+
+                HeaderRow:
+                    id: header_row
+
+                ScrollView:
+                    id: table_scroll
+                    GridLayout:
+                        id: table_body
+                        cols: 1
+                        size_hint_y: None
+                        height: self.minimum_height
+                        spacing: dp(1)
+
+# --- History Screen ---
+<HistoryScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(10)
+        spacing: dp(10)
+        canvas.before:
+            Color:
+                rgba: 0.11, 0.11, 0.12, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(55)
+            spacing: dp(10)
+            ThemedButton:
+                text: 'Pattern Recognition'
+                on_release: root.show_pattern_rec()
+                size_hint_x: 0.3
+            Widget:
+                size_hint_x: 0.4
+            DangerButton:
+                text: 'Close'
+                on_release: root.go_back()
+                size_hint_x: 0.3
+
+        HeaderRow:
+            id: hist_header
+
+        ScrollView:
+            GridLayout:
+                id: hist_body
+                cols: 1
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(1)
+
+# --- Personal DB Screen ---
+<PersonalScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(8)
+        spacing: dp(6)
+        canvas.before:
+            Color:
+                rgba: 0.11, 0.11, 0.12, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        Label:
+            id: title_label
+            text: 'Personal Database'
+            font_size: dp(24)
+            bold: True
+            size_hint_y: None
+            height: dp(45)
+
+        # Date navigation
+        BoxLayout:
+            size_hint_y: None
+            height: dp(42)
+            spacing: dp(10)
+            ThemedButton:
+                text: '<< Previous Day'
+                on_release: root.previous_day()
+                size_hint_x: 0.25
+            Label:
+                id: date_label
+                text: ''
+                font_size: dp(18)
+                bold: True
+                size_hint_x: 0.5
+            ThemedButton:
+                text: 'Next Day >>'
+                on_release: root.next_day()
+                size_hint_x: 0.25
+
+        # Prescriptions
+        Label:
+            text: 'Scheduled Prescriptions'
+            font_size: dp(16)
+            bold: True
+            size_hint_y: None
+            height: dp(30)
+            halign: 'left'
+            text_size: self.width, None
+
+        ScrollView:
+            size_hint_y: 0.3
+            GridLayout:
+                id: presc_body
+                cols: 1
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(1)
+
+        # Usage History
+        Label:
+            text: 'Usage History (Today)'
+            font_size: dp(16)
+            bold: True
+            size_hint_y: None
+            height: dp(30)
+            halign: 'left'
+            text_size: self.width, None
+
+        ScrollView:
+            size_hint_y: 0.3
+            GridLayout:
+                id: hist_body
+                cols: 1
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(1)
+
+        # As-needed
+        Label:
+            text: 'As-Needed Medications'
+            font_size: dp(16)
+            bold: True
+            size_hint_y: None
+            height: dp(30)
+            halign: 'left'
+            text_size: self.width, None
+
+        ScrollView:
+            size_hint_y: 0.15
+            GridLayout:
+                id: as_needed_body
+                cols: 1
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(1)
+
+        # Controls
+        BoxLayout:
+            size_hint_y: None
+            height: dp(46)
+            spacing: dp(8)
+            ThemedButton:
+                text: 'Use Item'
+                on_release: root.use_item_from_personal()
+            SuccessButton:
+                text: 'Today'
+                on_release: root.goto_today()
+            DangerButton:
+                text: 'Close'
+                on_release: root.go_back()
+"""
+
+Builder.load_string(KV)
+
+
+# ============================================================================
+# REUSABLE WIDGETS (DRY)
+# ============================================================================
+
+class NumpadWidget(GridLayout):
+    """Reusable numpad grid. Dispatches 'on_key' with the key character."""
+
+    def __init__(self, **kwargs):
+        self.register_event_type('on_key')
+        super().__init__(**kwargs)
+        self._build()
+
+    def _build(self):
+        self.clear_widgets()
+        keys = [
+                '7', '8', '9',
+                '4', '5', '6',
+                '1', '2', '3',
+                'C', '0', '<'
+            ]
+        for k in keys:
+            btn = Button(
+                text=k, font_size=dp(22),
+                background_normal='',
+                background_color=(0.25, 0.25, 0.28, 1),
+            )
+            btn.bind(on_release=lambda inst, key=k: self.dispatch('on_key', key))
+            self.add_widget(btn)
+
+    def on_key(self, *args):
+        pass
+
+
+class MessagePopup(Popup):
+    """Simple message popup with OK button."""
+    message = StringProperty('')
+
+    def __init__(self, title='Info', message='', **kwargs):
+        super().__init__(title=title, **kwargs)
+        self.message = message
+
+
+class ConfirmPopup(Popup):
+    """Yes/No confirmation popup."""
+    message = StringProperty('')
+    callback = ObjectProperty(None, allownone=True)
+
+    def __init__(self, title='Confirm', message='', callback=None, **kwargs):
+        super().__init__(title=title, **kwargs)
+        self.message = message
+        self.callback = callback
+
+    def on_yes(self):
+        if self.callback:
+            self.callback(True)
+        self.dismiss()
+
+    def on_no(self):
+        if self.callback:
+            self.callback(False)
+        self.dismiss()
+
+
+class InputPopup(Popup):
+    """Modal input with numpad. Calls callback(value) on OK, callback(None) on cancel."""
+    prompt = StringProperty('')
+    input_text = StringProperty('')
+    is_password = BooleanProperty(False)
+    callback = ObjectProperty(None, allownone=True)
+    validate_number = BooleanProperty(False)
+
+    def __init__(self, title='Input', prompt='Enter value:', callback=None,
+                 initial_text='', is_password=False, validate_number=False, **kwargs):
+        super().__init__(title=title, **kwargs)
+        self.prompt = prompt
+        self.input_text = initial_text
+        self.callback = callback
+        self.is_password = is_password
+        self.validate_number = validate_number
+
+    def on_numpad_key(self, key):
+        if key == 'C':
+            self.input_text = ''
+        elif key == '<':
+            self.input_text = self.input_text[:-1]
+        else:
+            self.input_text += key
+
+    def on_ok(self):
+        val = self.input_text.strip()
+        if not val:
+            return
+        if self.validate_number:
+            try:
+                float(val)
+            except ValueError:
+                MessagePopup(title='Invalid', message='Please enter a valid number.').open()
+                return
+        if self.callback:
+            self.callback(val)
+        self.dismiss()
+
+    def on_cancel(self):
+        if self.callback:
+            self.callback(None)
+        self.dismiss()
+
+
+class ChoicePopup(Popup):
+    """Restock / Use Item / Cancel chooser."""
+    callback = ObjectProperty(None, allownone=True)
+
+    def __init__(self, callback=None, **kwargs):
+        super().__init__(title='Log Item Use', **kwargs)
+        self.callback = callback
+
+    def choose(self, choice):
+        if self.callback:
+            self.callback(choice)
+        self.dismiss()
+
+
+class VirtualKeyboardPopup(Popup):
+    """Full QWERTY virtual keyboard popup."""
+    prompt = StringProperty('')
+    input_text = StringProperty('')
+    callback = ObjectProperty(None, allownone=True)
+
+    ROWS = [
+        list('1234567890-='),
+        list('qwertyuiop[]'),
+        list("asdfghjkl;'"),
+        list('zxcvbnm,./'),
+    ]
+
+    def __init__(self, title='Keyboard', prompt='Enter text:',
+                 callback=None, initial_text='', **kwargs):
+        super().__init__(title=title, **kwargs)
+        self.prompt = prompt
+        self.input_text = initial_text
+        self.callback = callback
+        self._shift = False
+        Clock.schedule_once(self._build_keyboard, 0)
+
+    def _build_keyboard(self, dt):
+        container = self.ids.keyboard_rows
+        container.clear_widgets()
+        for row in self.ROWS:
+            row_box = BoxLayout(spacing=dp(3), size_hint_y=None, height=dp(48))
+            for key in row:
+                btn = Button(
+                    text=key, font_size=dp(16),
+                    background_normal='',
+                    background_color=(0.25, 0.25, 0.28, 1),
+                )
+                btn.bind(on_release=lambda inst, k=key: self._key_press(k))
+                row_box.add_widget(btn)
+            container.add_widget(row_box)
+        # Bottom row: Shift, Space, Backspace, Clear
+        bottom = BoxLayout(spacing=dp(3), size_hint_y=None, height=dp(48))
+        actions = [
+            ('Shift', self._toggle_shift),
+            ('Space', lambda: self._key_press(' ')),
+            (chr(0x232B), self._backspace),
+            ('Clear', self._clear),
+        ]
+        for text, action in actions:
+            btn = Button(
+                text=text, font_size=dp(14),
+                background_normal='',
+                background_color=(0.3, 0.3, 0.33, 1),
+            )
+            btn.bind(on_release=lambda inst, a=action: a())
+            bottom.add_widget(btn)
+        container.add_widget(bottom)
+
+    def _key_press(self, key):
+        ch = key.upper() if self._shift else key
+        self.input_text += ch
+        if self._shift:
+            self._shift = False
+
+    def _toggle_shift(self):
+        self._shift = not self._shift
+
+    def _backspace(self):
+        self.input_text = self.input_text[:-1]
+
+    def _clear(self):
+        self.input_text = ''
+
+    def on_ok(self):
+        if self.callback:
+            self.callback(self.input_text.strip())
+        self.dismiss()
+
+    def on_cancel(self):
+        if self.callback:
+            self.callback(None)
+        self.dismiss()
+
+
+# ============================================================================
+# TABLE ROWS
+# ============================================================================
+
+class DataRow(BoxLayout):
+    """A single selectable data row in the table."""
+    selected = BooleanProperty(False)
+    row_data = ListProperty([])
+
+    def __init__(self, values, **kwargs):
+        super().__init__(**kwargs)
+        self.row_data = list(values)
+        for val in values:
+            lbl = Label(
+                text=str(val), font_size=dp(14),
+                halign='left', valign='middle',
+            )
+            lbl.bind(size=lbl.setter('text_size'))
+            self.add_widget(lbl)
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            self.selected = not self.selected
+            return True
+        return super().on_touch_down(touch)
+
+
+class HeaderRow(BoxLayout):
+    """Column header row."""
+    pass
+
+
+# ============================================================================
+# SCREENS
+# ============================================================================
+
+class MainScreen(Screen):
+    """Main inventory screen."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.db = DatabaseManager()
         self._all_rows = []
         self.fr_ready = False
         self.camera_ready = False
-        
-        # Start background tasks
+        self.visible_columns = {col_id: True for col_id, _, _ in COLUMNS}
+        Clock.schedule_once(self._init_ui, 0)
+
+    def _init_ui(self, dt):
+        self._build_header()
+        self._build_column_checkboxes()
         self._start_preloading()
-        self._start_camera_recovery_monitor()
-        
-        # Setup UI
-        self._setup_window()
-        self._setup_styles()
-        self._setup_ui()
-        
-        # Load initial data
+        self._start_camera_monitor()
         self.load_data()
-        self.after(500, lambda: self._adjust_column_widths([c for c, v in self.column_visibility.items() if v.get()]))
-        self.after(REFRESH_INTERVAL, self.refresh_data)
-    #endregion
+        Clock.schedule_interval(lambda dt: self.load_data(), REFRESH_INTERVAL)
 
-    # ========================================================================
-    # WINDOW SETUP
-    # ========================================================================
-    #region window setup
-    def _setup_window(self):
-        """Configure main window properties"""
-        self.title("Medical Inventory System")
-        
+    # --- Column checkboxes ---
+    def _build_column_checkboxes(self):
+        container = self.ids.col_checks
+        container.clear_widgets()
+        for col_id, label, _ in COLUMNS:
+            row = BoxLayout(size_hint_y=None, height=dp(32), spacing=dp(4))
+            cb = CheckBox(active=True, size_hint_x=None, width=dp(32))
+            cb.bind(active=lambda inst, val, cid=col_id: self._toggle_column(cid, val))
+            row.add_widget(cb)
+            row.add_widget(Label(text=label, font_size=dp(14), halign='left',
+                                 text_size=(None, None)))
+            container.add_widget(row)
+
+    def _toggle_column(self, col_id, visible):
+        self.visible_columns[col_id] = visible
+        self._build_header()
+        self.apply_filters()
+
+    # --- Header ---
+    def _build_header(self):
+        header = self.ids.header_row
+        header.clear_widgets()
+        for col_id, label, _ in COLUMNS:
+            if self.visible_columns.get(col_id, True):
+                lbl = Label(text=label, font_size=dp(15), bold=True,
+                            halign='left', valign='middle')
+                lbl.bind(size=lbl.setter('text_size'))
+                header.add_widget(lbl)
+
+    # --- Data loading ---
+    def load_data(self):
         try:
-            self.attributes("-fullscreen", True)
-            self.after(0, lambda: self.attributes("-fullscreen", True))
-        except Exception:
-            screen_width = self.winfo_screenwidth()
-            screen_height = self.winfo_screenheight()
-            self.geometry(f"{screen_width}x{screen_height}+0+0")
-        
-        # Keyboard shortcuts
-        self.bind("<F11>", lambda e: self.attributes("-fullscreen", not self.attributes("-fullscreen")))
-        self.bind("<Escape>", lambda e: self.attributes("-fullscreen", False))
-    
-    def _setup_styles(self):
-        """Configure ttk styles for consistent appearance"""
-        style = ttk.Style()
-        style.configure("TLabel", font=("Arial", 28))
-        style.configure("TButton", font=("Arial", 24), padding=20)
-        style.configure("Treeview", font=("Arial", 22), rowheight=55)
-        style.configure("Treeview", background="#292929", foreground="#f8f8f8", fieldbackground="#292929")
-        style.configure("Treeview.Heading", font=("Arial", 24, "bold"))
-        style.configure("Treeview.Heading", background="#646464", foreground="#292929")
+            self._all_rows = list(self.db.pull_data("drugs_in_inventory"))
+        except Exception as e:
+            print(f"Error loading data: {e}")
+            self._all_rows = []
+        self.apply_filters()
 
-        
-        # Configure scrollbar thickness
-        style.configure("Vertical.TScrollbar", width=30)  # Make vertical scrollbar 30 pixels wide
-        style.configure("Horizontal.TScrollbar", width=30)  # Make horizontal scrollbar 30 pixels tall
-        
-        # Optional: Customize scrollbar colors for better visibility
-        style.map("Vertical.TScrollbar",
-            background=[("active", "#5F84C8"), ("!active", "#4a4a4a")],
-            troughcolor=[("", "#2b2b2b")]
-        )
-        style.map("Horizontal.TScrollbar",
-            background=[("active", "#5F84C8"), ("!active", "#4a4a4a")],
-            troughcolor=[("", "#2b2b2b")]
-        )
-    #endregion
+    def apply_filters(self, *args):
+        body = self.ids.table_body
+        body.clear_widgets()
 
-    # ========================================================================
-    # UI CONSTRUCTION
-    # ========================================================================
-    #region ui construction
-    def _setup_ui(self):
-        """Build the complete user interface with grid layout"""
-        # Configure root window grid
-        self.grid_rowconfigure(0, weight=0)  # Title - fixed height
-        self.grid_rowconfigure(1, weight=1)  # Main content - flexible
-        self.grid_columnconfigure(0, weight=1)
-        
-        # Title
-        ctk.CTkLabel(self, text="Medical Inventory System", font=("Arial", 40, "bold")).grid(
-            row=0, column=0, sticky="ew", pady=25
-        )
-        
-        # Main container
-        main_frame = ctk.CTkFrame(self, corner_radius=0)
-        main_frame.grid(row=1, column=0, sticky="nsew", padx=18, pady=(10, 25))
-        
-        # Configure main frame grid (2 columns: sidebar + content)
-        main_frame.grid_rowconfigure(0, weight=1)
-        main_frame.grid_columnconfigure(0, weight=0, minsize=420)  # Sidebar - fixed width
-        main_frame.grid_columnconfigure(1, weight=1)  # Content - flexible
-        
-        # Sidebar and content areas
-        self._create_sidebar(main_frame)
-        self._create_content_area(main_frame)
+        query = self.ids.search_input.text.strip().lower()
+        mode = self.ids.filter_spinner.text
+        low_only = self.ids.low_stock_cb.active
+        now = datetime.date.today()
 
-    def _create_content_area(self, parent):
-        """Create main content area with data table using grid"""
-        content_frame = ctk.CTkFrame(parent, corner_radius=6)
-        content_frame.grid(row=0, column=1, sticky="nsew", padx=(12, 18), pady=18)
-        
-        # Configure content frame
-        content_frame.grid_rowconfigure(0, weight=1)
-        content_frame.grid_columnconfigure(0, weight=1)
-        
-        # Create treeview
-        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_loc")
-        self.tree = ttk.Treeview(content_frame, columns=columns, show="headings", selectmode="extended")
-        
-        # Configure columns
-        for col_id, config in self.column_configs.items():
-            self.tree.heading(col_id, text=config["text"])
-            self.tree.column(col_id, width=config["width"])
-        
-        # Bind events
-        self.tree.bind("<Configure>", self._on_tree_configure)
-        self.tree.bind("<Button-1>", self._on_tree_click)
-        
-        # Scrollbar
-        scroll = ttk.Scrollbar(content_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
-        
-        # Grid widgets
-        self.tree.grid(row=0, column=0, sticky="nsew", padx=(18, 0), pady=(18, 25))
-        scroll.grid(row=0, column=1, sticky="ns", padx=(0, 18), pady=(18, 25))
-    
-    def _create_sidebar(self, parent):
-        """Create left sidebar with controls using grid (flexbox-like)"""
-        sidebar = ctk.CTkFrame(parent, width=420, corner_radius=8)
-        sidebar.grid(row=0, column=0, sticky="nsew", padx=(18, 12), pady=18)
-        
-        # Configure sidebar to expand vertically - adjusted weights
-        sidebar.grid_rowconfigure(0, weight=0)  # Search section - fixed
-        sidebar.grid_rowconfigure(1, weight=0)  # Filter section - fixed
-        sidebar.grid_rowconfigure(2, weight=3)  # Column visibility - flexible (increased weight)
-        sidebar.grid_rowconfigure(3, weight=0)  # Removed spacer row
-        sidebar.grid_rowconfigure(4, weight=0)  # Action buttons - fixed
-        sidebar.grid_columnconfigure(0, weight=1)
-        
-        # Search section
-        self._create_search_section_grid(sidebar, row=0)
-        
-        # Filter section
-        self._create_filter_section_grid(sidebar, row=1)
-        
-        # Column visibility section
-        self._create_column_visibility_section_grid(sidebar, row=2)
-        
-        # Action buttons (stays at bottom)
-        self._create_action_buttons_grid(sidebar, row=4)
+        visible_ids = [cid for cid, _, _ in COLUMNS if self.visible_columns.get(cid, True)]
 
-    def _create_search_section_grid(self, parent, row):
-        """Create search input section with grid"""
-        frame = ctk.CTkFrame(parent, fg_color="transparent")
-        frame.grid(row=row, column=0, sticky="ew", padx=25, pady=(25, 10))
-        
-        ctk.CTkLabel(frame, text="Search", anchor="w", font=("Arial", 22)).pack(fill="x", pady=(0, 10))
-        
-        # Entry with button frame
-        entry_frame = ctk.CTkFrame(frame, fg_color="transparent")
-        entry_frame.pack(fill="x")
-        
-        self.search_var = tk.StringVar()
-        search_entry = ctk.CTkEntry(
-            entry_frame,
-            textvariable=self.search_var,
-            placeholder_text="Search all fields...",
-            height=50,
-            font=("Arial", 20)
-        )
-        search_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        search_entry.bind("<KeyRelease>", self.apply_search_filter)
-        
-        # Keyboard button
-        ctk.CTkButton(
-            entry_frame,
-            text="⌨",
-            command=lambda: self._show_search_keyboard(),
-            width=60,
-            height=50,
-            font=("Arial", 24)
-        ).pack(side="left")
+        filtered = []
+        for row in self._all_rows:
+            try:
+                drug, barcode, est_amount = row[0], row[1], row[2]
+                exp_date_raw, type_, dose_size, item_loc = row[3], row[4], row[5], row[6]
+            except (IndexError, ValueError):
+                continue
 
-    def _show_search_keyboard(self):
-        """Show virtual keyboard for search"""
-        current_text = self.search_var.get()
-        result = VirtualKeyboard.get_input(
-            self,
-            title="Search Keyboard",
-            prompt="Enter search terms:",
-            initial_text=current_text
-        )
-        if result is not None:
-            self.search_var.set(result)
-            self.apply_search_filter()
+            # Search
+            if query:
+                fields = [str(v).lower() for v in (drug, barcode, type_, dose_size, item_loc)]
+                if not any(query in f for f in fields):
+                    continue
 
-    def _create_filter_section_grid(self, parent, row):
-        """Create filter controls with grid"""
-        frame = ctk.CTkFrame(parent, fg_color="transparent")
-        frame.grid(row=row, column=0, sticky="ew", padx=25, pady=10)
-        
-        ctk.CTkLabel(frame, text="Filters", anchor="w", font=("Arial", 22)).pack(fill="x", pady=(0, 10))
-        
-        # Filter dropdown
-        self.filter_var = tk.StringVar(value="All")
-        filter_opts = ["All", "Expiring Soon", "Expired"]
-        ctk.CTkOptionMenu(
-            frame,
-            values=filter_opts,
-            variable=self.filter_var,
-            height=50,
-            font=("Arial", 20),
-            command=lambda v: self.apply_search_filter()
-        ).pack(fill="x", pady=(0, 10))
-        
-        # Low stock checkbox
-        self.low_stock_var = tk.BooleanVar(value=False)
-        ctk.CTkCheckBox(
-            frame,
-            text="Show low stock only",
-            variable=self.low_stock_var,
-            font=("Arial", 20),
-            command=self.apply_search_filter
-        ).pack(fill="x")
+            # Low stock
+            if low_only:
+                try:
+                    if float(est_amount) > 20:
+                        continue
+                except (ValueError, TypeError):
+                    continue
 
-    def _create_column_visibility_section_grid(self, parent, row):
-        """Create column visibility controls with grid"""
-        frame = ctk.CTkFrame(parent, fg_color="transparent")
-        frame.grid(row=row, column=0, sticky="nsew", padx=25, pady=15)
-        
-        # Configure frame to expand vertically
-        frame.grid_rowconfigure(0, weight=0)  # Label - fixed
-        frame.grid_rowconfigure(1, weight=1)  # Scrollable frame - flexible
-        frame.grid_columnconfigure(0, weight=1)
-        
-        ctk.CTkLabel(frame, text="Show Columns", anchor="w", font=("Arial", 22)).grid(
-            row=0, column=0, sticky="w", pady=(0, 10)
-        )
-        
-        # Initialize column visibility tracking
-        columns = ("drug", "barcode", "est_amount", "exp_date", "type_", "dose_size", "item_loc")
-        self.column_visibility = {col: tk.BooleanVar(value=True) for col in columns}
-        self.column_configs = COLUMN_CONFIGS
-        
-        # Create checkboxes in scrollable frame that expands to fill available space
-        columns_frame = ctk.CTkScrollableFrame(frame, corner_radius=6)
-        columns_frame.grid(row=1, column=0, sticky="nsew")
-        
-        for col_id, label in COLUMN_LABELS.items():
-            ctk.CTkCheckBox(
-                columns_frame,
-                text=label,
-                variable=self.column_visibility[col_id],
-                font=("Arial", 18),
-                command=self.update_column_visibility
-            ).pack(padx=12, pady=5, anchor="w")
+            # Expiration
+            exp_date = self._parse_date(exp_date_raw)
+            if mode == "Expired" and (not exp_date or exp_date >= now):
+                continue
+            if mode == "Expiring Soon":
+                if not exp_date:
+                    continue
+                delta = (exp_date - now).days
+                if delta < 0 or delta > 30:
+                    continue
 
-    def _create_button_with_indicator(self, parent, text, command, btn_name, indicator_name):
-        """Create a button with status indicator"""
-        # Create button
-        btn = ctk.CTkButton(
-            parent,
-            text=text,
-            state="enabled",
-            command=command,
-            height=60,
-            font=("Arial", 22)
-        )
-        btn.pack(fill="x", pady=6, padx=12)
-        setattr(self, btn_name, btn)
-        
-        # Create status indicator
-        indicator = ctk.CTkFrame(
-            parent,
-            width=18,
-            height=18,
-            corner_radius=12,
-            fg_color="#94a3b8",
-            bg_color="#1f538d"
-        )
-        indicator.pack_propagate(False)
-        indicator.place(in_=btn, relx=1.0, rely=0.5, anchor="e", x=-12)
-        setattr(self, indicator_name, indicator)
-        
-        # Hover effects
-        def on_enter(_):
-            indicator.configure(bg_color="#14375e")
-        
-        def on_leave(_):
-            indicator.configure(bg_color="#1f538d")
-        
-        btn.bind("<Enter>", on_enter)
-        btn.bind("<Leave>", on_leave)
-        
-        indicator.tkraise()
+            full = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_loc)
+            display = tuple(
+                full[i] for i, (cid, _, _) in enumerate(COLUMNS)
+                if cid in visible_ids
+            )
+            filtered.append((full, display))
 
-    def _create_action_buttons_grid(self, parent, row):
-        """Create action button section with grid"""
-        btns_frame = ctk.CTkFrame(parent, corner_radius=6)
-        btns_frame.grid(row=row, column=0, sticky="ew", padx=25, pady=(10, 25))
-        
-        # Configure button frame
-        btns_frame.grid_columnconfigure(0, weight=1)
-        
-        current_row = 0
-        
-        # Log Item Use button with indicator
-        btn_frame = ctk.CTkFrame(btns_frame, fg_color="transparent")
-        btn_frame.grid(row=current_row, column=0, sticky="ew", pady=6, padx=6)
-        self._create_button_with_indicator(
-            btn_frame,
-            "Log Item Use",
-            self.log_item_use,
-            "log_scan_btn",
-            "log_scan_indicator"
-        )
-        current_row += 1
-        
-        # Personal Database button with indicator
-        btn_frame2 = ctk.CTkFrame(btns_frame, fg_color="transparent")
-        btn_frame2.grid(row=current_row, column=0, sticky="ew", pady=6, padx=6)
-        self._create_button_with_indicator(
-            btn_frame2,
-            "View Personal Database",
-            lambda: self.personal_run(),
-            "personal_db_btn",
-            "personal_db_indicator"
-        )
-        current_row += 1
-        
-        # Other action buttons
-        ctk.CTkButton(
-            btns_frame,
-            text="Delete Selected",
-            command=self.delete_selected,
-            height=60,
-            font=("Arial", 22)
-        ).grid(row=current_row, column=0, sticky="ew", pady=6, padx=12)
-        current_row += 1
-        
-        ctk.CTkButton(
-            btns_frame,
-            text="View History",
-            command=self.show_history,
-            height=60,
-            font=("Arial", 22)
-        ).grid(row=current_row, column=0, sticky="ew", pady=6, padx=12)
-        current_row += 1
-        
-        ctk.CTkButton(
-            btns_frame,
-            text="Quit",
-            command=self.destroy,
-            height=60,
-            font=("Arial", 22),
-            fg_color="#b22222"
-        ).grid(row=current_row, column=0, sticky="ew", pady=6, padx=12)
-    #endregion
+        filtered.sort(key=lambda x: str(x[0][0]).lower())
 
-    # ========================================================================
-    # FACIAL RECOGNITION
-    # ========================================================================
-    #region facial recognition
+        for full, display in filtered:
+            dr = DataRow(display)
+            dr.row_data = list(full)
+            body.add_widget(dr)
+
+    @staticmethod
+    def _parse_date(d):
+        if not d:
+            return None
+        if isinstance(d, datetime.date):
+            return d
+        s = str(d).strip()
+        for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%Y-%m-%d %H:%M:%S"):
+            try:
+                return datetime.datetime.strptime(s, fmt).date()
+            except ValueError:
+                continue
+        return None
+
+    # --- Facial recognition ---
     def _start_preloading(self):
-        """Start preloading facial recognition in background"""
-        def preload_worker():
+        def worker():
             try:
                 result = fr.preload_everything()
-                
                 if result == FaceRecognitionError.SUCCESS:
                     self.fr_ready = fr.preloading_complete
                     self.camera_ready = fr.camera_ready
-                    
-                    if self.fr_ready:
-                        self.after(0, self._enable_facial_recognition_ui)
-                    else:
-                        self.after(0, self._disable_facial_recognition_ui)
                 else:
                     self.fr_ready = False
                     self.camera_ready = False
-                    self.after(500, lambda: self._show_fr_error(result))
+                    Clock.schedule_once(lambda dt: MessagePopup(
+                        title='FR Init Error', message=str(result)
+                    ).open(), 0.5)
             except Exception as e:
                 print(f"Preloading error: {e}")
-                error_msg = f"Failed to initialize facial recognition system:\n{str(e)}"
-                self.after(500, lambda: self.show_popup("Initialization Error", error_msg, "error"))
-        
-        thread = threading.Thread(target=preload_worker, daemon=True)
-        thread.start()
-    
-    def _enable_facial_recognition_ui(self):
-        """Enable UI elements that require facial recognition"""
-        try:
-            if hasattr(self, 'log_scan_btn'):
-                self.log_scan_btn.configure(text="Log Item Use", state="normal")
-            if hasattr(self, 'personal_db_btn'):
-                self.personal_db_btn.configure(text="View Personal Database", state="normal")
-            self.set_status_indicator("#22c55e", "log_scan_indicator")
-            self.set_status_indicator("#22c55e", "personal_db_indicator")
-        except Exception as e:
-            print(f"Error enabling UI: {e}")
-    
-    def _disable_facial_recognition_ui(self):
-        """Disable UI elements that require facial recognition"""
-        try:
-            if hasattr(self, 'log_scan_btn'):
-                self.log_scan_btn.configure(text="Log Item Use", state="disabled")
-            if hasattr(self, 'personal_db_btn'):
-                self.personal_db_btn.configure(text="View Personal Database", state="disabled")
-            self.set_status_indicator("#94a3b8", "log_scan_indicator")
-            self.set_status_indicator("#94a3b8", "personal_db_indicator")
-        except Exception as e:
-            print(f"Error disabling UI: {e}")
-    
-    def _show_fr_error(self, result):
-        """Show facial recognition initialization error"""
-        error_messages = {
-            FaceRecognitionError.REFERENCE_FOLDER_ERROR: "Reference folder not found. Please add reference images to assets/references/",
-            FaceRecognitionError.MODEL_LOAD_FAILED: "Failed to load face recognition model. Please check dependencies.",
-            FaceRecognitionError.PRELOAD_FAILED: "Failed to initialize facial recognition system.",
-            FaceRecognitionError.CAMERA_ERROR: "Camera not found or could not be initialized.",
-        }
-        
-        error_msg = error_messages.get(result, f"Initialization failed: {result.message}")
-        
-        try:
-            self.show_popup("Initialization Error", error_msg, "error")
-            self.log_scan_btn.configure(text="Log Item Use", state="disabled")
-        except Exception as ui_error:
-            print(f"Failed to show error dialog: {ui_error}")
-    
-    def _start_camera_recovery_monitor(self):
-        """Monitor camera status and attempt recovery if disconnected"""
-        def camera_monitor():
-            check_interval = 5
-            max_interval = 120
-            
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _start_camera_monitor(self):
+        def monitor():
+            interval = 5
             while True:
                 try:
                     if not self.camera_ready and self.fr_ready:
                         if fr.reinitialize_camera():
                             self.camera_ready = True
                             fr.camera_ready = True
-                            check_interval = 5
-                            self.after(0, self._on_camera_recovered)
+                            interval = 5
                         else:
-                            check_interval = min(check_interval * 1.5, max_interval)
+                            interval = min(interval * 1.5, 120)
                     else:
-                        check_interval = 5
-                    
-                    time.sleep(check_interval)
-                except Exception as e:
-                    print(f"Camera monitor error: {e}")
-                    check_interval = min(check_interval * 2, max_interval)
-                    time.sleep(check_interval)
-        
-        monitor_thread = threading.Thread(target=camera_monitor, daemon=True)
-        monitor_thread.start()
-    
-    def _on_camera_recovered(self):
-        """Handle camera recovery"""
-        try:
-            if hasattr(self, 'log_scan_btn'):
-                self.log_scan_btn.configure(state="normal")
-            if hasattr(self, 'personal_db_btn'):
-                self.personal_db_btn.configure(state="normal")
-            self.set_status_indicator("#22c55e", "log_scan_indicator")
-            self.set_status_indicator("#22c55e", "personal_db_indicator")
-            print("Camera recovered successfully!")
-        except Exception as e:
-            print(f"Error updating UI after camera recovery: {e}")
-    
-    def set_status_indicator(self, color, indicator_name="log_scan_indicator"):
-        """Update status indicator color"""
-        try:
-            if hasattr(self, indicator_name):
-                getattr(self, indicator_name).configure(fg_color=color)
-                getattr(self, indicator_name).update()
-        except Exception:
-            pass
-    
-    def face_recognition_with_timeout(self, btn, btn_text):
-        """Run face recognition with timeout and visual feedback"""
-        indicator_name = "log_scan_indicator" if btn == "log_scan_btn" else "personal_db_indicator"
-        
-        # Set scanning status
-        self.set_status_indicator("#f59e0b", indicator_name)
-        if hasattr(self, btn):
-            getattr(self, btn).configure(state="disabled", text="Scanning...")
-        
-        result = {"value": None, "completed": False}
-        
-        def recognition_worker():
-            try:
-                if self.fr_ready:
-                    result["value"] = fr.quick_detect()
-                else:
-                    result["value"] = fr.main()
-                result["completed"] = True
-            except Exception as e:
-                result["value"] = f"Error: {e}"
-                result["completed"] = True
-        
-        thread = threading.Thread(target=recognition_worker, daemon=True)
-        thread.start()
-        
-        # Wait with timeout
-        timeout_seconds = 5
-        start_time = time.time()
-        
-        while not result["completed"] and (time.time() - start_time) < timeout_seconds:
-            self.update()
-            time.sleep(0.1)
-        
-        # Reset button
-        if hasattr(self, btn):
-            getattr(self, btn).configure(state="normal", text=btn_text)
-        
-        if not result["completed"]:
-            self.set_status_indicator("#dc2626", indicator_name)
-            default_status = "#22c55e" if self.fr_ready else "#94a3b8"
-            self.after(2000, lambda: self.set_status_indicator(default_status, indicator_name))
-            return "timeout"
-        else:
-            default_status = "#22c55e" if self.fr_ready else "#94a3b8"
-            self.set_status_indicator(default_status, indicator_name)
-            return result["value"]
-    
-    def process_face_recognition_result(self, btn, result=None):
-        """Process face recognition result and return username"""
-        indicator_name = "log_scan_indicator" if btn == "log_scan_btn" else "personal_db_indicator"
-        
-        # Handle FaceRecognitionError enum types
-        if isinstance(result, FaceRecognitionError):
-            if result == FaceRecognitionError.CAMERA_ERROR:
-                self.show_popup("Camera Error", "Camera could not be initialized.", "error")
-                self.camera_ready = False
-                self.set_status_indicator("#dc2626", indicator_name)
-                if hasattr(self, btn):
-                    getattr(self, btn).configure(state="disabled")
-            elif result == FaceRecognitionError.CAMERA_DISCONNECTED:
-                self.show_popup("Camera Disconnected", "Camera was disconnected. Please reconnect and try again.", "error")
-                self.set_status_indicator("#dc2626", indicator_name)
-                self.camera_ready = False
-                # Attempt to reinitialize camera
-                if fr.reinitialize_camera():
-                    self.camera_ready = True
-                    self.show_popup("Camera Reconnected", "Camera has been reconnected!", "info")
-                    if hasattr(self, btn):
-                        getattr(self, btn).configure(state="normal")
-                else:
-                    if hasattr(self, btn):
-                        getattr(self, btn).configure(state="disabled")
-            elif result == FaceRecognitionError.REFERENCE_FOLDER_ERROR:
-                self.show_popup("Reference Folder Error", "Reference images folder not found. Please add face images to assets/references/", "error")
-            elif result == FaceRecognitionError.FRAME_CAPTURE_FAILED:
-                self.show_popup("Frame Capture Error", "Failed to capture frame from camera.", "error")
-                self.camera_ready = False
-            else:
-                self.show_popup("Recognition Error", f"An error occurred: {result.message}", "error")
-            return ""
-        
-        # Handle old numeric error codes
-        if isinstance(result, int):
-            if result == 4:
-                self.show_popup("Camera Error", "Couldn't find camera", "error")
-            elif result == 3:
-                self.show_popup("Reference Folder Error", "No reference folder found", "error")
-            elif result == 2:
-                self.show_popup("No Faces Found", "No faces found in reference images", "error")
-            return ""
-        
-        # Handle list/tuple of detected names
-        if isinstance(result, (list, tuple)):
-            if not result:
-                self.show_popup("Face Recognition", "No known faces detected.", "info")
-                return ""
-            detected_name = str(result[0])
-            self.show_popup("Face Recognition", f"Detected: {detected_name}", "info")
-            return detected_name
-        
-        self.show_popup("Face Recognition", f"Unexpected result from recognizer: {result}", "error")
-        return ""
-    
-    def scan_face(self, scan_text, btn, btn_text):
-        """Perform face recognition with pre-checks and error handling"""
-        if not self.fr_ready:
-            self.show_popup("Please Wait", "System is still loading. Please wait and try again.", "info")
-            return
-        
-        if not self.camera_ready:
-            print("Camera not ready, attempting to reinitialize...")
-            if fr.reinitialize_camera():
-                self.camera_ready = True
-                fr.camera_ready = True
-                print("Camera reinitialized successfully")
-            else:
-                self.show_popup("Camera Error", "Could not find camera. Please make sure camera is connected.", "error")
-                return
-        
-        user_result = self.face_recognition_with_timeout(btn, btn_text)
-        
-        if user_result == "timeout":
-            self.show_popup("Timeout", "Face recognition timed out after 5 seconds. Please try again.", "error")
-            print("Face recognition timeout")
-            return
-        elif isinstance(user_result, str) and user_result.startswith("Error:"):
-            self.show_popup("Error", f"Face recognition failed: {user_result}", "error")
-            return
-        
-        user = self.process_face_recognition_result(btn, user_result)
-        
-        if not user:
-            self.show_popup("Authentication Required", f"Face recognition must be successful to {scan_text}.", "error")
-            return
-        
-        return user
-    #endregion
-
-    # ========================================================================
-    # DATA MANAGEMENT
-    # ========================================================================
-    #region data management
-    def load_data(self):
-        """Read from database and load rows into the table"""
-        try:
-            rows = list(self.db.pull_data("drugs_in_inventory"))
-        except Exception as e:
-            print("Error reading database:", e)
-            rows = []
-        
-        self._all_rows = rows
-        self.apply_search_filter()
-    
-    def refresh_data(self):
-        """Reload data periodically"""
-        self.load_data()
-        self.after(REFRESH_INTERVAL, self.refresh_data)
-    
-    def apply_search_filter(self, event=None):
-        #dont get rid of event, its needed for the event binding yes i know its not accessed
-        """Apply search and filter UI to the cached DB rows"""
-        self.tree.delete(*self.tree.get_children())
-        
-        rows = getattr(self, "_all_rows", None)
-        if rows is None:
-            try:
-                rows = list(self.db.pull_data("drugs_in_inventory"))
-            except Exception:
-                rows = []
-        
-        q = (self.search_var.get() or "").strip().lower()
-        mode = (self.filter_var.get() or "All")
-        low_only = bool(self.low_stock_var.get())
-        low_threshold = 20
-        now = datetime.date.today()
-        
-        filtered_rows = []
-        
-        for row in rows:
-            try:
-                barcode, drug, est_amount, exp_date_raw, type_, dose_size, item_loc = row[1], row[0], row[2], row[3], row[4], row[5], row[6]
-            except Exception:
-                vals = list(row)
-                barcode = vals[0] if len(vals) > 0 else ""
-                drug = vals[1] if len(vals) > 1 else ""
-                est_amount = vals[2] if len(vals) > 2 else ""
-                exp_date_raw = vals[3] if len(vals) > 3 else None
-                type_ = vals[4] if len(vals) > 4 else ""
-                dose_size = vals[5] if len(vals) > 5 else ""
-                item_loc = vals[6] if len(vals) > 6 else ""
-            
-            # Search filter
-            if q:
-                searchable_fields = [
-                    str(drug).lower(),
-                    str(barcode).lower(),
-                    str(type_).lower(),
-                    str(dose_size).lower(),
-                    str(item_loc).lower()
-                ]
-                if not any(q in field for field in searchable_fields):
-                    continue
-            
-            # Low stock filter
-            if low_only:
-                try:
-                    amt = float(est_amount)
+                        interval = 5
+                    time.sleep(interval)
                 except Exception:
-                    continue
-                if amt > low_threshold:
-                    continue
-            
-            # Expiration filters
-            exp_date = self._parse_date(exp_date_raw)
-            if mode == "Expired":
-                if not exp_date or exp_date >= now:
-                    continue
-            elif mode == "Expiring Soon":
-                if not exp_date:
-                    continue
-                delta = (exp_date - now).days
-                if delta < 0 or delta > 30:
-                    continue
-            
-            display_row = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_loc)
-            filtered_rows.append(display_row)
-        
-        # Sort alphabetically by drug name
-        filtered_rows.sort(key=lambda x: str(x[0]).lower())
-        
-        # Insert sorted rows
-        for display_row in filtered_rows:
-            self.tree.insert("", "end", values=display_row)
-    
-    def _parse_date(self, d):
-        """Parse date from various formats"""
-        if not d:
-            return None
-        if isinstance(d, datetime.date):
-            return d
-        s = str(d).strip()
-        for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%d-%m-%Y", "%Y-%m-%d %H:%M:%S"):
-            try:
-                return datetime.datetime.strptime(s, fmt).date()
-            except Exception:
-                continue
-        try:
-            return datetime.date.fromisoformat(s)
-        except Exception:
-            return None
-    #endregion
+                    time.sleep(10)
+        threading.Thread(target=monitor, daemon=True).start()
 
-    # ========================================================================
-    # USER ACTIONS
-    # ========================================================================
-    #region user actions
-    def personal_run(self):
-        """Open personal database window"""
-        user = self.scan_face(scan_text="access personal database", btn="personal_db_btn", btn_text="View Personal Database")
-        if user is None or user == "":
+    def scan_face(self, purpose, callback):
+        """Run face recognition in background thread, then call callback(name) on main thread."""
+        if not self.fr_ready:
+            MessagePopup(title='Please Wait', message='System is still loading.').open()
             return
-        Personal_db_window(self, user)
-    
-    def log_item_use(self, title="Log Item Use"):
-        """Show dialog to select action type: Restock or Use Item"""
-        user = self.scan_face(scan_text="log item use", btn="log_scan_btn", btn_text="Log Item Use")
-        if user is None or user == "":
-            return
-        
-        dlg = ctk.CTkToplevel(self)
-        dlg.title(title)
-        dlg.transient(self)
-        dlg.resizable(False, False)
-        
-        result = {"value": None}
-        
-        ctk.CTkLabel(dlg, text="Select Action Type", font=("Arial", 24, "bold")).pack(padx=40, pady=(30, 20))
-        ctk.CTkLabel(dlg, text="Choose whether to restock an item or log usage:", 
-                    font=("Arial", 18), wraplength=400, justify="center").pack(padx=40, pady=(0, 30))
-        
-        def on_restock():
-            result["value"] = "restock"
-            dlg.destroy()
-        
-        def on_use():
-            result["value"] = "use"
-            dlg.destroy()
-        
-        def on_cancel():
+        if not self.camera_ready:
+            if not fr.reinitialize_camera():
+                MessagePopup(title='Camera Error', message='Camera not found.').open()
+                return
+            self.camera_ready = True
+            fr.camera_ready = True
+
+        def worker():
             try:
-                dlg.grab_release()
-            except:
-                pass
-            dlg.destroy()
-        
-        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
-        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
-        
-        ctk.CTkButton(btn_frame, text="Restock", command=on_restock, width=160, height=55, 
-                     font=("Arial", 20), fg_color="#22c55e").pack(side="left", padx=12, pady=12)
-        ctk.CTkButton(btn_frame, text="Use Item", command=on_use, width=160, height=55, 
-                     font=("Arial", 20)).pack(side="left", padx=12, pady=12)
-        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55, 
-                     font=("Arial", 20), fg_color="gray50").pack(side="left", padx=12, pady=12)
-        
-        dlg.bind("<Escape>", lambda e: on_cancel())
-        
-        dlg.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
-        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
-        dlg.geometry(f"+{x}+{y}")
-        
-        dlg.lift()
-        dlg.grab_set()
-        dlg.focus_force()
-        
-        self.wait_window(dlg)
-        
-        if result["value"] is None:
-            return
-        
-        if result["value"] == "restock":
-            self.log_scan(user=user)
-        elif result["value"] == "use":
-            self.use_item(user=user)
-    
-    def log_scan(self, user=None):
-        """Log item restock"""
-        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        if user is None or user == "":
-            return
-        
-        barcode = self._prompt_for_barcode()
-        if barcode is None:
-            return
-        
-        log = self.db.add_to_inventory(barcode, user)
-        
-        try:
-            if not barcode or barcode.strip() == "":
-                self.show_popup("Error", "No barcode scanned.", "error")
-                return
-            if log == LookupError:
-                self.show_popup("Error", f"No drug found with barcode: {barcode}", "error")
-                return
-            elif log == IndexError:
-                self.show_popup("Error", f"Drug with barcode {barcode} is already in inventory.", "error")
-                return
-        except Exception as e:
-            self.show_popup("Error", f"Failed to write to database:\n{e}", "error")
-            return
-        
-        self.load_data()
-        self.show_popup("Logged", f"Restocked {barcode} at {time} by {user}", "info")
-    
-    def use_item(self, user=None):
-        """Log item usage"""
-        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        barcode = self._prompt_for_barcode(prompt="Scan item barcode", title="Item Usage - Scan Barcode")
-        if barcode is None or barcode.strip() == "":
-            return
-        
-        exists = self.db.check_if_barcode_exists(barcode)
-        
-        if not exists:
-            self.show_popup("Invalid Barcode", f"Barcode {barcode} not found in inventory.", "error")
-            return
+                result = fr.quick_detect() if self.fr_ready else fr.main()
+                Clock.schedule_once(lambda dt: self._handle_fr_result(result, callback), 0)
+            except Exception:
+                Clock.schedule_once(lambda dt: callback(None), 0)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _handle_fr_result(self, result, callback):
+        if isinstance(result, FaceRecognitionError):
+            MessagePopup(title='FR Error', message=result.message).open()
+            if result in (FaceRecognitionError.CAMERA_ERROR,
+                          FaceRecognitionError.CAMERA_DISCONNECTED):
+                self.camera_ready = False
+            callback(None)
+        elif isinstance(result, (list, tuple)) and result:
+            name = str(result[0])
+            MessagePopup(title='Detected', message=f'Detected: {name}').open()
+            callback(name)
         else:
-            barcode = exists[1]
-        
-        amount = self._prompt_for_amount(prompt="Enter amount used", title="Item Usage - Amount")
-        if amount is None:
+            MessagePopup(title='Face Recognition', message='No known face detected.').open()
+            callback(None)
+
+    # --- User actions ---
+    def show_search_keyboard(self):
+        VirtualKeyboardPopup(
+            prompt='Search terms:',
+            initial_text=self.ids.search_input.text,
+            callback=lambda val: self._set_search(val),
+        ).open()
+
+    def _set_search(self, val):
+        if val is not None:
+            self.ids.search_input.text = val
+
+    def log_item_use(self):
+        self.scan_face('log item use', self._on_log_face)
+
+    def _on_log_face(self, user):
+        if not user:
             return
-        
+        ChoicePopup(callback=lambda choice: self._on_log_choice(choice, user)).open()
+
+    def _on_log_choice(self, choice, user):
+        if choice == 'restock':
+            self._restock(user)
+        elif choice == 'use':
+            self._use_item(user)
+
+    def _restock(self, user):
+        InputPopup(
+            title='Scan Barcode', prompt='Scan barcode:',
+            callback=lambda bc: self._do_restock(bc, user),
+        ).open()
+
+    def _do_restock(self, barcode, user):
+        if not barcode:
+            return
+        InputPopup(
+            title='Location', prompt='Enter location:',
+            callback=lambda loc: self._finish_restock(barcode, user, loc or 'default'),
+        ).open()
+
+    def _finish_restock(self, barcode, user, location):
+        result = self.db.add_to_inventory(barcode, user, location)
+        if result == LookupError:
+            MessagePopup(title='Error', message=f'No drug found: {barcode}').open()
+        elif result == IndexError:
+            MessagePopup(title='Error', message=f'{barcode} already in inventory.').open()
+        elif result is not None:
+            MessagePopup(title='Error', message=f'Database error: {result}').open()
+        else:
+            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            MessagePopup(title='Logged', message=f'Restocked {barcode} at {now} by {user}').open()
+            self.load_data()
+
+    def _use_item(self, user):
+        InputPopup(
+            title='Scan Barcode', prompt='Scan item barcode:',
+            callback=lambda bc: self._on_use_barcode(bc, user),
+        ).open()
+
+    def _on_use_barcode(self, barcode, user):
+        if not barcode:
+            return
+        exists = self.db.check_if_barcode_exists(barcode)
+        if not exists:
+            MessagePopup(title='Invalid', message=f'Barcode {barcode} not found.').open()
+            return
+        drug_name = exists[1]
+        InputPopup(
+            title='Amount', prompt='Enter amount used:',
+            validate_number=True,
+            callback=lambda amt: self._do_use(drug_name, amt, user),
+        ).open()
+
+    def _do_use(self, drug_name, amount_str, user):
+        if not amount_str:
+            return
+        amount = int(float(amount_str)) * -1
         try:
-            self.db.log_access_to_inventory(barcode=barcode, change=amount, user=user)
-            self.show_popup("Item Used", f"Logged usage:\n{amount} of item {barcode}\nat {time} by {user}", "info")
+            self.db.log_access_to_inventory(barcode=drug_name, change=amount, user=user)
+            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            MessagePopup(title='Used',
+                         message=f'Logged {amount_str} of {drug_name}\nat {now} by {user}').open()
+            self.load_data()
         except Exception as e:
-            self.show_popup("Error", f"Failed to log item usage:\n{e}", "error")
+            MessagePopup(title='Error', message=str(e)).open()
+
+    def personal_run(self):
+        self.scan_face('access personal DB', self._on_personal_face)
+
+    def _on_personal_face(self, user):
+        if not user:
             return
-        
-        self.load_data()
-    
-    def delete_selected(self, prompt="Enter reason for deletion", title="Delete Scans"):
-        """Delete selected items from inventory"""
-        if not self.admin("Enter admin code to delete scans"):
+        personal = self.manager.get_screen('personal')
+        personal.set_user(user)
+        self.manager.current = 'personal'
+
+    def delete_selected(self):
+        self._admin_auth(self._do_delete)
+
+    def _do_delete(self):
+        body = self.ids.table_body
+        selected = [w for w in body.children if isinstance(w, DataRow) and w.selected]
+        if not selected:
+            MessagePopup(title='Delete', message='No row selected.').open()
             return
-        
-        sel = self.tree.selection()
-        
-        if not sel:
-            self.show_popup("Delete", "No row selected.", "info")
+        VirtualKeyboardPopup(
+            title='Reason', prompt='Enter reason for deletion:',
+            callback=lambda reason: self._confirm_delete(selected, reason),
+        ).open()
+
+    def _confirm_delete(self, selected, reason):
+        if not reason or not reason.strip():
+            MessagePopup(title='Error', message='A deletion reason is required.').open()
             return
-        
-        # Get deletion reason using virtual keyboard
-        reason = VirtualKeyboard.get_input(
-            self,
-            title=title,
-            prompt=prompt,
-            initial_text=""
-        )
-        
-        if reason is None:
-            return
-        if not reason.strip():
-            self.show_popup("Error", "A deletion reason is required.", "error")
-            return
-        
-        if not self.show_confirm("Confirm Delete", f"Delete {len(sel)} selected row(s)?\nReason: {reason}"):
-            return
-        
+        ConfirmPopup(
+            title='Confirm Delete',
+            message=f'Delete {len(selected)} row(s)?\nReason: {reason}',
+            callback=lambda yes: self._execute_delete(selected, reason) if yes else None,
+        ).open()
+
+    def _execute_delete(self, selected, reason):
         try:
-            for item_id in sel:
-                values = self.tree.item(item_id)["values"]
-                barcode_value = values[1] if len(values) > 1 else values[0]
-                self.db.delete_entry(barcode=barcode_value, reason=reason)
+            for row in selected:
+                barcode = row.row_data[1] if len(row.row_data) > 1 else row.row_data[0]
+                self.db.delete_entry(barcode=barcode, reason=reason)
+            self.load_data()
+            MessagePopup(title='Deleted', message=f'Deleted {len(selected)} row(s).').open()
         except Exception as e:
-            self.show_popup("Error", f"Failed to delete from database:\n{e}", "error")
-            return
-        
-        self.load_data()
-        self.show_popup("Deleted", f"Deleted {len(sel)} row(s).", "info")
+            MessagePopup(title='Error', message=str(e)).open()
 
     def show_history(self):
-        """Show deletion history in a new window"""
-        if not self.admin("View History"):
+        self._admin_auth(self._go_history)
+
+    def _go_history(self):
+        history = self.manager.get_screen('history')
+        history.load_data()
+        self.manager.current = 'history'
+
+    def _admin_auth(self, on_success):
+        InputPopup(
+            title='Admin Auth', prompt='Enter admin code:',
+            is_password=True,
+            callback=lambda val: self._check_admin(val, on_success),
+        ).open()
+
+    def _check_admin(self, val, on_success):
+        if val is None:
             return
-        
-        history = ctk.CTkToplevel(self)
-        history.title("History")
-        
-        history.update_idletasks()
-        
-        screen_width = history.winfo_screenwidth()
-        screen_height = history.winfo_screenheight()
-        
-        try:
-            history.attributes("-fullscreen", True)
-        except Exception:
-            history.geometry(f"{screen_width}x{screen_height}+0+0")
-        
-        try:
-            history.transient(self)
-            history.lift()
-            history.focus_force()
-            
-            def do_grab():
-                try:
-                    history.grab_set()
-                except Exception as e:
-                    print(f"Could not grab focus: {e}")
-            history.after(100, do_grab)
-        except Exception as e:
-            print(f"Could not make history window modal: {e}")
-        
-        # Top bar with close button
-        top_bar = ctk.CTkFrame(history, corner_radius=6)
-        top_bar.pack(fill="x", padx=18, pady=(18, 0))
-        ctk.CTkButton(top_bar, text="Close", command=history.destroy, width=160, height=55, font=("Arial", 22)).pack(side="right", padx=18, pady=18)
-
-        history.bind("<Escape>", lambda e: history.destroy())
-        
-        ctk.CTkButton(top_bar, text="Pattern Rec", command=self.pattern_rec, width=160, height=55, font=("Arial", 22, "bold")).pack(side="left", padx=18, pady=18)
-        
-        # Create treeview
-        columns = ("barcode", "name_of_item", "amount_changed", "user", "type", "time", "reason")
-        tree = ttk.Treeview(history, columns=columns, show="headings")
-        
-        tree.heading("barcode", text="Barcode")
-        tree.heading("name_of_item", text="Name of Item")
-        tree.heading("amount_changed", text="Amount Changed")
-        tree.heading("type", text="Type of Change")
-        tree.heading("time", text="Time of Change")
-        tree.heading("reason", text="Reason")
-        tree.heading("user", text="User")
-        
-        scroll = ttk.Scrollbar(history, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=scroll.set)
-        
-        tree.pack(side="left", fill="both", expand=True, padx=(18, 0), pady=18)
-        scroll.pack(side="right", fill="y", padx=(0, 18), pady=18)
-        
-        for row in self.db.pull_data("drug_changes"):
-            tree.insert("", "end", values=row)
-
-    #endregion
-
-    #=========================================================================
-    # PATTERN RECOGNITION
-    #=========================================================================
-    #region pattern recognition
-    def pattern_rec(self):
-        self.show_error(message=self.db.pattern_recognition(), title="Pattern Recognition Result")
-        pattern = ctk.CTkToplevel(self)
-        pattern.title("Pattern Recognition Graph")
-        pattern.update_idletasks()
-        screen_width = pattern.winfo_screenwidth()
-        screen_height = pattern.winfo_screenheight()
-        pattern_filter_var = tk.StringVar(value="All")
-        pattern_date_range_var = tk.StringVar(value="")
-        try:
-            pattern.attributes("-fullscreen", True)
-        except Exception:
-            pattern.geometry(f"{screen_width}x{screen_height}+0+0")
-        try:
-            pattern.transient(self)
-            pattern.lift()
-            pattern.focus_force()
-            def do_grab():
-                try:
-                    pattern.grab_set()
-                except Exception as e:
-                    print(f"Could not grab focus: {e}")
-            pattern.after(100, do_grab)
-        except Exception as e:
-            print(f"Could not make pattern window modal: {e}")
-
-        top_bar = ctk.CTkFrame(pattern, corner_radius=6)
-        top_bar.pack(fill="x", padx=18, pady=(18, 0))
-
-        ctk.CTkButton(top_bar, 
-                    text="Close",
-                    command=pattern.destroy,
-                    width=160,
-                    height=55, 
-                    font=("Arial", 22),
-                    ).pack(side="right", padx=18, pady=18)
-        
-        ctk.CTkLabel(top_bar, 
-                     text="Pattern Recognition Graph", 
-                     font=("Arial", 22, "bold")
-                     ).pack(side="top", padx=18, pady=18)
-        
-        ctk.CTkLabel(top_bar, 
-                     text="Filter by user:", 
-                     font=("Arial", 18),
-                     ).pack(side="left", padx=18, pady=18)
-        
-        filter_opts = ["All"] + self.db.user_names()
-        ctk.CTkOptionMenu(
-            top_bar,
-            values=filter_opts,
-            variable=pattern_filter_var,
-            height=50,
-            font=("Arial", 20),
-            dynamic_resizing=True
-        ).pack(side="left", padx=18, pady=18)
-        
-        ctk.CTkButton(top_bar,
-                            text="Set Date Range",
-                            font=("Arial", 18),
-                            command=lambda: pattern_date_range_var.set(self._prompt_for_date_range() or ""),
-                            width=200,
-                            height=50
-                            ).pack(side="left", padx=18, pady=18)
-
-        graph_frame = ctk.CTkFrame(pattern, corner_radius=6)
-        graph_frame.pack(fill="both", expand=True, padx=18, pady=18)
-
-        fig = Figure(figsize=(10, 6), dpi=100, facecolor="#2b2b2b")
-        ax = fig.add_subplot(111)
-        ax.set_facecolor("#2b2b2b")
-
-        def render_graph():
-            ax.clear()
-            ax.set_facecolor("#2b2b2b")
-            
-            user_filter = pattern_filter_var.get()
-            date_range = pattern_date_range_var.get()
-            
-            # Try the DB method first, fall back to building data manually
-            data = None
-            try:
-                data = self.db.pattern_line_graph(
-                    user=user_filter,
-                    date=date_range
-                )
-            except Exception as e:
-                print(f"pattern_line_graph failed: {e}")
-                data = None
-            
-            # If DB method failed or returned nothing, build data from drug_changes
-            if data is None or (isinstance(data, (list, tuple)) and len(data) == 0):
-                try:
-                    changes = self.db.pull_data("drug_changes")
-                    if changes:
-                        date_counts = {}
-                        
-                        # Parse date range filter
-                        start_date = None
-                        end_date = None
-                        if date_range and ' to ' in date_range:
-                            try:
-                                parts = date_range.split(' to ')
-                                start_date = datetime.datetime.strptime(parts[0].strip(), "%Y-%m-%d").date()
-                                end_date = datetime.datetime.strptime(parts[1].strip(), "%Y-%m-%d").date()
-                            except (ValueError, IndexError):
-                                pass
-                        
-                        for row in changes:
-                            try:
-                                # drug_changes columns: (barcode, name, amount, user, type, time, reason)
-                                row_user = str(row[3]) if len(row) > 3 else ""
-                                row_time = str(row[5]) if len(row) > 5 else ""
-                                
-                                # Filter by user
-                                if user_filter != "All" and row_user != user_filter:
-                                    continue
-                                
-                                # Extract date portion (YYYY-MM-DD)
-                                date_key = row_time[:10] if len(row_time) >= 10 else ""
-                                if not date_key or len(date_key) < 10:
-                                    continue
-                                
-                                # Filter by date range
-                                if start_date or end_date:
-                                    try:
-                                        row_date = datetime.datetime.strptime(date_key, "%Y-%m-%d").date()
-                                        if start_date and row_date < start_date:
-                                            continue
-                                        if end_date and row_date > end_date:
-                                            continue
-                                    except ValueError:
-                                        continue
-                                
-                                date_counts[date_key] = date_counts.get(date_key, 0) + 1
-                            except (IndexError, TypeError):
-                                continue
-            
-                        if date_counts:
-                            data = date_counts
-                except Exception as e:
-                    print(f"Fallback data build failed: {e}")
-                    import traceback
-                    traceback.print_exc()
-            
-            # ---- Plot the data ----
-            if data is None or data is type or isinstance(data, type):
-                ax.text(0.5, 0.5, "No data available",
-                       transform=ax.transAxes, ha="center", va="center",
-                       color="white", fontsize=16)
-            elif isinstance(data, dict):
-                if data:
-                    sorted_dates = sorted(data.keys())
-                    values = [float(data[d]) for d in sorted_dates]
-                    ax.bar(range(len(sorted_dates)), values, color="#3b82f6", edgecolor="#60a5fa", width=0.7)
-                    ax.set_xticks(range(len(sorted_dates)))
-                    ax.set_xticklabels(sorted_dates, rotation=45, ha="right", fontsize=8, color="white")
-                else:
-                    ax.text(0.5, 0.5, "No data available",
-                           transform=ax.transAxes, ha="center", va="center",
-                           color="white", fontsize=16)
-            elif isinstance(data, (list, tuple)):
-                if len(data) == 0:
-                    ax.text(0.5, 0.5, "No data available",
-                           transform=ax.transAxes, ha="center", va="center",
-                           color="white", fontsize=16)
-                elif isinstance(data[0], (list, tuple)) and len(data[0]) >= 2:
-                    x_vals = [row[0] for row in data]
-                    y_vals = [float(row[1]) for row in data]
-                    ax.bar(range(len(x_vals)), y_vals, color="#3b82f6", edgecolor="#60a5fa", width=0.7)
-                    ax.set_xticks(range(len(x_vals)))
-                    ax.set_xticklabels(x_vals, rotation=45, ha="right", fontsize=8, color="white")
-                else:
-                    try:
-                        y_vals = [float(v) for v in data]
-                        ax.bar(range(len(y_vals)), y_vals, color="#3b82f6", edgecolor="#60a5fa", width=0.7)
-                    except (ValueError, TypeError):
-                        ax.text(0.5, 0.5, "Unable to plot data",
-                               transform=ax.transAxes, ha="center", va="center",
-                               color="white", fontsize=16)
-            else:
-                ax.text(0.5, 0.5, f"Unexpected data format: {type(data).__name__}",
-                       transform=ax.transAxes, ha="center", va="center",
-                       color="white", fontsize=16)
-            
-            ax.set_title("Inventory Changes Over Time", color="white", fontsize=16)
-            ax.set_ylabel("Number of Changes", color="white")
-            ax.set_xlabel("Date", color="white")
-            ax.tick_params(colors="white")
-            for spine in ax.spines.values():
-                spine.set_color("#4a4a4a")
-            fig.tight_layout()
-            canvas.draw()
-
-        canvas = FigureCanvasTkAgg(fig, master=graph_frame)
-        canvas.get_tk_widget().pack(fill="both", expand=True)
-        
-        render_graph()
-
-        def update_graph(*args):
-            render_graph()
-
-        pattern_filter_var.trace_add("write", update_graph)
-        pattern_date_range_var.trace_add("write", update_graph)
-
-    def _prompt_for_date_range(self, prompt="Enter date range (YYYY-MM-DD to YYYY-MM-DD)", title="Set Date Range"):
-        """Open modal dialog for date range entry with auto-formatting numpad"""
-        dlg = ctk.CTkToplevel(self)
-        dlg.title(title)
-        dlg.transient(self)
-        dlg.resizable(False, False)
-        
-        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
-        
-        entry_var = tk.StringVar()
-        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=500, height=55, font=("Arial", 20),
-                             placeholder_text="YYYY-MM-DD to YYYY-MM-DD")
-        entry.pack(padx=25, pady=(0, 22))
-        
-        result = {"value": None}
-        
-        def auto_format_date(raw):
-            """Auto-insert dashes and ' to ' separator as digits are typed"""
-            # Strip everything except digits
-            digits = ''.join(c for c in raw if c.isdigit())
-            
-            # Build formatted string
-            # Format: YYYY-MM-DD to YYYY-MM-DD
-            # Digit positions:
-            #   0-3: first year
-            #   4-5: first month
-            #   6-7: first day
-            #   8-11: second year
-            #   12-13: second month
-            #   14-15: second day
-            
-            parts = []
-            for i, d in enumerate(digits):
-                if i == 4 or i == 6:       # dash after first year, first month
-                    parts.append('-')
-                elif i == 8:               # " to " separator between dates
-                    parts.append(' to ')
-                elif i == 12 or i == 14:   # dash after second year, second month
-                    parts.append('-')
-                parts.append(d)
-                if i >= 15:                # max 16 digits (2 full dates)
-                    break
-            
-            return ''.join(parts)
-        
-        def add_digit(digit):
-            raw = entry_var.get()
-            # Count existing digits
-            digit_count = sum(1 for c in raw if c.isdigit())
-            if digit_count >= 16:
-                return
-            formatted = auto_format_date(raw + str(digit))
-            entry_var.set(formatted)
-        
-        def backspace():
-            raw = entry_var.get()
-            if not raw:
-                return
-            # Remove last character, but if it's a dash or space, keep removing
-            # until we remove an actual digit
-            stripped = raw.rstrip()
-            while stripped and not stripped[-1].isdigit():
-                stripped = stripped[:-1]
-            if stripped:
-                stripped = stripped[:-1]  # remove the last digit
-            # Re-format from remaining digits
-            formatted = auto_format_date(stripped)
-            entry_var.set(formatted)
-        
-        def clear_entry():
-            entry_var.set("")
-        
-        def on_ok(event=None):
-            val = entry_var.get().strip()
-            if val == "":
-                return
-            
-            # Validate format: YYYY-MM-DD to YYYY-MM-DD
-            try:
-                if ' to ' not in val:
-                    self.show_popup("Invalid Format", "Please enter two dates separated by ' to '\nExample: 2026-01-01 to 2026-12-31", "error")
-                    return
-                
-                date_parts = val.split(' to ')
-                if len(date_parts) != 2:
-                    self.show_popup("Invalid Format", "Please enter exactly two dates.", "error")
-                    return
-                
-                start_str = date_parts[0].strip()
-                end_str = date_parts[1].strip()
-                
-                # Validate both dates parse correctly
-                start_date = datetime.datetime.strptime(start_str, "%Y-%m-%d").date()
-                end_date = datetime.datetime.strptime(end_str, "%Y-%m-%d").date()
-                
-                if end_date < start_date:
-                    self.show_popup("Invalid Range", "End date must be after start date.", "error")
-                    return
-                
-                result["value"] = val
-                try:
-                    dlg.grab_release()
-                except:
-                    pass
-                dlg.destroy()
-                
-            except ValueError:
-                self.show_popup("Invalid Date", "Please enter valid dates in YYYY-MM-DD format.", "error")
-                return
-        
-        def on_cancel(event=None):
-            try:
-                dlg.grab_release()
-            except:
-                pass
-            dlg.destroy()
-        
-        # Numpad
-        numpad_frame = ctk.CTkFrame(dlg)
-        numpad_frame.pack(pady=(0, 18))
-        
-        buttons = [
-            ['7', '8', '9'],
-            ['4', '5', '6'],
-            ['1', '2', '3'],
-            ['C', '0', '<']
-        ]
-        
-        for i, row in enumerate(buttons):
-            for j, btn_text in enumerate(row):
-                if btn_text == 'C':
-                    cmd = clear_entry
-                elif btn_text == '<':
-                    cmd = backspace
-                else:
-                    cmd = lambda x=btn_text: add_digit(x)
-                ctk.CTkButton(
-                    numpad_frame, text=btn_text, width=110, height=110,
-                    font=("Arial", 26), command=cmd
-                ).grid(row=i, column=j, padx=10, pady=10)
-        
-        # OK / Cancel buttons
-        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
-        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
-        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55,
-                     font=("Arial", 20)).pack(side="left", padx=12, pady=12)
-        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55,
-                     font=("Arial", 20), fg_color="gray30").pack(side="left", padx=12, pady=12)
-        
-        entry.bind("<Return>", on_ok)
-        dlg.bind("<Escape>", on_cancel)
-        
-        dlg.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
-        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
-        dlg.geometry(f"+{x}+{y}")
-        
-        def do_grab():
-            try:
-                dlg.grab_set()
-                entry.focus_set()
-            except:
-                pass
-        dlg.after(50, do_grab)
-        
-        self.wait_window(dlg)
-        return result["value"]
-
-    #endregion
-
-    # ========================================================================
-    # DIALOG HELPERS
-    # ========================================================================
-    #region dialog helpers
-    def _prompt_for_barcode(self, prompt="Scan barcode and press Enter", title="Scan Barcode"):
-        """Open modal dialog for barcode entry"""
-        dlg = ctk.CTkToplevel(self)
-        dlg.title(title)
-        dlg.transient(self)
-        dlg.resizable(False, False)
-        
-        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
-        
-        entry_var = tk.StringVar()
-        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=400, height=55, font=("Arial", 20))
-        entry.pack(padx=25, pady=(0, 22))
-        
-        result = {"value": None}
-        
-        def on_ok(event=None):
-            val = entry_var.get().strip()
-            if val == "":
-                return
-            result["value"] = val
-            try:
-                dlg.grab_release()
-            except:
-                pass
-            dlg.destroy()
-        
-        def on_cancel(event=None):
-            try:
-                dlg.grab_release()
-            except:
-                pass
-            dlg.destroy()
-        
-        # Numpad
-        numpad_frame = ctk.CTkFrame(dlg)
-        numpad_frame.pack(pady=(0, 18))
-        
-        buttons = [
-            ['7', '8', '9'],
-            ['4', '5', '6'],
-            ['1', '2', '3'],
-            ['C', '0', '<']
-        ]
-        
-        def add_to_entry(value):
-            current = entry_var.get()
-            entry_var.set(current + str(value))
-        
-        def clear_entry():
-            entry_var.set("")
-        
-        def backspace():
-            entry_var.set(entry_var.get()[:-1])
-        
-        for i, row in enumerate(buttons):
-            for j, btn_text in enumerate(row):
-                if btn_text == 'C':
-                    btn = ctk.CTkButton(numpad_frame, text=btn_text, width=110, height=110, 
-                                       font=("Arial", 26), command=clear_entry)
-                elif btn_text == '<':
-                    btn = ctk.CTkButton(numpad_frame, text=btn_text, width=110, height=110, 
-                                       font=("Arial", 26), command=backspace)
-                else:
-                    btn = ctk.CTkButton(numpad_frame, text=btn_text, width=110, height=110, 
-                                       font=("Arial", 26), command=lambda x=btn_text: add_to_entry(x))
-                btn.grid(row=i, column=j, padx=10, pady=10)
-        
-        # Buttons
-        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
-        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
-        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55, 
-                     font=("Arial", 20)).pack(side="left", padx=12, pady=12)
-        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55, 
-                     font=("Arial", 20), fg_color="gray30").pack(side="right", padx=12, pady=12)
-        
-        entry.bind("<Return>", on_ok)
-        dlg.bind("<Escape>", on_cancel)
-        
-        dlg.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
-        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
-        dlg.geometry(f"+{x}+{y}")
-        
-        def do_grab():
-            try:
-                dlg.grab_set()
-                entry.focus_set()
-            except:
-                pass
-        dlg.after(50, do_grab)
-        
-        self.wait_window(dlg)
-        return result["value"]
-    
-    def _prompt_for_amount(self, prompt="Enter amount", title="Enter Amount"):
-        """Open modal dialog for amount entry"""
-        dlg = ctk.CTkToplevel(self)
-        dlg.title(title)
-        dlg.transient(self)
-        dlg.resizable(False, False)
-        
-        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
-        
-        entry_var = tk.StringVar()
-        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=400, height=55, font=("Arial", 20))
-        entry.pack(padx=25, pady=(0, 22))
-        
-        result = {"value": None}
-        
-        def on_ok(event=None):
-            val = entry_var.get().strip()
-            if val == "":
-                return
-            try:
-                float(val)
-                result["value"] = val
-                try:
-                    dlg.grab_release()
-                except:
-                    pass
-                dlg.destroy()
-            except ValueError:
-                self.show_popup("Invalid Amount", "Please enter a valid number.", "error")
-        
-        def on_cancel(event=None):
-            try:
-                dlg.grab_release()
-            except:
-                pass
-            dlg.destroy()
-        
-        # Numpad
-        numpad_frame = ctk.CTkFrame(dlg)
-        numpad_frame.pack(pady=(0, 18))
-        
-        buttons = [
-            ['7', '8', '9'],
-            ['4', '5', '6'],
-            ['1', '2', '3'],
-            ['C', '0', '.']
-        ]
-        
-        def add_to_entry(value):
-            current = entry_var.get()
-            if value == '.' and '.' in current:
-                return
-            entry_var.set(current + str(value))
-        
-        def clear_entry():
-            entry_var.set("")
-        
-        def backspace():
-            entry_var.set(entry_var.get()[:-1])
-        
-        for i, row in enumerate(buttons):
-            for j, btn_text in enumerate(row):
-                if btn_text == 'C':
-                    btn = ctk.CTkButton(numpad_frame, text=btn_text, width=110, height=110, 
-                                       font=("Arial", 26), command=clear_entry)
-                else:
-                    btn = ctk.CTkButton(numpad_frame, text=btn_text, width=110, height=110, 
-                                       font=("Arial", 26), command=lambda x=btn_text: add_to_entry(x))
-                btn.grid(row=i, column=j, padx=10, pady=10)
-        
-        backspace_btn = ctk.CTkButton(numpad_frame, text="<", width=110, height=110, 
-                                      font=("Arial", 26), command=backspace)
-        backspace_btn.grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
-        
-        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
-        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
-        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55, 
-                     font=("Arial", 20)).pack(side="left", padx=12, pady=12)
-        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55, 
-                     font=("Arial", 20), fg_color="gray30").pack(side="right", padx=12, pady=12)
-        
-        entry.bind("<Return>", on_ok)
-        dlg.bind("<Escape>", on_cancel)
-        
-        dlg.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
-        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
-        dlg.geometry(f"+{x}+{y}")
-        
-        def do_grab():
-            try:
-                dlg.grab_set()
-                entry.focus_set()
-            except:
-                pass
-        dlg.after(50, do_grab)
-        
-        self.wait_window(dlg)
-        
-        result_val = result["value"]
-        if result_val is not None:
-            result_val = int(float(result_val)) * -1
-        return result_val
-    
-    def admin(self, title, prompt="Enter admin code"):
-        """Admin authentication dialog"""
-        code = 1234
-        dlg = ctk.CTkToplevel(self)
-        dlg.title(title)
-        dlg.transient(self)
-        dlg.resizable(False, False)
-        
-        ctk.CTkLabel(dlg, text=prompt, font=("Arial", 22)).pack(padx=25, pady=(22, 12))
-        entry_var = tk.StringVar()
-        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=400, height=55, font=("Arial", 20), show="*")
-        entry.pack(padx=25, pady=(0, 22))
-        
-        button_frame = ctk.CTkFrame(dlg)
-        button_frame.pack(pady=(0, 22))
-        buttons = [
-            ['7', '8', '9'],
-            ['4', '5', '6'],
-            ['1', '2', '3'],
-            ['C', '0', '<']
-        ]
-        
-        def add_to_entry(value):
-            current = entry_var.get()
-            entry_var.set(current + str(value))
-        
-        def clear_entry():
-            entry_var.set("")
-        
-        def backspace():
-            entry_var.set(entry_var.get()[:-1])
-        
-        for i, row in enumerate(buttons):
-            for j, btn_text in enumerate(row):
-                if btn_text == 'C':
-                    btn = ctk.CTkButton(button_frame, text=btn_text, width=110, height=110, font=("Arial", 26), command=clear_entry)
-                elif btn_text == '<':
-                    btn = ctk.CTkButton(button_frame, text=btn_text, width=110, height=110, font=("Arial", 26), command=backspace)
-                else:
-                    btn = ctk.CTkButton(button_frame, text=btn_text, width=110, height=110, font=("Arial", 26), command=lambda x=btn_text: add_to_entry(x))
-                btn.grid(row=i, column=j, padx=10, pady=10)
-        
-        result = {"value": None}
-        btn_frame = ctk.CTkFrame(dlg)
-        btn_frame.pack(pady=(0, 22), fill="x")
-        
-        def on_ok(event=None):
-            val = entry_var.get().strip()
-            if val != "":
-                result["value"] = val
-                dlg.destroy()
-        
-        def on_cancel(event=None):
-            dlg.destroy()
-        
-        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55, 
-                     font=("Arial", 20)).pack(side="left", padx=12)
-        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55, 
-                     font=("Arial", 20), fg_color="gray30").pack(side="right", padx=12)
-        
-        entry.bind("<Return>", on_ok)
-        dlg.bind("<Escape>", on_cancel)
-        
-        dlg.update_idletasks()
-        
-        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
-        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
-        dlg.geometry(f"+{x}+{y}")
-        
-        dlg.lift()
-        dlg.grab_set()
-        dlg.focus_force()
-        entry.focus_force()
-        try:
-            entry.select_range(0, "end")
-        except Exception:
-            pass
-        
-        self.wait_window(dlg)
-        
-        entered = result.get("value")
-        if entered is None:
-            return False
-        elif str(entered) != str(code):
-            self.show_popup("Admin Access Denied", "Incorrect admin code.", "error")
-            return False
-        return True
-    
-    def show_popup(self, title, message, popup_type="info"):
-        """Show custom CTk popup dialog"""
-        popup = ctk.CTkToplevel(self)
-        popup.title(title)
-        popup.geometry("520x240")
-        popup.resizable(False, False)
-        
-        popup.after(10, lambda: self._setup_popup_content(popup, title, message, popup_type))
-        
-        self.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width() // 2) - 260
-        y = self.winfo_rooty() + (self.winfo_height() // 2) - 120
-        popup.geometry(f"520x240+{x}+{y}")
-        
-        popup.transient(self)
-        popup.grab_set()
-        
-        self.wait_window(popup)
-    
-    def _setup_popup_content(self, popup, title, message, popup_type):
-        """Setup popup content after window is ready"""
-        if popup_type == "error":
-            accent_color = "#dc2626"
-        elif popup_type == "warning":
-            accent_color = "#f59e0b"
+        if str(val) == ADMIN_CODE:
+            on_success()
         else:
-            accent_color = "#3b82f6"
-        
-        ctk.CTkLabel(popup, text=title, font=("Arial", 22, "bold"), text_color=accent_color).pack(pady=(30, 18))
-        ctk.CTkLabel(popup, text=message, font=("Arial", 18), wraplength=460, justify="center").pack(pady=(0, 25))
-        ctk.CTkButton(popup, text="OK", command=popup.destroy, width=140, height=45, 
-                     font=("Arial", 18), fg_color=accent_color).pack()
-    
-    def show_confirm(self, title, message):
-        """Show custom CTk confirmation dialog"""
-        result = {"value": False}
-        
-        popup = ctk.CTkToplevel(self)
-        popup.title(title)
-        popup.geometry("520x260")
-        popup.resizable(False, False)
-        
-        self.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width() // 2) - 260
-        y = self.winfo_rooty() + (self.winfo_height() // 2) - 130
-        popup.geometry(f"520x260+{x}+{y}")
-        
-        popup.transient(self)
-        popup.grab_set()
-        
-        def on_yes():
-            result["value"] = True
-            popup.destroy()
-        
-        def on_no():
-            result["value"] = False
-            popup.destroy()
-        
-        def setup_content():
-            ctk.CTkLabel(popup, text=title, font=("Arial", 22, "bold"), text_color="#3b82f6").pack(pady=(30, 18))
-            ctk.CTkLabel(popup, text=message, font=("Arial", 18), wraplength=460, justify="center").pack(pady=(0, 25))
-            
-            btn_frame = ctk.CTkFrame(popup, fg_color="transparent")
-            btn_frame.pack()
-            
-            ctk.CTkButton(btn_frame, text="Yes", command=on_yes, width=120, height=45, 
-                         font=("Arial", 18)).pack(side="left", padx=12)
-            ctk.CTkButton(btn_frame, text="No", command=on_no, width=120, height=45, 
-                         font=("Arial", 18), fg_color="gray50").pack(side="left", padx=12)
-        
-        popup.after(10, setup_content)
-        popup.bind("<Escape>", lambda e: on_no())
-        
-        self.wait_window(popup)
-        return result["value"]
-    
-    def show_error(self, title="Error", message="An error occurred."):
-        """Display an error window"""
-        self.show_popup(title, message, "error")
-    #endregion
+            MessagePopup(title='Denied', message='Incorrect admin code.').open()
 
-    # ========================================================================
-    # TREEVIEW MANAGEMENT
-    # ========================================================================
-    #region treeview management
-    def update_column_visibility(self):
-        """Update which columns are displayed"""
-        visible_columns = [col for col, var in self.column_visibility.items() if var.get()]
-        
-        if visible_columns:
-            self.tree.configure(displaycolumns=visible_columns)
-            self.after(50, lambda: self._adjust_column_widths(visible_columns))
-        else:
-            self.column_visibility["drug"].set(True)
-            self.tree.configure(displaycolumns=["drug"])
-            self.after(50, lambda: self._adjust_column_widths(["drug"]))
-    
-    def _on_tree_click(self, event):
-        """Toggle selection of clicked row"""
-        region = self.tree.identify_region(event.x, event.y)
-        if region not in ("cell", "tree"):
-            return None
-        
-        row = self.tree.identify_row(event.y)
-        if not row:
-            try:
-                self.tree.selection_remove(self.tree.selection())
-            except Exception:
-                pass
-            return "break"
-        
-        cur = list(self.tree.selection())
-        if row in cur:
-            cur.remove(row)
-            self.tree.selection_set(tuple(cur))
-        else:
-            cur.append(row)
-            self.tree.selection_set(tuple(cur))
-        
-        return "break"
-    
-    def _on_tree_configure(self, event):
-        """Handler for tree resize events"""
-        try:
-            visible = [col for col, var in self.column_visibility.items() if var.get()]
-            try:
-                if hasattr(self, "_column_adjust_after_id"):
-                    self.after_cancel(self._column_adjust_after_id)
-            except Exception:
-                pass
-            if self.tree.winfo_width() > 1:
-                self._column_adjust_after_id = self.after(
-                    100, lambda: self._adjust_column_widths(visible)
-                )
-        except Exception:
-            pass
-    
-    def _adjust_column_widths(self, visible_columns):
-        """Distribute available tree width across visible columns"""
-        try:
-            if not visible_columns:
-                return
-            
-            if not self.tree.winfo_exists():
-                return
-            
-            self.tree.update_idletasks()
-            total_width = self.tree.winfo_width()
-            
-            if total_width <= 10:
-                try:
-                    total_width = self.tree.master.winfo_width()
-                except Exception:
-                    total_width = sum(self.column_configs[c]["width"] for c in visible_columns) or 600
-            
 
-            
-            if total_width < 100:
-                return
-            
-            scrollbar_reserve = 18
-            usable = max(100, total_width - scrollbar_reserve)
-            
-            min_widths = [self.column_configs.get(c, {}).get("width", 100) for c in visible_columns]
-            sum_min = sum(min_widths) if min_widths else 1
-            
-            raw_widths = [usable * (wmin / sum_min) for wmin in min_widths]
-            widths = [int(w) for w in raw_widths]
-            current_total = sum(widths)
-            diff = usable - current_total
-            
-            i = 0
-            n = len(widths)
-            while diff != 0 and n > 0:
-                idx = i % n
-                if diff > 0:
-                    widths[idx] += 1
-                    diff -= 1
-                else:
-                    if widths[idx] > 0:
-                        widths[idx] -= 1
-                        diff += 1
-                i += 1
-            
-            for col, w in zip(visible_columns, widths):
-                try:
-                    self.tree.column(col, width=w, stretch=True)
-                except Exception:
-                    pass
-        except Exception:
-            pass
-#endregion
+class HistoryScreen(Screen):
+    """History / change log screen."""
 
-# ============================================================================
-# CANVAS HELPER
-# ============================================================================
-def create_round_rectangle(canvas, x1, y1, x2, y2, radius=25, **kwargs):
-    """Create a rounded rectangle on a canvas"""
-    points = [
-        x1+radius, y1,
-        x1+radius, y1,
-        x2-radius, y1,
-        x2-radius, y1,
-        x2, y1,
-        x2, y1+radius,
-        x2, y1+radius,
-        x2, y2-radius,
-        x2, y2-radius,
-        x2, y2,
-        x2-radius, y2,
-        x2-radius, y2,
-        x1+radius, y2,
-        x1+radius, y2,
-        x1, y2,
-        x1, y2-radius,
-        x1, y2-radius,
-        x1, y1+radius,
-               x1, y1+radius,
-        x1, y1
-    ]
-    return canvas.create_polygon(points, **kwargs, smooth=True)
-
-# Add this helper to Canvas class
-tk.Canvas.create_roundrectangle = create_round_rectangle
-
-# ============================================================================
-# PERSONAL DATABASE WINDOW
-# ============================================================================
-#region personal database window
-class Personal_db_window(ctk.CTkToplevel):
-    """Personal database management window with zoomable timeline"""
-    
-    def __init__(self, parent, user):
-        super().__init__(parent)
-        self.title("Personal Database Manager")
-        self.transient(parent)
-        self.parent = parent
-        self.user = user
-        self.current_date = datetime.datetime.now()
-        self.zoom_level = 10.0  # 1.0 = normal, 2.0 = 2x zoom, etc.
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.db = DatabaseManager()
-        self.expanded_items = set()  # Track which items are expanded
-        
-        # Initialize personal database
-        personal_db_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            f"Database/{user.lower()}_records.db"
-        )
-        
-        # Import PersonalDatabaseManager at the top if not already imported
-        from database import PersonalDatabaseManager
-        
+        Clock.schedule_once(self._build_header, 0)
+
+    HIST_COLS = ['Barcode', 'Name', 'Amt Changed', 'User', 'Type', 'Time', 'Reason']
+
+    def _build_header(self, dt):
+        header = self.ids.hist_header
+        header.clear_widgets()
+        for col in self.HIST_COLS:
+            lbl = Label(text=col, font_size=dp(14), bold=True,
+                        halign='left', valign='middle')
+            lbl.bind(size=lbl.setter('text_size'))
+            header.add_widget(lbl)
+
+    def load_data(self):
+        body = self.ids.hist_body
+        body.clear_widgets()
         try:
-            self.personal_db = PersonalDatabaseManager(self.user)
+            rows = self.db.pull_data("drug_changes")
+            for row in rows:
+                body.add_widget(DataRow(row))
         except Exception as e:
-            print(f"Error loading personal database: {e}")
-            self.personal_db = None
-    
-        # Set fullscreen
-        self.update_idletasks()
+            print(f"History load error: {e}")
 
-        def screen():
-            screen_width = self.winfo_screenwidth()
-            screen_height = self.winfo_screenheight()
-            return (screen_width * screen_height)
-        
-        def window():
-            window_width = self.winfo_width()
-            window_height = self.winfo_height()
-            return (window_width * window_height)
-        
-        if screen():
-            self.attributes("-fullscreen", True)
-
-            if screen() != window():
-                self.attributes("-fullscreen", False)
-                window_width = self.winfo_screenwidth()
-                window_height = self.winfo_screenheight()
-                self.geometry(f"{window_width}x{window_height}+0+0")
-                pass 
-        else:
-            pass
-                
-                
-        self.resizable(False, True)
-        self.lift()
-        self.focus_force()
-        
-        def do_grab():
-            try:
-                self.grab_set()
-            except Exception as e:
-                print(f"Could not grab focus: {e}")
-        self.after(100, do_grab)
-        
-        self._setup_ui()
-        self.bind("<Escape>", lambda e: self.destroy())
-        self.after(200, self.load_timeline_data)
-
-    def _setup_ui(self):
-        """Setup the personal database UI"""
-        # Configure grid - updated layout
-        self.grid_rowconfigure(0, weight=0, minsize=40)
-        self.grid_rowconfigure(1, weight=0, minsize=45)
-        self.grid_rowconfigure(2, weight=1)  # Timeline
-        self.grid_rowconfigure(3, weight=0, minsize=200)  # As-needed section
-        self.grid_rowconfigure(4, weight=0, minsize=55)  # Controls
-        self.grid_columnconfigure(0, weight=1)
-        
-        # Title - more compact
-        ctk.CTkLabel(
-            self, 
-            text=f"{self.user}'s Personal Database", 
-            font=("Arial", 28, "bold")
-        ).grid(row=0, column=0, pady=(10, 5), sticky="ew")
-        
-        # Date selector frame - more compact
-        date_frame = ctk.CTkFrame(self, fg_color="transparent")
-        date_frame.grid(row=1, column=0, pady=2, sticky="ew")
-        
-        ctk.CTkButton(
-            date_frame,
-            text="◄ Previous Day",
-            command=self.previous_day,
-            width=150,
-            height=45,
-            font=("Arial", 16)
-        ).pack(side="left", padx=(20, 10))
-        
-        self.date_label = ctk.CTkLabel(
-            date_frame,
-            text=self.current_date.strftime("%A, %B %d, %Y"),
-            font=("Arial", 20, "bold")
-        )
-        self.date_label.pack(side="left", expand=True)
-        
-        ctk.CTkButton(
-            date_frame,
-            text="Next Day ►",
-            command=self.next_day,
-            width=150,
-            height=45,
-            font=("Arial", 16)
-        ).pack(side="right", padx=(10, 20))
-        
-        # Timeline frame
-        timeline_frame = ctk.CTkFrame(self, corner_radius=10)
-        timeline_frame.grid(row=2, column=0, sticky="nsew", padx=8, pady=6)
-        timeline_frame.grid_rowconfigure(0, weight=0)
-        timeline_frame.grid_rowconfigure(1, weight=1)
-        timeline_frame.grid_rowconfigure(2, weight=0)
-        timeline_frame.grid_columnconfigure(0, weight=1)
-        
-        self.legend_frame = ctk.CTkFrame(timeline_frame, fg_color="transparent")
-        self.legend_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 4))
-        
-        # Canvas with scrollbar for timeline
-        self.timeline_canvas = tk.Canvas(
-            timeline_frame,
-            bg="#2b2b2b",
-            highlightthickness=0
-        )
-        scrollbar = ttk.Scrollbar(
-            timeline_frame,
-            orient="horizontal",
-            command=self.timeline_canvas.xview
-        )
-        self.timeline_canvas.configure(xscrollcommand=scrollbar.set)
-        
-        self.timeline_canvas.grid(row=1, column=0, sticky="nsew", padx=10, pady=(10, 5))
-        scrollbar.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
-        
-        # Bind mouse wheel for scrolling
-        self.timeline_canvas.bind("<MouseWheel>", self._on_mousewheel)
-        self.timeline_canvas.bind("<Button-4>", self._on_mousewheel)
-        self.timeline_canvas.bind("<Button-5>", self._on_mousewheel)
-        
-        # As-needed prescriptions section
-        self._create_as_needed_section()
-        
-        # Control buttons frame
-        controls_frame = ctk.CTkFrame(self, fg_color="transparent")
-        controls_frame.grid(row=4, column=0, pady=(2, 10), sticky="ew")
-        
-        ctk.CTkButton(
-            controls_frame,
-            text="💊 Use Item",
-            command=self.use_item_from_timeline,
-            width=130,
-            height=42,
-            font=("Arial", 15),
-            fg_color="#3b82f6"
-        ).pack(side="left", padx=(16, 6))
-        
-        ctk.CTkButton(
-            controls_frame,
-            text="Zoom In (+)",
-            command=self.zoom_in,
-            width=105,
-            height=42,
-            font=("Arial", 15)
-        ).pack(side="left", padx=6)
-        
-        ctk.CTkButton(
-            controls_frame,
-            text="Zoom Out (-)",
-            command=self.zoom_out,
-            width=105,
-            height=42,
-            font=("Arial", 15)
-        ).pack(side="left", padx=6)
-        
-        ctk.CTkButton(
-            controls_frame,
-            text="Reset Zoom",
-            command=self.reset_zoom,
-            width=105,
-            height=42,
-            font=("Arial", 15)
-        ).pack(side="left", padx=6)
-        ctk.CTkButton(
-            controls_frame,
-            text="Today",
-            command=self.goto_today,
-            width=105,
-            height=42,
-            font=("Arial", 15),
-            fg_color="#22c55e"
-        ).pack(side="left", padx=6)
-        
-        ctk.CTkButton(
-            controls_frame,
-            text="Close",
-            command=self.destroy,
-            width=105,
-            height=42,
-            font=("Arial", 15),
-            fg_color="#b22222"
-        ).pack(side="right", padx=(6, 16))
-    
-    def _create_as_needed_section(self):
-        """Create as-needed prescriptions display section"""
-        as_needed_frame = ctk.CTkFrame(self, corner_radius=10)
-        as_needed_frame.grid(row=3, column=0, sticky="nsew", padx=8, pady=(0, 6))
-        
-        # Title
-        ctk.CTkLabel(
-            as_needed_frame,
-            text="As-Needed Medications",
-            font=("Arial", 18, "bold")
-        ).pack(pady=(10, 5))
-        
-        # Scrollable content
-        self.as_needed_scroll = ctk.CTkScrollableFrame(as_needed_frame, height=150)
-        self.as_needed_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-
-    def _update_as_needed_display(self):
-        """Update the as-needed medications display"""
-        if not hasattr(self, "as_needed_scroll") or not self.as_needed_scroll.winfo_exists():
-            return
-        
-        # Clear existing widgets
-        for widget in self.as_needed_scroll.winfo_children():
-            widget.destroy()
-        
-        if not self.as_needed_prescriptions:
-            ctk.CTkLabel(
-                self.as_needed_scroll,
-                text="No as-needed medications",
-                font=("Arial", 14),
-                text_color="#94a3b8"
-            ).pack(pady=20)
-            return
-        
-        # Display each as-needed medication
-        for med in self.as_needed_prescriptions:
-            med_frame = ctk.CTkFrame(self.as_needed_scroll, corner_radius=8, fg_color="#1e3a5f")
-            med_frame.pack(fill="x", pady=5, padx=5)
-            
-            # Medication name
-            ctk.CTkLabel(
-                med_frame,
-                text=f"💊 {med['name']}",
-                font=("Arial", 16, "bold"),
-                anchor="w"
-            ).pack(fill="x", padx=10, pady=(8, 2))
-            
-            # Dosage
-            ctk.CTkLabel(
-                med_frame,
-                text=f"Dosage: {med['dosage']}",
-                font=("Arial", 12),
-                text_color="#93c5fd",
-                anchor="w"
-            ).pack(fill="x", padx=10, pady=(0, 8))
-    
-    
-    def load_timeline_data(self):
-        self.history_logs = []
-        self.prescriptions = []
-        self.as_needed_prescriptions = []
-        if not self.personal_db:
-            self.draw_timeline()
-            self._update_as_needed_display()
-            return
+    def show_pattern_rec(self):
         try:
-            if isinstance(self.current_date, datetime.datetime):
-                current_date_only = self.current_date.date()
-            else:
-                current_date_only = self.current_date
-
-            raw_hist, raw_prescriptions = self.personal_db.get_personal_data(current_date_only)
-            
-            try:
-                for log in raw_hist:
-                    #history format: (barcode, dname, when_taken, dose, matched)
-                    if len(log) < 5:
-                        continue
-                    barcode, name, when_taken, dose, matched = log[0], log[1], log[2], log[3], log[4]
-                    if isinstance(when_taken, (tuple,list)):
-                        when_taken = str(when_taken) if when_taken else None
-                    else:
-                        when_taken = str(when_taken)
-                    if not when_taken:
-                        continue
-                    dt = None
-
-                    try:
-                        dt = datetime.datetime.strptime(when_taken, "%Y-%m-%d")
-                    except (ValueError, TypeError):
-                        try:
-                            dt = datetime.datetime.strptime(when_taken, "%Y-%m-%d %H:%M:%S")
-                        except (ValueError, TypeError):
-                            try:
-                                dt = datetime.datetime.fromtimestamp(when_taken)
-                            except (ValueError, TypeError):
-                                print(f"Could not parse date: {when_taken}")
-                                continue
-
-                    if dt is None:
-                        continue
-
-                    if dt.date() == current_date_only:
-                        self.history_logs.append({
-                            'time': dt.time(),
-                            'name': name,
-                            'amount': dose,
-                            'barcode': barcode,
-                            'type': 'usage',
-                            'matched': matched
-                        })
-            except Exception as e:
-                print(f"Error processing history log: {e}, log: {log}")
-            
-            try:
-                for idx, log in enumerate(raw_prescriptions):
-                    #prescription format: (barcode, dname, dosage, time, leeway, as_needed)
-                    if len(log) < 6:
-                        continue
-                    barcode, name, dosage, time_str, leeway, as_needed = log[0], log[1], log[2], log[3], log[4], log[5]
-                    scheduled_time = self._parse_time(time_str)
-
-                    if leeway:
-                        leeway_formatted = leeway * 60
-                        leeway_formatted = int(leeway_formatted)
-                    else:
-                        leeway_formatted = 60
-
-                    if as_needed == True or as_needed == "True" or as_needed == 1:
-                        self.as_needed_prescriptions.append({
-                            'name': name,
-                            'dosage': dosage,
-                            'barcode': barcode
-                        })
-                    else:
-                        self.prescriptions.append({
-                            'time': scheduled_time,
-                            'name': name,
-                            'dosage': dosage,
-                            'barcode': barcode,
-                            'leeway': leeway_formatted,
-                            'type': 'prescription'
-                        })
-            except Exception as e:
-                print(f"Error processing prescription: {e}, prescription: {idx}, data: {log}")
-                
+            result = self.db.pattern_recognition()
+            MessagePopup(title='Pattern Recognition', message=str(result)).open()
         except Exception as e:
-            print(f"Error loading timeline data: {e}")
-            import traceback
-            traceback.print_exc()
+            MessagePopup(title='Error', message=str(e)).open()
 
-        self.draw_timeline()
-        self._update_as_needed_display()
-        self.after(100, lambda: self.reset_zoom())
+    def go_back(self):
+        self.manager.current = 'main'
 
-    def _parse_time(self, time_str):
-        """Parse time string to datetime.time object"""
-        if isinstance(time_str, datetime.time):
-            return time_str
-        if time_str and ':' in str(time_str):
-            try:
-                time_parts = str(time_str).split(':')
-                return datetime.time(
-                    int(time_parts[0]),
-                    int(time_parts[1]),
-                    int(time_parts[2]) if len(time_parts) > 2 else 0
-                )
-            except:
-                pass
-        return datetime.time(9, 0, 0)
-    
-    def _get_pill_width(self):
-        """Get the current pill width based on zoom level"""
-        return max(100 * min(self.zoom_level, 2.0), 60)
-    
-    def _get_stacked_position(self, x, items, stack_idx):
-        """
-        Calculate horizontal offset for stacked items at the same time slot.
-        
-        Args:
-            x: Base x position on the timeline
-            items: List of (idx, item) tuples sharing the same time slot
-            stack_idx: Index of the current item within the group
-            
-        Returns:
-            Horizontal pixel offset from the base x position
-        """
-        num_items = len(items)
-        if num_items <= 1:
-            return 0
-        
-        pill_width = self._get_pill_width()
-        spacing = pill_width + 10  # pill width + gap between pills
-        
-        # Center the group around x=0 offset
-        # Total width of the group: (num_items - 1) * spacing
-        total_group_width = (num_items - 1) * spacing
-        start_offset = -total_group_width / 2.0
-        
-        return start_offset + (stack_idx * spacing)
-    
-    def _resolve_overlaps(self, items_with_x):
-        """
-        Given a list of (index, item, x_position), return a list of 
-        (index, item, adjusted_x) so no two pills overlap horizontally.
-        """
-        pill_width = self._get_pill_width()
-        min_spacing = pill_width + 10  # pill width + small gap
-        
-        # Sort by x position for consistent placement
-        sorted_items = sorted(items_with_x, key=lambda t: t[2])
-        
-        placed = []  # list of (index, item, final_x)
-        
-        for idx, item, x in sorted_items:
-            final_x = x
-            # Only check against already-placed items, single pass
-            for _, _, placed_x in placed:
-                if abs(final_x - placed_x) < min_spacing:
-                    final_x = placed_x + min_spacing
-            placed.append((idx, item, final_x))
-        
-        return placed
 
-    def draw_timeline(self):
-        """Draw the 24-hour timeline with activities and prescriptions"""
-        #Guard to ensure canvas is ready
-        if not self.timeline_canvas.winfo_exists():
-            return
-        
-        self.timeline_canvas.delete("all")
-        
-        canvas_width = self.timeline_canvas.winfo_width()
-        canvas_height = self.timeline_canvas.winfo_height()
-        
-        if canvas_width <= 1:
-            canvas_width = 1200
-        if canvas_height <= 1:
-            canvas_height = 400
-        
-        # Calculate dimensions
-        hour_width = 120 * self.zoom_level
-        total_width = hour_width * 24
-        timeline_y = canvas_height // 2;
-        
-        # Update scroll region
-        self.timeline_canvas.configure(scrollregion=(0, 0, total_width, canvas_height))
-        
-        # Draw hour markers
-        for hour in range(25):  # 0-24
-            x = hour * hour_width
-            
-            # Hour line
-            self.timeline_canvas.create_line(
-                x, timeline_y - 20, x, timeline_y + 20,
-                fill="#5F84C8" if hour % 3 == 0 else "#4a4a4a",
-                width=3 if hour % 3 == 0 else 1
-            )
-            
-            # Hour label
-            label = f"{hour:02d}:00"
-            self.timeline_canvas.create_text(
-                x, timeline_y + 40,
-                text=label,
-                fill="white",
-                font=("Arial", int(12 * min(self.zoom_level, 1.5)), "bold" if hour % 3 == 0 else "normal")
-            )
-        
-        # Draw main timeline
-        self.timeline_canvas.create_line(
-            0, timeline_y, total_width, timeline_y,
-            fill="#5F84C8",
-            width=3
-        )
-        
-        # Group items by time for stacking
-        prescription_times = {}
-        for idx, prescription in enumerate(self.prescriptions):
-            time_key = (prescription['time'].hour, prescription['time'].minute)
-            if time_key not in prescription_times:
-                prescription_times[time_key] = []
-            prescription_times[time_key].append((idx, prescription))
-        
-        activity_times = {}
-        for idx, activity in enumerate(self.history_logs):
-            time_key = (activity['time'].hour, activity['time'].minute)
-            if time_key not in activity_times:
-                activity_times[time_key] = []
-            activity_times[time_key].append((idx, activity))
-        
-        # Draw prescription markers (above timeline)
-        for time_key, items in prescription_times.items():
-            for stack_idx, (idx, prescription) in enumerate(items):
-                time_obj = prescription['time']
-                hour = time_obj.hour
-                minute = time_obj.minute
-                x = (hour + minute / 60.0) * hour_width
-                x_offset = self._get_stacked_position(x, items, stack_idx)
-                
-                item_id = f"presc_{idx}"
-                is_expanded = item_id in self.expanded_items
-                
-                # Draw prescription pill
-                self._draw_prescription_pill(x + x_offset, timeline_y, prescription, item_id, is_expanded)
-        
-        # Draw actual usage activities (below timeline)
-        for time_key, items in activity_times.items():
-            for stack_idx, (idx, activity) in enumerate(items):
-                time_obj = activity['time']
-                hour = time_obj.hour
-                minute = time_obj.minute
-                x = (hour + minute / 60.0) * hour_width
-                x_offset = self._get_stacked_position(x, items, stack_idx)
-                
-                # Check for prescription match using the activity's own matched field
-                matched = bool(activity.get('matched', False))
-                
-                item_id = f"activity_{idx}"
-                is_expanded = item_id in self.expanded_items
-                
-                # Draw activity pill below timeline
-                self._draw_activity_pill(x + x_offset, timeline_y, activity, item_id, is_expanded, matched)
-        
-        # Draw legend
-        self._draw_legend()
-        
-        print(f"Drawing timeline with {len(self.prescriptions)} prescriptions and {len(self.history_logs)} activities")
+class PersonalScreen(Screen):
+    """Personal database screen with prescription/history tables."""
 
-    def _draw_prescription_pill(self, x, timeline_y, prescription, item_id, is_expanded):
-        """Draw a prescription pill above the timeline"""
-        # Leeway visualization (subtle background)
-        leeway_minutes = prescription.get('leeway', 60)
-
-        y_base = timeline_y - 100
-    
-        if is_expanded:
-            # Expanded view - show detailed card
-            card_width = 200 * min(self.zoom_level, 1.5)
-            card_height = 140
-            
-            # Card background with shadow effect
-            shadow_offset = 4
-            self.timeline_canvas.create_roundrectangle(
-                x - card_width/2 + shadow_offset, y_base - card_height + shadow_offset,
-                x + card_width/2 + shadow_offset, y_base + shadow_offset,
-                radius=15,
-                fill="#1a1a1a",
-                outline=""
-            )
-            
-            # Main card
-            card_id = self.timeline_canvas.create_roundrectangle(
-                x - card_width/2, y_base - card_height,
-                x + card_width/2, y_base,
-                radius=15,
-                fill="#2563eb",
-                outline="#3b82f6",
-                width=2
-            )
-            
-            # Bind click to collapse
-            self.timeline_canvas.tag_bind(card_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Icon at top
-            icon_id = self.timeline_canvas.create_text(
-                x, y_base - card_height + 25,
-                text="💊",
-                fill="white",
-                font=("Arial", int(24 * min(self.zoom_level, 1.5)))
-            )
-            self.timeline_canvas.tag_bind(icon_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Drug name
-            name_id = self.timeline_canvas.create_text(
-                x, y_base - card_height + 55,
-                text=prescription['name'],
-                fill="white",
-                font=("Arial", int(12 * min(self.zoom_level, 1.5)), "bold"),
-                width=card_width - 20
-            )
-            self.timeline_canvas.tag_bind(name_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Time
-            time_str = prescription['time'].strftime("%I:%M %p")
-            time_id = self.timeline_canvas.create_text(
-                x, y_base - card_height + 80,
-                text=f"🕐 {time_str}",
-                fill="#93c5fd",
-                font=("Arial", int(10 * min(self.zoom_level, 1.5)))
-            )
-            self.timeline_canvas.tag_bind(time_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Dosage
-            dose_id = self.timeline_canvas.create_text(
-                x, y_base - card_height + 100,
-                text=f"📊 {prescription['dosage']} dose",
-                fill="#93c5fd",
-                font=("Arial", int(10 * min(self.zoom_level, 1.5)))
-            )
-            self.timeline_canvas.tag_bind(dose_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Leeway
-            leeway_id = self.timeline_canvas.create_text(
-                x, y_base - card_height + 120,
-                text=f"⏱ ±{leeway_minutes} min",
-                fill="#93c5fd",
-                font=("Arial", int(9 * min(self.zoom_level, 1.5)))
-            )
-            self.timeline_canvas.tag_bind(leeway_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-        else:
-            # Collapsed view - show compact pill
-            pill_width = max(100 * min(self.zoom_level, 2.0), 60)
-            pill_height = 40
-            
-            # Shadow
-            shadow_offset = 3
-            self.timeline_canvas.create_roundrectangle(
-                x - pill_width/2 + shadow_offset, y_base - pill_height/2 + shadow_offset,
-                x + pill_width/2 + shadow_offset, y_base + pill_height/2 + shadow_offset,
-                radius=20,
-                fill="#1a1a1a",
-                outline=""
-            )
-            
-            # Main pill
-            pill_id = self.timeline_canvas.create_roundrectangle(
-                x - pill_width/2, y_base - pill_height/2,
-                x + pill_width/2, y_base + pill_height/2,
-                radius=20,
-                fill="#3b82f6",
-                outline="#60a5fa",
-                width=2
-            )
-            
-            # Bind click to expand
-            self.timeline_canvas.tag_bind(pill_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Icon and label
-            icon_text = "Rx"
-            text_id = self.timeline_canvas.create_text(
-                x, y_base,
-                text=icon_text,
-                fill="white",
-                font=("Arial", int(14 * min(self.zoom_level, 2.0)), "bold")
-            )
-            self.timeline_canvas.tag_bind(text_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Time label below
-            if self.zoom_level >= 0.6:
-                time_str = prescription['time'].strftime("%H:%M")
-                time_label_id = self.timeline_canvas.create_text(
-                    x, y_base + pill_height/2 + 15,
-                    text=time_str,
-                    fill="#94a3b8",
-                    font=("Arial", int(9 * min(self.zoom_level, 1.5)))
-                )
-                self.timeline_canvas.tag_bind(time_label_id, "<Button-1>", 
-                    lambda e, iid=item_id: self._toggle_item(iid))
-    
-    def _draw_activity_pill(self, x, timeline_y, activity, item_id, is_expanded, matched):
-        """Draw an activity pill below the timeline"""
-        color = "#22c55e" if matched else "#f59e0b"
-        outline_color = "#4ade80" if matched else "#fbbf24"
-        
-        y_base = timeline_y + 100  # Below timeline instead of above
-        
-        if is_expanded:
-            # Expanded view - show detailed card
-            card_width = 200 * min(self.zoom_level, 1.5)
-            card_height = 160
-            
-            # Card shadow
-            shadow_offset = 4
-            self.timeline_canvas.create_roundrectangle(
-                x - card_width/2 + shadow_offset, y_base + shadow_offset,
-                x + card_width/2 + shadow_offset, y_base + card_height + shadow_offset,
-                radius=15,
-                fill="#1a1a1a",
-                outline=""
-            )
-            
-            # Main card
-            card_id = self.timeline_canvas.create_roundrectangle(
-                x - card_width/2, y_base,
-                x + card_width/2, y_base + card_height,
-                radius=15,
-                fill=color,
-                outline=outline_color,
-                width=2
-            )
-            
-            # Bind click to collapse
-            self.timeline_canvas.tag_bind(card_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Status icon at top
-            icon = "✓" if matched else "•"
-            icon_id = self.timeline_canvas.create_text(
-                x, y_base + 25,
-                text=icon,
-                fill="white",
-                font=("Arial", int(28 * min(self.zoom_level, 1.5)), "bold")
-            )
-            self.timeline_canvas.tag_bind(icon_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Status text
-            status_text = "Matched!" if matched else "Taken"
-            status_id = self.timeline_canvas.create_text(
-                x, y_base + 55,
-                text=status_text,
-                fill="white",
-                font=("Arial", int(11 * min(self.zoom_level, 1.5)), "bold")
-            )
-            self.timeline_canvas.tag_bind(status_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Drug name
-            name_id = self.timeline_canvas.create_text(
-                x, y_base + 80,
-                text=activity['name'],
-                fill="white",
-                font=("Arial", int(12 * min(self.zoom_level, 1.5)), "bold"),
-                width=card_width - 20
-            )
-            self.timeline_canvas.tag_bind(name_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Time
-            time_str = activity['time'].strftime("%I:%M %p")
-            time_id = self.timeline_canvas.create_text(
-                x, y_base + 105,
-                text=f"🕐 {time_str}",
-                fill="white",
-                font=("Arial", int(10 * min(self.zoom_level, 1.5)))
-            )
-            self.timeline_canvas.tag_bind(time_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Amount
-            try:
-                amount_str = str(activity['amount'])
-            except:
-                amount_str = "?"
-            
-            amount_id = self.timeline_canvas.create_text(
-                x, y_base + 125,
-                text=f"📊 {amount_str} taken",
-                fill="white",
-                font=("Arial", int(10 * min(self.zoom_level, 1.5)))
-            )
-            self.timeline_canvas.tag_bind(amount_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Barcode
-            barcode_id = self.timeline_canvas.create_text(
-                x, y_base + 145,
-                text=f"🔖 {activity.get('barcode', 'N/A')}",
-                fill="white",
-                font=("Arial", int(9 * min(self.zoom_level, 1.5)))
-            )
-            self.timeline_canvas.tag_bind(barcode_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-        else:
-            # Collapsed view - show compact pill
-            pill_width = max(100 * min(self.zoom_level, 2.0), 60)
-            pill_height = 40
-            
-            # Shadow
-            shadow_offset = 3
-            self.timeline_canvas.create_roundrectangle(
-                x - pill_width/2 + shadow_offset, y_base - pill_height/2 + shadow_offset,
-                x + pill_width/2 + shadow_offset, y_base + pill_height/2 + shadow_offset,
-                radius=20,
-                fill="#1a1a1a",
-                outline=""
-            )
-            
-            # Main pill
-            pill_id = self.timeline_canvas.create_roundrectangle(
-                x - pill_width/2, y_base - pill_height/2,
-                x + pill_width/2, y_base + pill_height/2,
-                radius=20,
-                fill=color,
-                outline=outline_color,
-                width=2
-            )
-            
-            # Bind click to expand
-            self.timeline_canvas.tag_bind(pill_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Icon
-            icon = "✓" if matched else "−"
-            text_id = self.timeline_canvas.create_text(
-                x, y_base,
-                text=icon,
-                fill="white",
-                font=("Arial", int(16 * min(self.zoom_level, 2.0)), "bold")
-            )
-            self.timeline_canvas.tag_bind(text_id, "<Button-1>", 
-                lambda e, iid=item_id: self._toggle_item(iid))
-            
-            # Time label below
-            if self.zoom_level >= 0.6:
-                time_str = activity['time'].strftime("%H:%M")
-                time_label_id = self.timeline_canvas.create_text(
-                    x, y_base + pill_height/2 + 15,
-                    text=time_str,
-                    fill="#94a3b8",
-                    font=("Arial", int(9 * min(self.zoom_level, 1.5)))
-                )
-                self.timeline_canvas.tag_bind(time_label_id, "<Button-1>", 
-                    lambda e, iid=item_id: self._toggle_item(iid))
-    
-    def _draw_legend(self):
-        """Draw the legend"""
-        if not hasattr(self, "legend_frame"):
-            return
-        
-        for child in self.legend_frame.winfo_children():
-            child.destroy()
-        
-        legend_container = ctk.CTkFrame(self.legend_frame, corner_radius=10, fg_color="#1a1a1a")
-        legend_container.pack(fill="x")
-        
-        def add_entry(parent, color, text, text_color="#e2e8f0"):
-            row = ctk.CTkFrame(parent, fg_color="transparent")
-            row.pack(side="left", padx=8, pady=6)
-            ctk.CTkFrame(row, width=18, height=18, fg_color=color, corner_radius=6).pack(side="left")
-            ctk.CTkLabel(
-                row,
-                text=text,
-                font=("Arial", 11),
-                text_color=text_color
-            ).pack(side="left", padx=(6, 0))
-        
-        add_entry(legend_container, "#3b82f6", "Scheduled", "#60a5fa")
-        add_entry(legend_container, "#f59e0b", "Taken")
-        add_entry(legend_container, "#22c55e", "Matched", "#22c55e")
-        
-        ctk.CTkLabel(
-            legend_container,
-            text="👆 Tap a pill to expand",
-            font=("Arial", 10, "italic"),
-            text_color="#94a3b8"
-        ).pack(side="right", padx=12)
-    
-    def _toggle_item(self, item_id):
-        """Toggle expanded/collapsed state of an item"""
-        if item_id in self.expanded_items:
-            self.expanded_items.remove(item_id)
-        else:
-            self.expanded_items.add(item_id)
-        self.draw_timeline()
-    
-    def _on_mousewheel(self, event):
-        """Handle mouse wheel scrolling"""
-        if event.num == 4 or event.delta > 0:
-            self.timeline_canvas.xview_scroll(-1, "units")
-        elif event.num == 5 or event.delta < 0:
-            self.timeline_canvas.xview_scroll(1, "units")
-    
-    def zoom_in(self):
-        """Increase zoom level"""
-        if self.zoom_level < 5.0:
-            self.zoom_level *= 1.5
-            self.draw_timeline()
-    
-    def zoom_out(self):
-        """Decrease zoom level"""
-        if self.zoom_level > 0.3:
-            self.zoom_level /= 1.5
-            self.draw_timeline()
-    
-    def reset_zoom(self):
-        """Reset zoom to default"""
-        self.zoom_level = 1.0
-        self.draw_timeline()
-    
-    def previous_day(self):
-        """Go to previous day"""
-        self.current_date -= datetime.timedelta(days=1)
-        self.date_label.configure(text=self.current_date.strftime("%A, %B %d, %Y"))
-        self.load_timeline_data()
-    
-    def next_day(self):
-        """Go to next day"""
-        self.current_date += datetime.timedelta(days=1)
-        self.date_label.configure(text=self.current_date.strftime("%A, %B %d, %Y"))
-        self.load_timeline_data()
-    
-    def goto_today(self):
-        """Jump to today's date"""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.user = ''
         self.current_date = datetime.date.today()
-        self.date_label.configure(text=self.current_date.strftime("%A, %B %d, %Y"))
-        self.load_timeline_data()
-    
-    def use_item_from_timeline(self):
-        """Log item usage directly from the timeline, then refresh"""
-        barcode = self._prompt_for_input(
-            prompt="Scan item barcode",
-            title="Use Item - Scan Barcode",
-            numpad_mode=True
-        )
-        if barcode is None or barcode.strip() == "":
+        self.db = DatabaseManager()
+        self.personal_db = None
+
+    def set_user(self, user):
+        self.user = user
+        self.ids.title_label.text = f"{user}'s Personal Database"
+        try:
+            self.personal_db = PersonalDatabaseManager(user)
+        except Exception as e:
+            print(f"Personal DB error: {e}")
+            self.personal_db = None
+        self.current_date = datetime.date.today()
+        self.load_data()
+
+    def load_data(self):
+        self.ids.date_label.text = self.current_date.strftime("%A, %B %d, %Y")
+        self._load_prescriptions()
+        self._load_history()
+        self._load_as_needed()
+
+    def _load_prescriptions(self):
+        body = self.ids.presc_body
+        body.clear_widgets()
+        if not self.personal_db:
             return
-        
+        try:
+            _, raw = self.personal_db.get_personal_data(self.current_date)
+            body.add_widget(DataRow(['Name', 'Dose', 'Time', 'Leeway', 'As Needed']))
+            for p in raw:
+                if len(p) < 6:
+                    continue
+                if p[5] in (True, 1, "True"):
+                    continue  # shown in as-needed section
+                body.add_widget(DataRow([p[1], p[2], str(p[3] or '-'), str(p[4] or '-'), 'No']))
+        except Exception as e:
+            print(f"Prescription load error: {e}")
+
+    def _load_history(self):
+        body = self.ids.hist_body
+        body.clear_widgets()
+        if not self.personal_db:
+            return
+        try:
+            raw, _ = self.personal_db.get_personal_data(self.current_date)
+            body.add_widget(DataRow(['Name', 'Time', 'Amount', 'Matched']))
+            for h in raw:
+                if len(h) < 5:
+                    continue
+                matched = chr(0x2713) if h[4] else chr(0x2014)
+                body.add_widget(DataRow([h[1], str(h[2] or '-'), str(h[3]), matched]))
+        except Exception as e:
+            print(f"History load error: {e}")
+
+    def _load_as_needed(self):
+        body = self.ids.as_needed_body
+        body.clear_widgets()
+        if not self.personal_db:
+            return
+        try:
+            _, raw = self.personal_db.get_personal_data(self.current_date)
+            for p in raw:
+                if len(p) < 6:
+                    continue
+                if p[5] in (True, 1, "True"):
+                    body.add_widget(DataRow([f"  {p[1]}", f"Dose: {p[2]}"]))
+        except Exception as e:
+            print(f"As-needed load error: {e}")
+
+    def previous_day(self):
+        self.current_date -= datetime.timedelta(days=1)
+        self.load_data()
+
+    def next_day(self):
+        self.current_date += datetime.timedelta(days=1)
+        self.load_data()
+
+    def goto_today(self):
+        self.current_date = datetime.date.today()
+        self.load_data()
+
+    def use_item_from_personal(self):
+        InputPopup(
+            title='Scan Barcode', prompt='Scan item barcode:',
+            callback=self._on_personal_barcode,
+        ).open()
+
+    def _on_personal_barcode(self, barcode):
+        if not barcode:
+            return
         exists = self.db.check_if_barcode_exists(barcode)
         if not exists:
-            self._show_message("Invalid Barcode", f"Barcode {barcode} not found in inventory.", "error")
+            MessagePopup(title='Invalid', message=f'Barcode {barcode} not found.').open()
             return
-        
-        barcode = exists[1]
-        
-        amount_str = self._prompt_for_input(
-            prompt="Enter amount used",
-            title="Use Item - Amount",
-            numpad_mode=True,
-            allow_decimal=True
-        )
-        if amount_str is None or amount_str.strip() == "":
+        drug_name = exists[1]
+        InputPopup(
+            title='Amount', prompt='Enter amount used:',
+            validate_number=True,
+            callback=lambda amt: self._do_personal_use(drug_name, amt),
+        ).open()
+
+    def _do_personal_use(self, drug_name, amount_str):
+        if not amount_str:
             return
-        
+        amount = int(float(amount_str)) * -1
         try:
-            amount = int(float(amount_str)) * -1
-        except ValueError:
-            self._show_message("Invalid Amount", "Please enter a valid number.", "error")
-            return
-        
-        try:
-            self.db.log_access_to_inventory(barcode=barcode, change=amount, user=self.user)
-            self._show_message("Item Used", f"Logged usage of {barcode} by {self.user}", "info")
+            self.db.log_access_to_inventory(barcode=drug_name, change=amount, user=self.user)
+            MessagePopup(title='Used', message=f'Logged usage of {drug_name}').open()
+            self.load_data()
         except Exception as e:
-            self._show_message("Error", f"Failed to log item usage:\n{e}", "error")
-            return
-        
-        # Reload timeline to show the new activity
-        self.load_timeline_data()
+            MessagePopup(title='Error', message=str(e)).open()
 
-    def _prompt_for_input(self, prompt="Enter value", title="Input", numpad_mode=True, allow_decimal=False):
-        """Generic modal input dialog with numpad"""
-        dlg = ctk.CTkToplevel(self)
-        dlg.title(title)
-        dlg.transient(self)
-        dlg.resizable(False, False)
-        
-        ctk.CTkLabel(dlg, text=prompt, anchor="w", font=("Arial", 22)).pack(padx=25, pady=(22, 12))
-        
-        entry_var = tk.StringVar()
-        entry = ctk.CTkEntry(dlg, textvariable=entry_var, width=400, height=55, font=("Arial", 20))
-        entry.pack(padx=25, pady=(0, 22))
-        
-        result = {"value": None}
-        
-        def on_ok(event=None):
-            val = entry_var.get().strip()
-            if val == "":
-                return
-            if allow_decimal:
-                try:
-                    float(val)
-                except ValueError:
-                    self._show_message("Invalid", "Please enter a valid number.", "error")
-                    return
-            result["value"] = val
-            try:
-                dlg.grab_release()
-            except:
-                pass
-            dlg.destroy()
-        
-        def on_cancel(event=None):
-            try:
-                dlg.grab_release()
-            except:
-                pass
-            dlg.destroy()
-        
-        if numpad_mode:
-            numpad_frame = ctk.CTkFrame(dlg)
-            numpad_frame.pack(pady=(0, 18))
-            
-            last_row_keys = ['C', '0', '.' if allow_decimal else '<']
-            buttons = [
-                ['7', '8', '9'],
-                ['4', '5', '6'],
-                ['1', '2', '3'],
-                last_row_keys
-            ]
-            
-            def add_to_entry(value):
-                current = entry_var.get()
-                if value == '.' and '.' in current:
-                    return
-                entry_var.set(current + str(value))
-            
-            for i, row in enumerate(buttons):
-                for j, btn_text in enumerate(row):
-                    if btn_text == 'C':
-                        cmd = lambda: entry_var.set("")
-                    elif btn_text == '<':
-                        cmd = lambda: entry_var.set(entry_var.get()[:-1])
-                    else:
-                        cmd = lambda x=btn_text: add_to_entry(x)
-                    ctk.CTkButton(
-                        numpad_frame, text=btn_text, width=110, height=110,
-                        font=("Arial", 26), command=cmd
-                    ).grid(row=i, column=j, padx=10, pady=10)
-            
-            if allow_decimal:
-                ctk.CTkButton(
-                    numpad_frame, text="<", width=340, height=60,
-                    font=("Arial", 26), command=lambda: entry_var.set(entry_var.get()[:-1])
-                ).grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
-        
-        btn_frame = ctk.CTkFrame(dlg, corner_radius=6)
-        btn_frame.pack(pady=(0, 22), padx=18, fill="x")
-        ctk.CTkButton(btn_frame, text="OK", command=on_ok, width=160, height=55,
-                     font=("Arial", 20)).pack(side="left", padx=12, pady=12)
-        ctk.CTkButton(btn_frame, text="Cancel", command=on_cancel, width=160, height=55,
-                     font=("Arial", 20), fg_color="gray30").pack(side="right", padx=12, pady=12)
-        
-        entry.bind("<Return>", on_ok)
-        dlg.bind("<Escape>", on_cancel)
-        
-        dlg.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width()//2) - (dlg.winfo_reqwidth()//2)
-        y = self.winfo_rooty() + (self.winfo_height()//2) - (dlg.winfo_reqheight()//2)
-        dlg.geometry(f"+{x}+{y}")
-        
-        def do_grab():
-            try:
-                dlg.grab_set()
-                entry.focus_set()
-            except:
-                pass
-        dlg.after(50, do_grab)
-        
-        self.wait_window(dlg)
-        return result["value"]
+    def go_back(self):
+        self.manager.current = 'main'
 
-    def _show_message(self, title, message, msg_type="info"):
-        """Show a simple popup message from the personal DB window"""
-        popup = ctk.CTkToplevel(self)
-        popup.title(title)
-        popup.geometry("520x240")
-        popup.resizable(False, False)
-        
-        accent = {"error": "#dc2626", "warning": "#f59e0b"}.get(msg_type, "#3b82f6")
-        
-        ctk.CTkLabel(popup, text=title, font=("Arial", 22, "bold"), text_color=accent).pack(pady=(30, 18))
-        ctk.CTkLabel(popup, text=message, font=("Arial", 18), wraplength=460, justify="center").pack(pady=(0, 25))
-        ctk.CTkButton(popup, text="OK", command=popup.destroy, width=140, height=45,
-                     font=("Arial", 18), fg_color=accent).pack()
-        
-        self.update_idletasks()
-        x = self.winfo_rootx() + (self.winfo_width() // 2) - 260
-        y = self.winfo_rooty() + (self.winfo_height() // 2) - 120
-        popup.geometry(f"520x240+{x}+{y}")
-        
-        popup.transient(self)
-        popup.grab_set()
-        self.wait_window(popup)
-#endregion
 
 # ============================================================================
-# VIRTUAL KEYBOARD
+# APP
 # ============================================================================
-#region virtual keyboard
-class VirtualKeyboard(ctk.CTkToplevel):
-    """Virtual keyboard for touch screen input"""
-    
-    def __init__(self, parent, title="Virtual Keyboard", prompt="Enter text:", initial_text=""):
-        super().__init__(parent)
-        self.title(title)
-        self.transient(parent)
-        self.resizable(False, False)
-        
-        self.result = {"value": None}
-        self.shift_active = False
-        self.caps_lock = False
-        
-        self._setup_ui(prompt, initial_text)
-        self._center_window(parent)
-        
-        self.grab_set()
-        self.focus_force()
-    
-    def _setup_ui(self, prompt, initial_text):
-        """Setup keyboard UI"""
-        # Prompt label
-        ctk.CTkLabel(
-            self, 
-            text=prompt, 
-            anchor="w", 
-            font=("Arial", 22)
-        ).pack(padx=25, pady=(22, 12))
-        
-        # Text entry
-        self.entry_var = tk.StringVar(value=initial_text)
-        self.entry = ctk.CTkEntry(
-            self,
-            textvariable=self.entry_var,
-            width=800,
-            height=60,
-            font=("Arial", 20)
-        )
-        self.entry.pack(padx=25, pady=(0, 15))
-        self.entry.focus_set()
-        
-        # Keyboard frame
-        keyboard_frame = ctk.CTkFrame(self, corner_radius=6)
-        keyboard_frame.pack(padx=25, pady=(0, 15), fill="both", expand=True)
-        
-        # Define keyboard layout (QWERTY)
-        self.keys_layout = [
-            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='],
-            ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']'],
-            ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', "'"],
-            ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/']
-        ]
-        
-        # Special keys shifted versions
-        self.shift_map = {
-            '1': '!', '2': '@', '3': '#', '4': '$', '5': '%',
-            '6': '^', '7': '&', '8': '*', '9': '(', '0': ')',
-            '-': '_', '=': '+', '[': '{', ']': '}', ';': ':',
-            "'": '"', ',': '<', '.': '>', '/': '?'
-        }
-        
-        # Create keyboard rows
-        for row_idx, row in enumerate(self.keys_layout):
-            row_frame = ctk.CTkFrame(keyboard_frame, fg_color="transparent")
-            row_frame.pack(pady=5)
-            
-            # Add shift for third row
-            if row_idx == 2:
-                shift_btn = ctk.CTkButton(
-                    row_frame,
-                    text="⇧ Shift",
-                    command=self.toggle_shift,
-                    width=90,
-                    height=65,
-                    font=("Arial", 16)
-                )
-                shift_btn.pack(side="left", padx=3)
-                self.shift_btn = shift_btn
-            
-            # Add keys for this row
-            for key in row:
-                btn = ctk.CTkButton(
-                    row_frame,
-                    text=key.upper() if self.caps_lock or self.shift_active else key,
-                    command=lambda k=key: self.key_press(k),
-                    width=65,
-                    height=65,
-                    font=("Arial", 18, "bold")
-                )
-                btn.pack(side="left", padx=3)
-            
-            # Add backspace for first row
-            if row_idx == 0:
-                backspace_btn = ctk.CTkButton(
-                    row_frame,
-                    text="⌫",
-                    command=self.backspace,
-                    width=90,
-                    height=65,
-                    font=("Arial", 20),
-                    fg_color="#dc2626"
-                )
-                backspace_btn.pack(side="left", padx=3)
-        
-        # Bottom row with special keys
-        bottom_frame = ctk.CTkFrame(keyboard_frame, fg_color="transparent")
-        bottom_frame.pack(pady=5)
-        
-        ctk.CTkButton(
-            bottom_frame,
-            text="Caps",
-            command=self.toggle_caps,
-            width=90,
-            height=65,
-            font=("Arial", 16)
-        ).pack(side="left", padx=3)
-        
-        ctk.CTkButton(
-            bottom_frame,
-            text="Space",
-            command=lambda: self.key_press(' '),
-            width=400,
-            height=65,
-            font=("Arial", 18)
-        ).pack(side="left", padx=3)
-        
-        ctk.CTkButton(
-            bottom_frame,
-            text="Clear",
-            command=self.clear_all,
-            width=90,
-            height=65,
-            font=("Arial", 16),
-            fg_color="#f59e0b"
-        ).pack(side="left", padx=3)
-        
-        # Action buttons
-        action_frame = ctk.CTkFrame(self, corner_radius=6)
-        action_frame.pack(pady=(0, 22), padx=25, fill="x")
-        
-        ctk.CTkButton(
-            action_frame,
-            text="OK",
-            command=self.on_ok,
-            width=180,
-            height=60,
-            font=("Arial", 20),
-            fg_color="#22c55e"
-        ).pack(side="left", padx=12, pady=12)
-        
-        ctk.CTkButton(
-            action_frame,
-            text="Cancel",
-            command=self.on_cancel,
-            width=180,
-            height=60,
-            font=("Arial", 20),
-            fg_color="gray30"
-        ).pack(side="right", padx=12, pady=12)
-        
-        # Bind Enter and Escape
-        self.entry.bind("<Return>", lambda e: self.on_ok())
-        self.bind("<Escape>", lambda e: self.on_cancel())
-    
-    def key_press(self, key):
-        """Handle key press"""
-        current = self.entry_var.get()
-        
-        # Check if we need to use shifted version
-        if (self.shift_active or self.caps_lock) and key in self.shift_map:
-            key = self.shift_map[key]
-        elif self.shift_active or self.caps_lock:
-            key = key.upper()
-        
-        self.entry_var.set(current + key)
-        
-        # Reset shift after key press (but not caps lock)
-        if self.shift_active:
-            self.shift_active = False
-            self._update_key_display()
-    
-    def backspace(self):
-        """Remove last character"""
-        current = self.entry_var.get()
-        self.entry_var.set(current[:-1])
-    
-    def clear_all(self):
-        """Clear entire entry"""
-        self.entry_var.set("")
-    
-    def toggle_shift(self):
-        """Toggle shift state"""
-        self.shift_active = not self.shift_active
-        self._update_key_display()
-    
-    def toggle_caps(self):
-        """Toggle caps lock"""
-        self.caps_lock = not self.caps_lock
-        self.shift_active = False
-        self._update_key_display()
-    
-    def _update_key_display(self):
-        """Update keyboard key labels based on shift/caps state"""
-        # This would update all key button texts - simplified for now
-        # In a full implementation, you'd store references to all key buttons
-        # and update their text here
-        pass
-    
-    def on_ok(self):
-        """Handle OK button"""
-        self.result["value"] = self.entry_var.get().strip()
+
+class MedicalInventoryApp(App):
+    title = 'Medical Inventory System'
+
+    def build(self):
+        Window.clearcolor = (0.11, 0.11, 0.12, 1)
         try:
-            self.grab_release()
-        except:
-            pass
-        self.destroy()
-    
-    def on_cancel(self):
-        """Handle Cancel button"""
-        self.result["value"] = None
-        try:
-            self.grab_release()
-        except:
-            pass
-        self.destroy()
-    
-    def _center_window(self, parent):
-        """Center window on parent"""
-        self.update_idletasks()
-        
-        parent_x = parent.winfo_rootx()
-        parent_y = parent.winfo_rooty()
-        parent_width = parent.winfo_width()
-        parent_height = parent.winfo_height()
-        
-        window_width = self.winfo_reqwidth()
-        window_height = self.winfo_reqheight()
-        
-        x = parent_x + (parent_width - window_width) // 2
-        y = parent_y + (parent_height - window_height) // 2
-        
-        self.geometry(f"+{x}+{y}")
-    
-    @staticmethod
-    def get_input(parent, title="Virtual Keyboard", prompt="Enter text:", initial_text=""):
-        """Static method to show keyboard and get input"""
-        keyboard = VirtualKeyboard(parent, title, prompt, initial_text)
-        parent.wait_window(keyboard)
-        return keyboard.result["value"]
-#endregion
+            Window.fullscreen = 'auto'
+        except Exception:
+            Window.size = (1280, 800)
+
+        sm = ScreenManager()
+        sm.add_widget(MainScreen(name='main'))
+        sm.add_widget(HistoryScreen(name='history'))
+        sm.add_widget(PersonalScreen(name='personal'))
+        return sm
+
 
 # ============================================================================
-# MAIN ENTRY POINT
+# ENTRY POINT
 # ============================================================================
 
-if __name__ == "__main__":
-    app = BarcodeViewer()
-    app.mainloop()
+if __name__ == '__main__':
+    MedicalInventoryApp().run()
