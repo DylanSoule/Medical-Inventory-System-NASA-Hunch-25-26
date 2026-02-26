@@ -15,7 +15,7 @@ time_format = "%Y-%m-%d %H:%M:%S"
 class DatabaseManager:
     def __init__(self):
         self.user = 'root'
-        self.password = '1243'
+        self.password = '1234'
         self.database = 'inventory_system'
         # self.create_inventory()
 
@@ -237,7 +237,7 @@ class DatabaseManager:
         conn = mysql.connector.connect(
             host="localhost",
             user='root',
-            password='1243',
+            password='1234',
             database='inventory_system'
         )
         c = conn.cursor()
@@ -537,8 +537,8 @@ class DatabaseManager:
 class PersonalDatabaseManager:
     def __init__(self,access_user):
         self.user = 'root'
-        self.password = 1234
-        self.database = 'inventory-system'
+        self.password = '1234'
+        self.database = 'inventory_system'
         self.access_user = access_user
         conn = mysql.connector.connect(
             host="localhost",
@@ -791,7 +791,6 @@ class PersonalDatabaseManager:
         #         print(f"Error processing prescription {prescript}: {e}")
         #         continue
 
-        conn.close()
         conn.close()
         return hist_logs, prescript_logs
 
