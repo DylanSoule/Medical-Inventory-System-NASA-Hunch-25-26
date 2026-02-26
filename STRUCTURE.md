@@ -7,9 +7,18 @@ This document describes the organization of the Medical Inventory System reposit
 ```
 Medical-Inventory-System-NASA-Hunch-25-26/
 ├── src/                          # Source code
-│   ├── medical_inventory.py      # Main application GUI
-│   ├── facial_recognition.py     # Facial authentication module
-│   └── db_manager.py             # Database management
+│   ├── medical_inventory.py      # Entry point – launches the app
+│   ├── app.py                    # Kivy App class (wires screens + KV)
+│   ├── constants.py              # Shared constants (columns, admin code, etc.)
+│   ├── kv_styles.py              # All Kivy KV layout / style strings
+│   ├── widgets.py                # Reusable UI widgets (popups, numpad, rows)
+│   ├── screens/                  # One file per application screen
+│   │   ├── __init__.py           # Re-exports all screens
+│   │   ├── main_screen.py        # Main inventory table + actions
+│   │   ├── history_screen.py     # Change-log / history view
+│   │   └── personal_screen.py    # Per-user prescriptions & usage
+│   ├── database.py               # Database access layer (MySQL)
+│   └── facial_recognition.py     # Facial authentication module
 │
 ├── tests/                        # Test suite
 │   ├── test_medical_inventory.py # Application tests
