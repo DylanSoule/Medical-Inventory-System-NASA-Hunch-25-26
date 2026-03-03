@@ -14,19 +14,43 @@ from widgets import MessagePopup, InputPopup, DataRow
 
 
 class PersonalScreen(Screen):
-    """Personal database screen with prescription / history tables."""
+    """Per-user screen showing prescriptions, history, and as-needed meds.
+
+    Responsibilities
+    ----------------
+    * Show scheduled prescriptions for the active user.
+    * Show daily usage history with prescription-match indicators.
+    * List as-needed medications separately.
+    * Navigate between days and log usage from this view.
+    """
+
+    # ================================================================== #
+    # region           INITIALISATION                                     #
+    # ================================================================== #
 
     def __init__(self, **kwargs):
+        """Set up DB handles and default state."""
         super().__init__(**kwargs)
         self.user = ''
         self.current_date = datetime.date.today()
         self.db = DatabaseManager()
         self.personal_db = None
 
-    # ------------------------------------------------------------------
-    # Setup
-    # ------------------------------------------------------------------
+    # endregion
+
+    # ================================================================== #
+    # region           USER SETUP                                         #
+    # ================================================================== #
+
     def set_user(self, user):
+        """Initialise the screen for *user* — creates a PersonalDatabaseManager
+        and loads today's data.
+
+        Parameters
+        ----------
+        user : str
+            The name returned by facial recognition.
+        """
         self.user = user
         self.ids.title_label.text = f"{user}'s Personal Database"
         try:
@@ -37,16 +61,21 @@ class PersonalScreen(Screen):
         self.current_date = datetime.date.today()
         self.load_data()
 
-    # ------------------------------------------------------------------
-    # Data loading
-    # ------------------------------------------------------------------
+    # endregion
+
+    # ================================================================== #
+    # region           DATA LOADING                                       #
+    # ================================================================== #
+
     def load_data(self):
+        """Refresh all three sub-tables for ``self.current_date``."""
         self.ids.date_label.text = self.current_date.strftime("%A, %B %d, %Y")
         self._load_prescriptions()
         self._load_history()
         self._load_as_needed()
 
     def _load_prescriptions(self):
+        """Populate the scheduled-prescriptions table (excludes as-needed)."""
         body = self.ids.presc_body
         body.clear_widgets()
         if not self.personal_db:
@@ -64,6 +93,7 @@ class PersonalScreen(Screen):
             print(f"Prescription load error: {e}")
 
     def _load_history(self):
+        """Populate the usage-history table with match indicators."""
         body = self.ids.hist_body
         body.clear_widgets()
         if not self.personal_db:
@@ -80,6 +110,7 @@ class PersonalScreen(Screen):
             print(f"History load error: {e}")
 
     def _load_as_needed(self):
+        """Populate the as-needed medication list."""
         body = self.ids.as_needed_body
         body.clear_widgets()
         if not self.personal_db:
@@ -94,31 +125,42 @@ class PersonalScreen(Screen):
         except Exception as e:
             print(f"As-needed load error: {e}")
 
-    # ------------------------------------------------------------------
-    # Day navigation
-    # ------------------------------------------------------------------
+    # endregion
+
+    # ================================================================== #
+    # region           DAY NAVIGATION                                     #
+    # ================================================================== #
+
     def previous_day(self):
+        """Move to the previous calendar day and reload."""
         self.current_date -= datetime.timedelta(days=1)
         self.load_data()
 
     def next_day(self):
+        """Move to the next calendar day and reload."""
         self.current_date += datetime.timedelta(days=1)
         self.load_data()
 
     def goto_today(self):
+        """Jump back to today and reload."""
         self.current_date = datetime.date.today()
         self.load_data()
 
-    # ------------------------------------------------------------------
-    # Use item from personal view
-    # ------------------------------------------------------------------
+    # endregion
+
+    # ================================================================== #
+    # region           USE ITEM FROM PERSONAL VIEW                        #
+    # ================================================================== #
+
     def use_item_from_personal(self):
+        """Step 1 — prompt for the item barcode."""
         InputPopup(
             title='Scan Barcode', prompt='Scan item barcode:',
             callback=self._on_personal_barcode,
         ).open()
 
     def _on_personal_barcode(self, barcode):
+        """Step 2 — validate barcode exists, then prompt for amount."""
         if not barcode:
             return
         exists = self.db.check_if_barcode_exists(barcode)
@@ -133,6 +175,7 @@ class PersonalScreen(Screen):
         ).open()
 
     def _do_personal_use(self, drug_name, amount_str):
+        """Step 3 — log the negative amount change and refresh."""
         if not amount_str:
             return
         amount = int(float(amount_str)) * -1
@@ -143,5 +186,14 @@ class PersonalScreen(Screen):
         except Exception as e:
             MessagePopup(title='Error', message=str(e)).open()
 
+    # endregion
+
+    # ================================================================== #
+    # region           NAVIGATION                                         #
+    # ================================================================== #
+
     def go_back(self):
+        """Return to the main inventory screen."""
         self.manager.current = 'main'
+
+    # endregion

@@ -27,21 +27,32 @@ from widgets import (
 
 
 class MainScreen(Screen):
-    """Main inventory screen."""
+    """Primary screen — inventory data-table with sidebar controls.
+
+    Responsibilities
+    ----------------
+    * Display the inventory table with search / filter / column-toggle.
+    * Gate destructive or personal actions behind facial recognition.
+    * Restock, use-item, delete, and history workflows.
+    * Preload the facial-recognition model + camera on startup.
+    """
+
+    # ================================================================== #
+    # region           INITIALIZATION                                     #
+    # ================================================================== #
 
     def __init__(self, **kwargs):
+        """Set up DB handle, empty row cache, FR flags, and schedule UI init."""
         super().__init__(**kwargs)
         self.db = DatabaseManager()
-        self._all_rows = []
-        self.fr_ready = False
-        self.camera_ready = False
+        self._all_rows = []          # raw rows from the DB
+        self.fr_ready = False        # True once FR model is loaded
+        self.camera_ready = False    # True once a camera frame is captured
         self.visible_columns = {col_id: True for col_id, _, _ in COLUMNS}
         Clock.schedule_once(self._init_ui, 0)
 
-    # ------------------------------------------------------------------
-    # Initialisation helpers
-    # ------------------------------------------------------------------
     def _init_ui(self, dt):
+        """Called once after the KV tree is built — wire up everything."""
         self._build_header()
         self._build_column_checkboxes()
         self._start_preloading()
@@ -49,10 +60,14 @@ class MainScreen(Screen):
         self.load_data()
         Clock.schedule_interval(lambda dt: self.load_data(), REFRESH_INTERVAL)
 
-    # ------------------------------------------------------------------
-    # Column checkboxes
-    # ------------------------------------------------------------------
+    # endregion
+
+    # ================================================================== #
+    # region           TABLE HEADER & COLUMN TOGGLES                      #
+    # ================================================================== #
+
     def _build_column_checkboxes(self):
+        """Populate the sidebar with a checkbox for every COLUMNS entry."""
         container = self.ids.col_checks
         container.clear_widgets()
         for col_id, label, _ in COLUMNS:
@@ -65,14 +80,13 @@ class MainScreen(Screen):
             container.add_widget(row)
 
     def _toggle_column(self, col_id, visible):
+        """Show or hide a column, then rebuild the header and re-filter."""
         self.visible_columns[col_id] = visible
         self._build_header()
         self.apply_filters()
 
-    # ------------------------------------------------------------------
-    # Header
-    # ------------------------------------------------------------------
     def _build_header(self):
+        """Rebuild the header row labels based on current column visibility."""
         header = self.ids.header_row
         header.clear_widgets()
         for col_id, label, _ in COLUMNS:
@@ -82,10 +96,14 @@ class MainScreen(Screen):
                 lbl.bind(size=lbl.setter('text_size'))
                 header.add_widget(lbl)
 
-    # ------------------------------------------------------------------
-    # Data loading & filtering
-    # ------------------------------------------------------------------
+    # endregion
+
+    # ================================================================== #
+    # region           DATA LOADING & FILTERING                           #
+    # ================================================================== #
+
     def load_data(self):
+        """Pull fresh inventory rows from the database and refresh the table."""
         try:
             self._all_rows = list(self.db.pull_data("drugs_in_inventory"))
         except Exception as e:
@@ -94,6 +112,8 @@ class MainScreen(Screen):
         self.apply_filters()
 
     def apply_filters(self, *args):
+        """Re-render the table body honouring search text, spinner filter,
+        low-stock checkbox, and visible-column selections."""
         body = self.ids.table_body
         body.clear_widgets()
 
@@ -112,13 +132,13 @@ class MainScreen(Screen):
             except (IndexError, ValueError):
                 continue
 
-            # Search
+            # --- search filter ---
             if query:
-                fields = [str(v).lower() for v in (drug, barcode, type_, dose_size, item_loc)]
+                fields = [str(v).lower() for v in (type_, drug, barcode, dose_size, item_loc)]
                 if not any(query in f for f in fields):
                     continue
 
-            # Low stock
+            # --- low-stock filter ---
             if low_only:
                 try:
                     if float(est_amount) > 20:
@@ -126,7 +146,7 @@ class MainScreen(Screen):
                 except (ValueError, TypeError):
                     continue
 
-            # Expiration filter
+            # --- expiration filter ---
             exp_date = self._parse_date(exp_date_raw)
             if mode == "Expired" and (not exp_date or exp_date >= now):
                 continue
@@ -137,7 +157,7 @@ class MainScreen(Screen):
                 if delta < 0 or delta > 30:
                     continue
 
-            full = (drug, barcode, est_amount, exp_date_raw, type_, dose_size, item_loc)
+            full = (type_, drug, barcode, est_amount, exp_date_raw, dose_size, item_loc)
             display = tuple(
                 full[i] for i, (cid, _, _) in enumerate(COLUMNS)
                 if cid in visible_ids
@@ -153,6 +173,7 @@ class MainScreen(Screen):
 
     @staticmethod
     def _parse_date(d):
+        """Try common date formats and return a ``datetime.date`` or None."""
         if not d:
             return None
         if isinstance(d, datetime.date):
@@ -165,10 +186,14 @@ class MainScreen(Screen):
                 continue
         return None
 
-    # ------------------------------------------------------------------
-    # Facial recognition helpers
-    # ------------------------------------------------------------------
+    # endregion
+
+    # ================================================================== #
+    # region           FACIAL RECOGNITION                                 #
+    # ================================================================== #
+
     def _start_preloading(self):
+        """Spin up a daemon thread that loads the FR model + reference embeddings."""
         def worker():
             try:
                 result = fr.preload_everything()
@@ -186,6 +211,7 @@ class MainScreen(Screen):
         threading.Thread(target=worker, daemon=True).start()
 
     def _start_camera_monitor(self):
+        """Daemon thread that retries camera init with exponential back-off."""
         def monitor():
             interval = 5
             while True:
@@ -205,7 +231,15 @@ class MainScreen(Screen):
         threading.Thread(target=monitor, daemon=True).start()
 
     def scan_face(self, purpose, callback):
-        """Run face recognition in background, then call callback(name) on main thread."""
+        """Run face recognition in a background thread.
+
+        Parameters
+        ----------
+        purpose : str
+            Human-readable label (unused, kept for future logging).
+        callback : callable(name: str | None)
+            Called on the main thread with the detected name, or None.
+        """
         if not self.fr_ready:
             MessagePopup(title='Please Wait', message='System is still loading.').open()
             return
@@ -225,6 +259,7 @@ class MainScreen(Screen):
         threading.Thread(target=worker, daemon=True).start()
 
     def _handle_fr_result(self, result, callback):
+        """Interpret the FR return value and invoke *callback* with the name or None."""
         if isinstance(result, FaceRecognitionError):
             MessagePopup(title='FR Error', message=result.message).open()
             if result in (FaceRecognitionError.CAMERA_ERROR,
@@ -239,10 +274,14 @@ class MainScreen(Screen):
             MessagePopup(title='Face Recognition', message='No known face detected.').open()
             callback(None)
 
-    # ------------------------------------------------------------------
-    # User actions
-    # ------------------------------------------------------------------
+    # endregion
+
+    # ================================================================== #
+    # region           SEARCH                                             #
+    # ================================================================== #
+
     def show_search_keyboard(self):
+        """Open the virtual keyboard pre-filled with the current search text."""
         VirtualKeyboardPopup(
             prompt='Search terms:',
             initial_text=self.ids.search_input.text,
@@ -250,31 +289,48 @@ class MainScreen(Screen):
         ).open()
 
     def _set_search(self, val):
+        """Apply the keyboard result back to the search TextInput."""
         if val is not None:
             self.ids.search_input.text = val
 
+    # endregion
+
+    # ================================================================== #
+    # region           LOG ITEM USE (entry point → choice → flow)         #
+    # ================================================================== #
+
     def log_item_use(self):
+        """Gate behind FR, then present the Restock / Use choice."""
         self.scan_face('log item use', self._on_log_face)
 
     def _on_log_face(self, user):
+        """FR callback — open the choice popup if a face was detected."""
         if not user:
             return
         ChoicePopup(callback=lambda choice: self._on_log_choice(choice, user)).open()
 
     def _on_log_choice(self, choice, user):
+        """Route the user's choice to the correct workflow."""
         if choice == 'restock':
             self._restock(user)
         elif choice == 'use':
             self._use_item(user)
 
-    # -- Restock flow --
+    # endregion
+
+    # ================================================================== #
+    # region           RESTOCK FLOW                                       #
+    # ================================================================== #
+
     def _restock(self, user):
+        """Step 1 — prompt for a barcode to restock."""
         InputPopup(
             title='Scan Barcode', prompt='Scan barcode:',
             callback=lambda bc: self._do_restock(bc, user),
         ).open()
 
     def _do_restock(self, barcode, user):
+        """Step 2 — prompt for the storage location."""
         if not barcode:
             return
         InputPopup(
@@ -283,6 +339,7 @@ class MainScreen(Screen):
         ).open()
 
     def _finish_restock(self, barcode, user, location):
+        """Step 3 — write to DB and show success / error feedback."""
         result = self.db.add_to_inventory(barcode, user, location)
         if result == LookupError:
             MessagePopup(title='Error', message=f'No drug found: {barcode}').open()
@@ -295,14 +352,21 @@ class MainScreen(Screen):
             MessagePopup(title='Logged', message=f'Restocked {barcode} at {now} by {user}').open()
             self.load_data()
 
-    # -- Use item flow --
+    # endregion
+
+    # ================================================================== #
+    # region           USE ITEM FLOW                                      #
+    # ================================================================== #
+
     def _use_item(self, user):
+        """Step 1 — prompt for the item barcode."""
         InputPopup(
             title='Scan Barcode', prompt='Scan item barcode:',
             callback=lambda bc: self._on_use_barcode(bc, user),
         ).open()
 
     def _on_use_barcode(self, barcode, user):
+        """Step 2 — validate barcode exists, then prompt for amount."""
         if not barcode:
             return
         exists = self.db.check_if_barcode_exists(barcode)
@@ -317,6 +381,7 @@ class MainScreen(Screen):
         ).open()
 
     def _do_use(self, drug_name, amount_str, user):
+        """Step 3 — log the negative amount change and refresh the table."""
         if not amount_str:
             return
         amount = int(float(amount_str)) * -1
@@ -329,22 +394,36 @@ class MainScreen(Screen):
         except Exception as e:
             MessagePopup(title='Error', message=str(e)).open()
 
-    # -- Personal DB --
+    # endregion
+
+    # ================================================================== #
+    # region           PERSONAL DATABASE                                  #
+    # ================================================================== #
+
     def personal_run(self):
+        """Gate behind FR, then navigate to the PersonalScreen."""
         self.scan_face('access personal DB', self._on_personal_face)
 
     def _on_personal_face(self, user):
+        """FR callback — switch to the personal screen for *user*."""
         if not user:
             return
         personal = self.manager.get_screen('personal')
         personal.set_user(user)
         self.manager.current = 'personal'
 
-    # -- Delete --
+    # endregion
+
+    # ================================================================== #
+    # region           DELETE SELECTED ROWS                               #
+    # ================================================================== #
+
     def delete_selected(self):
+        """Gate behind admin auth, then start the delete flow."""
         self._admin_auth(self._do_delete)
 
     def _do_delete(self):
+        """Collect selected rows and prompt for a deletion reason."""
         body = self.ids.table_body
         selected = [w for w in body.children if isinstance(w, DataRow) and w.selected]
         if not selected:
@@ -356,6 +435,7 @@ class MainScreen(Screen):
         ).open()
 
     def _confirm_delete(self, selected, reason):
+        """Validate the reason, then show a Yes/No confirmation."""
         if not reason or not reason.strip():
             MessagePopup(title='Error', message='A deletion reason is required.').open()
             return
@@ -366,6 +446,7 @@ class MainScreen(Screen):
         ).open()
 
     def _execute_delete(self, selected, reason):
+        """Delete every selected row from the DB and refresh the table."""
         try:
             for row in selected:
                 barcode = row.row_data[1] if len(row.row_data) > 1 else row.row_data[0]
@@ -375,17 +456,36 @@ class MainScreen(Screen):
         except Exception as e:
             MessagePopup(title='Error', message=str(e)).open()
 
-    # -- History --
+    # endregion
+
+    # ================================================================== #
+    # region           HISTORY NAVIGATION                                 #
+    # ================================================================== #
+
     def show_history(self):
+        """Gate behind admin auth, then navigate to the HistoryScreen."""
         self._admin_auth(self._go_history)
 
     def _go_history(self):
+        """Load history data and switch to the history screen."""
         history = self.manager.get_screen('history')
         history.load_data()
         self.manager.current = 'history'
 
-    # -- Admin auth (shared helper) --
+    # endregion
+
+    # ================================================================== #
+    # region           ADMIN AUTHENTICATION                               #
+    # ================================================================== #
+
     def _admin_auth(self, on_success):
+        """Show a password input; call *on_success()* only if code matches.
+
+        Parameters
+        ----------
+        on_success : callable
+            No-arg function invoked when the correct admin code is entered.
+        """
         InputPopup(
             title='Admin Auth', prompt='Enter admin code:',
             is_password=True,
@@ -393,9 +493,12 @@ class MainScreen(Screen):
         ).open()
 
     def _check_admin(self, val, on_success):
+        """Compare *val* against ADMIN_CODE and proceed or deny."""
         if val is None:
             return
         if str(val) == ADMIN_CODE:
             on_success()
         else:
             MessagePopup(title='Denied', message='Incorrect admin code.').open()
+
+    # endregion

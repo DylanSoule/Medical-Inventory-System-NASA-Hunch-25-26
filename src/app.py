@@ -24,10 +24,29 @@ from screens import MainScreen, HistoryScreen, PersonalScreen  # noqa: E402
 Builder.load_string(KV)
 
 
+# ====================================================================== #
+# region           APPLICATION                                            #
+# ====================================================================== #
+
 class MedicalInventoryApp(App):
+    """Top-level Kivy application.
+
+    Responsibilities
+    ----------------
+    * Set window appearance (colour, fullscreen).
+    * Create the ScreenManager with all three screens.
+    """
+
     title = 'Medical Inventory System'
 
     def build(self):
+        """Configure the window and return the root ScreenManager.
+
+        Returns
+        -------
+        ScreenManager
+            Contains MainScreen, HistoryScreen, and PersonalScreen.
+        """
         Window.clearcolor = (0.11, 0.11, 0.12, 1)
         try:
             Window.fullscreen = 'auto'
@@ -39,3 +58,5 @@ class MedicalInventoryApp(App):
         sm.add_widget(HistoryScreen(name='history'))
         sm.add_widget(PersonalScreen(name='personal'))
         return sm
+
+# endregion
