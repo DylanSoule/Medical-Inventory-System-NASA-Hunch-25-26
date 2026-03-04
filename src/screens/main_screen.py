@@ -80,7 +80,7 @@ class MainScreen(Screen):
             cb.bind(active=lambda inst, val, cid=col_id: self._toggle_column(cid, val))
             column_filters.add_widget(lbl)
             column_filters.add_widget(cb)
-
+            # ADD ACTION BAR INSTEAD OF CHECK BOXES
     def _toggle_column(self, col_id, visible):
         """Show or hide a column, then rebuild the header and re-filter."""
         self.visible_columns[col_id] = visible

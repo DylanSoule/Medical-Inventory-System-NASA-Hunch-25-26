@@ -3,15 +3,34 @@ Medical Inventory System - Kivy KV Language Definitions
 
 All UI layout / style strings live here so the Python modules
 stay focused on logic.
+
+Sections:
+    1. Imports
+    2. Base Themed Widgets (Label, Button, Danger, Success)
+    3. Numpad Widget
+    4. Popups (Message, Confirm, Input, Virtual Keyboard, Choice)
+    5. Table Components (DataRow, HeaderRow)
+    6. Main Screen (Sidebar: Search/Filters/Actions | Content: Data Table)
+    7. History Screen
+    8. Personal Database Screen
 """
 
 KV = """
+# ============================================================
+# 1. IMPORTS
+# ============================================================
 #:import dp kivy.metrics.dp
 
+# ============================================================
+# 2. BASE THEMED WIDGETS
+# ============================================================
+
+# -- Standard label with white text --
 <ThemedLabel@Label>:
     font_size: dp(16)
     color: 1, 1, 1, 1
 
+# -- Standard button (blue) --
 <ThemedButton@Button>:
     font_size: dp(16)
     size_hint_y: None
@@ -19,20 +38,30 @@ KV = """
     background_color: 0.24, 0.51, 0.78, 1
     background_normal: ''
 
+# -- Danger button (red) --
 <DangerButton@ThemedButton>:
     background_color: 0.7, 0.13, 0.13, 1
 
+# -- Success button (green) --
 <SuccessButton@ThemedButton>:
     background_color: 0.13, 0.77, 0.37, 1
 
-# --- Numpad Widget (reusable) ---
+# ============================================================
+# 3. NUMPAD WIDGET (reusable on-screen number pad)
+# ============================================================
 <NumpadWidget>:
     cols: 3
     spacing: dp(8)
     size_hint_y: None
     height: dp(280)
 
-# --- Message Popup ---
+# ============================================================
+# 4. POPUPS
+# ============================================================
+
+# ------------------------------------------------------------
+# 4a. Message Popup — simple dismissable alert
+# ------------------------------------------------------------
 <MessagePopup>:
     size_hint: 0.5, 0.4
     auto_dismiss: True
@@ -60,7 +89,9 @@ KV = """
             size_hint_x: 0.5
             pos_hint: {'center_x': 0.5}
 
-# --- Confirm Popup ---
+# ------------------------------------------------------------
+# 4b. Confirm Popup — Yes / No confirmation dialog
+# ------------------------------------------------------------
 <ConfirmPopup>:
     size_hint: 0.5, 0.4
     auto_dismiss: False
@@ -92,7 +123,10 @@ KV = """
                 text: 'No'
                 on_release: root.on_no()
 
-# --- Input Popup (barcode / amount / admin / date) ---
+# ------------------------------------------------------------
+# 4c. Input Popup — barcode / amount / admin / date entry
+#     Includes numpad for touch-friendly number input
+# ------------------------------------------------------------
 <InputPopup>:
     size_hint: 0.55, 0.75
     auto_dismiss: False
@@ -107,11 +141,15 @@ KV = """
                 pos: self.pos
                 size: self.size
                 radius: [dp(12)]
+
+        # -- Prompt label --
         Label:
             text: root.prompt
             font_size: dp(18)
             size_hint_y: None
             height: dp(40)
+
+        # -- Text input field --
         TextInput:
             id: input_field
             text: root.input_text
@@ -122,9 +160,13 @@ KV = """
             password: root.is_password
             on_text: root.input_text = self.text
             on_text_validate: root.on_ok()
+
+        # -- Numpad grid --
         NumpadWidget:
             id: numpad
             on_key: root.on_numpad_key(args[1])
+
+        # -- OK / Cancel buttons --
         BoxLayout:
             size_hint_y: None
             height: dp(50)
@@ -141,7 +183,9 @@ KV = """
                 background_normal: ''
                 on_release: root.on_cancel()
 
-# --- Virtual Keyboard Popup ---
+# ------------------------------------------------------------
+# 4d. Virtual Keyboard Popup — full alpha-numeric keyboard
+# ------------------------------------------------------------
 <VirtualKeyboardPopup>:
     size_hint: 0.85, 0.8
     auto_dismiss: False
@@ -156,11 +200,15 @@ KV = """
                 pos: self.pos
                 size: self.size
                 radius: [dp(12)]
+
+        # -- Prompt label --
         Label:
             text: root.prompt
             font_size: dp(18)
             size_hint_y: None
             height: dp(35)
+
+        # -- Text input field --
         TextInput:
             id: kb_input
             text: root.input_text
@@ -169,11 +217,15 @@ KV = """
             height: dp(48)
             multiline: False
             on_text: root.input_text = self.text
+
+        # -- Keyboard rows (populated dynamically) --
         BoxLayout:
             id: keyboard_rows
             orientation: 'vertical'
             spacing: dp(4)
             size_hint_y: 0.65
+
+        # -- OK / Cancel buttons --
         BoxLayout:
             size_hint_y: None
             height: dp(50)
@@ -190,7 +242,9 @@ KV = """
                 background_normal: ''
                 on_release: root.on_cancel()
 
-# --- Choice Popup (Restock / Use Item) ---
+# ------------------------------------------------------------
+# 4e. Choice Popup — Restock / Use Item action selector
+# ------------------------------------------------------------
 <ChoicePopup>:
     size_hint: 0.5, 0.45
     auto_dismiss: False
@@ -205,12 +259,16 @@ KV = """
                 pos: self.pos
                 size: self.size
                 radius: [dp(12)]
+
+        # -- Title --
         Label:
             text: 'Select Action Type'
             font_size: dp(22)
             bold: True
             size_hint_y: None
             height: dp(40)
+
+        # -- Description --
         Label:
             text: 'Choose whether to restock an item or log usage:'
             font_size: dp(15)
@@ -218,6 +276,8 @@ KV = """
             halign: 'center'
             size_hint_y: None
             height: dp(40)
+
+        # -- Action buttons --
         BoxLayout:
             spacing: dp(12)
             size_hint_y: None
@@ -237,7 +297,11 @@ KV = """
                 background_normal: ''
                 on_release: root.choose(None)
 
-# --- Data Row ---
+# ============================================================
+# 5. TABLE COMPONENTS
+# ============================================================
+
+# -- Data Row — single selectable inventory row --
 <DataRow>:
     size_hint_y: None
     height: dp(44)
@@ -249,7 +313,7 @@ KV = """
             pos: self.pos
             size: self.size
 
-# --- Header Row ---
+# -- Header Row — column titles for data tables --
 <HeaderRow>:
     size_hint_y: None
     height: dp(44)
@@ -261,7 +325,9 @@ KV = """
             pos: self.pos
             size: self.size
 
-# --- Main Screen ---
+# ============================================================
+# 6. MAIN SCREEN
+# ============================================================
 <MainScreen>:
     BoxLayout:
         orientation: 'vertical'
@@ -272,7 +338,7 @@ KV = """
                 pos: self.pos
                 size: self.size
 
-        # Title bar
+        # -- Title bar --
         Label:
             text: 'Medical Inventory System'
             font_size: dp(28)
@@ -284,7 +350,9 @@ KV = """
             padding: dp(10)
             spacing: dp(10)
 
-            # Sidebar
+            # ------------------------------------------------
+            # 6a. SIDEBAR
+            # ------------------------------------------------
             BoxLayout:
                 orientation: 'vertical'
                 size_hint_x: 0.28
@@ -298,14 +366,14 @@ KV = """
                         size: self.size
                         radius: [dp(8)]
 
-                # --- Pinned top: Search & Filters ---
+                # -- Pinned top: Search & Filters --
                 BoxLayout:
                     orientation: 'vertical'
                     size_hint_y: None
                     height: self.minimum_height
                     spacing: dp(6)
 
-                    # Search
+                    # -- Search bar --
                     Label:
                         text: 'Search'
                         font_size: dp(16)
@@ -332,7 +400,7 @@ KV = """
                             background_color: 0.24, 0.51, 0.78, 1
                             on_release: root.show_search_keyboard()
 
-                    # Filters
+                    # -- Expiration filter dropdown --
                     Label:
                         text: 'Filters'
                         font_size: dp(16)
@@ -348,6 +416,8 @@ KV = """
                         height: dp(42)
                         font_size: dp(15)
                         on_text: root.apply_filters()
+
+                    # -- Low stock checkbox --
                     BoxLayout:
                         size_hint_y: None
                         height: dp(36)
@@ -364,10 +434,10 @@ KV = """
                             halign: 'left'
                             text_size: self.width, None
 
-                # Spacer to push buttons down
+                # -- Spacer (pushes action buttons to bottom) --
                 Widget:
 
-                # Action buttons
+                # -- Action buttons --
                 BoxLayout:
                     orientation: 'vertical'
                     size_hint_y: None
@@ -393,7 +463,9 @@ KV = """
                         text: 'Quit'
                         on_release: app.stop()
 
-            # Content (data table)
+            # ------------------------------------------------
+            # 6b. CONTENT AREA — Data Table
+            # ------------------------------------------------
             BoxLayout:
                 orientation: 'vertical'
                 canvas.before:
@@ -403,14 +475,20 @@ KV = """
                         pos: self.pos
                         size: self.size
                         radius: [dp(10)]
+
+                # -- Per-column filter inputs --
                 BoxLayout:
                     id: column_filters
                     orientation: 'horizontal'
                     size_hint_y: None
                     height: dp(40)
                     spacing: dp(4)
+
+                # -- Table header --
                 HeaderRow:
                     id: header_row
+
+                # -- Scrollable table body --
                 ScrollView:
                     id: table_scroll
                     GridLayout:
@@ -421,7 +499,9 @@ KV = """
                         spacing: dp(1)
                         padding: dp(2)
 
-# --- History Screen ---
+# ============================================================
+# 7. HISTORY SCREEN
+# ============================================================
 <HistoryScreen>:
     BoxLayout:
         orientation: 'vertical'
@@ -434,6 +514,7 @@ KV = """
                 pos: self.pos
                 size: self.size
 
+        # -- Top bar: Pattern Recognition & Close --
         BoxLayout:
             size_hint_y: None
             height: dp(55)
@@ -449,9 +530,11 @@ KV = """
                 on_release: root.go_back()
                 size_hint_x: 0.3
 
+        # -- History table header --
         HeaderRow:
             id: hist_header
 
+        # -- Scrollable history rows --
         ScrollView:
             GridLayout:
                 id: hist_body
@@ -460,7 +543,9 @@ KV = """
                 height: self.minimum_height
                 spacing: dp(1)
 
-# --- Personal DB Screen ---
+# ============================================================
+# 8. PERSONAL DATABASE SCREEN
+# ============================================================
 <PersonalScreen>:
     BoxLayout:
         orientation: 'vertical'
@@ -473,6 +558,7 @@ KV = """
                 pos: self.pos
                 size: self.size
 
+        # -- Screen title --
         Label:
             id: title_label
             text: 'Personal Database'
@@ -481,7 +567,7 @@ KV = """
             size_hint_y: None
             height: dp(45)
 
-        # Date navigation
+        # -- Date navigation (previous / current / next) --
         BoxLayout:
             size_hint_y: None
             height: dp(42)
@@ -501,7 +587,7 @@ KV = """
                 on_release: root.next_day()
                 size_hint_x: 0.25
 
-        # Prescriptions
+        # -- Scheduled Prescriptions section --
         Label:
             text: 'Scheduled Prescriptions'
             font_size: dp(16)
@@ -520,7 +606,7 @@ KV = """
                 height: self.minimum_height
                 spacing: dp(1)
 
-        # Usage History
+        # -- Usage History section --
         Label:
             text: 'Usage History (Today)'
             font_size: dp(16)
@@ -539,7 +625,7 @@ KV = """
                 height: self.minimum_height
                 spacing: dp(1)
 
-        # As-needed
+        # -- As-Needed Medications section --
         Label:
             text: 'As-Needed Medications'
             font_size: dp(16)
@@ -558,7 +644,7 @@ KV = """
                 height: self.minimum_height
                 spacing: dp(1)
 
-        # Controls
+        # -- Bottom controls (Use Item / Today / Close) --
         BoxLayout:
             size_hint_y: None
             height: dp(46)
