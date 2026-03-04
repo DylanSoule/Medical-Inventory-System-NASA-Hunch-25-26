@@ -15,7 +15,8 @@ from kivy.uix.popup import Popup
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.metrics import dp
-
+from kivy.uix.widget import Widget
+from kivy.graphics import Color, Rectangle
 
 # ====================================================================== #
 # region           NUMPAD WIDGET                                          #
@@ -333,15 +334,18 @@ class DataRow(BoxLayout):
     selected = BooleanProperty(False)
     row_data = ListProperty([])
 
-    def __init__(self, values, **kwargs):
-        """Create one Label per value."""
+    def __init__(self, row_data, **kwargs):
         super().__init__(**kwargs)
-        self.row_data = list(values)
-        for val in values:
-            lbl = Label(
-                text=str(val), font_size=dp(14),
-                halign='left', valign='middle',
-            )
+        self.orientation = 'horizontal'
+        self.size_hint_y = None
+        self.height = dp(36)
+        self.selected = False
+        self.row_data = list(row_data)
+
+        for i, val in enumerate(row_data):
+            if i > 0:
+                self.add_widget(self._column_separator())
+            lbl = Label(text=str(val), font_size=dp(14), halign='left', valign='middle', padding=(dp(4), 0))
             lbl.bind(size=lbl.setter('text_size'))
             self.add_widget(lbl)
 
@@ -352,6 +356,16 @@ class DataRow(BoxLayout):
             return True
         return super().on_touch_down(touch)
 
+    @staticmethod
+    def _column_separator():
+        """Return a thin vertical line widget to visually separate columns."""
+        sep = Widget(size_hint_x=None, width=dp(1))
+        with sep.canvas:
+            Color(1, 1, 1, 0.15)
+            sep._rect = Rectangle(pos=sep.pos, size=sep.size)
+        sep.bind(pos=lambda w, p: setattr(w._rect, 'pos', p),
+                 size=lambda w, s: setattr(w._rect, 'size', s))
+        return sep
 
 class HeaderRow(BoxLayout):
     """Column header row — styled via KV, populated programmatically."""

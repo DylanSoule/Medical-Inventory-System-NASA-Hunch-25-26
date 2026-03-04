@@ -1,6 +1,9 @@
 # Core GUI
 kivy>=2.3.0
 
+# Database
+mysql-connector-python>=8.0.0
+
 # Computer Vision and Image Processing
 opencv-python>=4.8.0
 numpy>=1.24.0

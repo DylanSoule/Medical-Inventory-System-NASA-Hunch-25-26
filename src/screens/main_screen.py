@@ -15,6 +15,8 @@ from kivy.uix.checkbox import CheckBox
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen
 from kivy.metrics import dp
+from kivy.uix.widget import Widget
+from kivy.graphics import Color, Rectangle
 
 import facial_recognition as fr
 from database import DatabaseManager
@@ -53,8 +55,8 @@ class MainScreen(Screen):
 
     def _init_ui(self, dt):
         """Called once after the KV tree is built — wire up everything."""
-        self._build_header()
         self._build_column_checkboxes()
+        self._build_header()
         self._start_preloading()
         self._start_camera_monitor()
         self.load_data()
@@ -68,20 +70,21 @@ class MainScreen(Screen):
 
     def _build_column_checkboxes(self):
         """Populate the sidebar with a checkbox for every COLUMNS entry."""
-        container = self.ids.col_checks
-        container.clear_widgets()
+        column_filters = self.ids.column_filters
+        column_filters.clear_widgets()
+
         for col_id, label, _ in COLUMNS:
-            row = BoxLayout(size_hint_y=None, height=dp(32), spacing=dp(4))
+            lbl = Label(text=label, font_size=dp(15), bold=True, halign='left', valign='middle', padding=(dp(4), 0))
+            lbl.bind(size=lbl.setter('text_size'))
             cb = CheckBox(active=True, size_hint_x=None, width=dp(32))
             cb.bind(active=lambda inst, val, cid=col_id: self._toggle_column(cid, val))
-            row.add_widget(cb)
-            row.add_widget(Label(text=label, font_size=dp(14), halign='left',
-                                 text_size=(None, None)))
-            container.add_widget(row)
+            column_filters.add_widget(lbl)
+            column_filters.add_widget(cb)
 
     def _toggle_column(self, col_id, visible):
         """Show or hide a column, then rebuild the header and re-filter."""
         self.visible_columns[col_id] = visible
+        
         self._build_header()
         self.apply_filters()
 
@@ -89,12 +92,25 @@ class MainScreen(Screen):
         """Rebuild the header row labels based on current column visibility."""
         header = self.ids.header_row
         header.clear_widgets()
-        for col_id, label, _ in COLUMNS:
-            if self.visible_columns.get(col_id, True):
-                lbl = Label(text=label, font_size=dp(15), bold=True,
-                            halign='left', valign='middle')
-                lbl.bind(size=lbl.setter('text_size'))
-                header.add_widget(lbl)
+        visible = [(col_id, label) for col_id, label, _ in COLUMNS
+                    if self.visible_columns.get(col_id, True)]
+        for i, (col_id, label) in enumerate(visible):
+            if i > 0:
+                header.add_widget(self._column_separator())
+            lbl = Label(text=label, font_size=dp(15), bold=True, halign='left', valign='middle', padding=(dp(4), 0))
+            lbl.bind(size=lbl.setter('text_size'))
+            header.add_widget(lbl)
+
+    @staticmethod
+    def _column_separator():
+        """Return a thin vertical line widget to visually separate columns."""
+        sep = Widget(size_hint_x=None, width=dp(1))
+        with sep.canvas:
+            Color(1, 1, 1, 0.15)  # faint white line (adjust alpha for intensity)
+            sep._rect = Rectangle(pos=sep.pos, size=sep.size)
+        sep.bind(pos=lambda w, p: setattr(w._rect, 'pos', p),
+                 size=lambda w, s: setattr(w._rect, 'size', s))
+        return sep
 
     # endregion
 
@@ -126,6 +142,7 @@ class MainScreen(Screen):
 
         filtered = []
         for row in self._all_rows:
+            # SQL returns: (name, barcode, est_amt, exp_date, type, dosage, location)
             try:
                 drug, barcode, est_amount = row[0], row[1], row[2]
                 exp_date_raw, type_, dose_size, item_loc = row[3], row[4], row[5], row[6]
@@ -157,6 +174,7 @@ class MainScreen(Screen):
                 if delta < 0 or delta > 30:
                     continue
 
+            # Reorder to match COLUMNS: type_, drug, barcode, est_amt, exp_date, dose_size, location
             full = (type_, drug, barcode, est_amount, exp_date_raw, dose_size, item_loc)
             display = tuple(
                 full[i] for i, (cid, _, _) in enumerate(COLUMNS)
@@ -283,7 +301,7 @@ class MainScreen(Screen):
     def show_search_keyboard(self):
         """Open the virtual keyboard pre-filled with the current search text."""
         VirtualKeyboardPopup(
-            prompt='Search terms:',
+            prompt='Search terms:', 
             initial_text=self.ids.search_input.text,
             callback=lambda val: self._set_search(val),
         ).open()
@@ -449,7 +467,8 @@ class MainScreen(Screen):
         """Delete every selected row from the DB and refresh the table."""
         try:
             for row in selected:
-                barcode = row.row_data[1] if len(row.row_data) > 1 else row.row_data[0]
+                # row_data is (type_, drug, barcode, est_amt, exp_date, dose_size, location)
+                barcode = row.row_data[2] if len(row.row_data) > 2 else row.row_data[0]
                 self.db.delete_entry(barcode=barcode, reason=reason)
             self.load_data()
             MessagePopup(title='Deleted', message=f'Deleted {len(selected)} row(s).').open()

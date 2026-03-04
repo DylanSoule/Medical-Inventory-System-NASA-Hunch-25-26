@@ -6,93 +6,87 @@ This document describes the organization of the Medical Inventory System reposit
 
 ```
 Medical-Inventory-System-NASA-Hunch-25-26/
-├── src/                          # Source code
-│   ├── medical_inventory.py      # Entry point – launches the app
-│   ├── app.py                    # Kivy App class (wires screens + KV)
-│   ├── constants.py              # Shared constants (columns, admin code, etc.)
-│   ├── kv_styles.py              # All Kivy KV layout / style strings
-│   ├── widgets.py                # Reusable UI widgets (popups, numpad, rows)
-│   ├── screens/                  # One file per application screen
-│   │   ├── __init__.py           # Re-exports all screens
-│   │   ├── main_screen.py        # Main inventory table + actions
-│   │   ├── history_screen.py     # Change-log / history view
-│   │   └── personal_screen.py    # Per-user prescriptions & usage
-│   ├── database.py               # Database access layer (MySQL)
-│   └── facial_recognition.py     # Facial authentication module
+├── src/                              # Source code
+│   ├── medical_inventory.py          # Entry point – launches the app
+│   ├── app.py                        # Kivy App class (wires screens + KV)
+│   ├── constants.py                  # Shared constants (columns, admin code, refresh interval)
+│   ├── kv_styles.py                  # All Kivy KV layout / style strings
+│   ├── widgets.py                    # Reusable UI widgets (popups, numpad, table rows)
+│   ├── screens/                      # One file per application screen
+│   │   ├── __init__.py               # Re-exports all screens
+│   │   ├── main_screen.py            # Main inventory table + actions
+│   │   ├── history_screen.py         # Change-log / history view
+│   │   └── personal_screen.py        # Per-user prescriptions & usage
+│   ├── database.py                   # Database access layer (MySQL)
+│   └── facial_recognition.py         # Facial authentication module (InsightFace)
 │
-├── tests/                        # Test suite
-│   ├── test_medical_inventory.py # Application tests
-│   ├── test_db_manager.py        # Database tests
-│   └── run_all_tests.py          # Test runner
+├── database_setup/                   # Database initialisation
+│   ├── mysql_database_construction.txt  # CREATE TABLE statements
+│   ├── seeder.py                     # Seed script for test data
+│   └── seeder_csvs/                  # CSV files used by seeder
+│       ├── assigned_prescriptions.csv
+│       ├── history.csv
+│       ├── in_inventory.csv
+│       ├── medications.csv
+│       ├── people.csv
+│       └── prescriptions.csv
 │
-├── scripts/                      # Installation and startup scripts
-│   ├── install_autostart.sh      # Install auto-start configuration
-│   ├── uninstall_autostart.sh    # Remove auto-start configuration
-│   ├── start_medical_inventory.sh # Application startup script
-│   ├── test_autostart_setup.sh   # Validation script
-│   └── medical-inventory.service # Systemd service template
+├── scripts/                          # Installation and startup scripts
+│   ├── install_autostart.sh          # Install auto-start configuration
+│   ├── uninstall_autostart.sh        # Remove auto-start configuration
+│   ├── start_medical_inventory.sh    # Application startup script
+│   ├── test_autostart_setup.sh       # Validation script
+│   └── medical-inventory.service     # Systemd service template
 │
-├── docs/                         # Documentation
-│   ├── AUTOSTART_SETUP.md        # Auto-start configuration guide
-│   ├── AUTO_START_SUMMARY.md     # Auto-start system overview
-│   ├── QUICK_START_AUTOBOOT.md   # Quick start guide
-│   ├── RASPBERRY_PI_SETUP.md     # Raspberry Pi deployment guide
-│   └── WORKFLOW_TESTING.md       # CI/CD testing documentation
+├── docs/                             # Documentation
+│   ├── AUTOSTART_SETUP.md            # Auto-start configuration guide
+│   ├── AUTO_START_SUMMARY.md         # Auto-start system overview
+│   ├── QUICK_START_AUTOBOOT.md       # Quick start guide
+│   ├── RASPBERRY_PI_SETUP.md         # Raspberry Pi deployment guide
+│   └── WORKFLOW_TESTING.md           # CI/CD testing documentation
 │
-├── assets/                       # Static assets
-│   ├── references/               # Facial recognition reference images
-│   │   ├── brody.png
-│   │   ├── lucca.png
-│   │   ├── lucca2.png
-│   │   └── zach.png
-│   ├── transparent_logo.png      # Application logo
-│   └── voicerec.html             # Voice recognition prototype
+├── assets/                           # Static assets
+│   └── references/                   # Facial recognition reference images
 │
-├── .github/                      # GitHub configuration
-│   └── workflows/                # CI/CD workflows
-│       ├── integration-test.yml  # Integration tests
-│       ├── raspberry-pi-compat.yml # Pi compatibility tests
-│       ├── app-tester.yml        # Application tests
-│       └── syntax-check.yml      # Syntax validation
+├── .github/                          # GitHub configuration
+│   └── workflows/                    # CI/CD workflows
+│       └── auto-assign-issues.yml    # Auto-assign issues
 │
-├── README.md                     # Main project documentation
-├── STRUCTURE.md                  # This file
-├── requirements.txt              # Python dependencies
-├── inventory.db                  # SQLite database (generated at runtime)
-└── .gitignore                    # Git ignore patterns
-
+├── README.md                         # Main project documentation
+├── STRUCTURE.md                      # This file
+├── requirements.txt                  # Python dependencies
+├── MIS_installer.sh                  # One-step installer script
+└── .gitignore                        # Git ignore patterns
 ```
 
 ## Key Components
 
 ### Source Code (`src/`)
-Contains the core application code:
-- **medical_inventory.py**: Main Tkinter GUI application for inventory management
-- **facial_recognition.py**: Handles user authentication using InsightFace
-- **db_manager.py**: SQLite database interface for inventory tracking
 
-### Tests (`tests/`)
-Automated test suite:
-- Uses pytest framework
-- Tests database operations, GUI functionality, and auto-start setup
-- Run with `pytest` or `python tests/run_all_tests.py`
+The application follows a modular Kivy architecture:
+
+| File | Purpose |
+|------|---------|
+| `medical_inventory.py` | Thin entry point — runs `MedicalInventoryApp` |
+| `app.py` | Kivy `App` subclass — loads KV, creates `ScreenManager` |
+| `constants.py` | Shared constants (`COLUMNS`, `ADMIN_CODE`, `REFRESH_INTERVAL`) |
+| `kv_styles.py` | All KV language layout / style definitions |
+| `widgets.py` | Reusable widgets: `NumpadWidget`, popups, `DataRow`, `HeaderRow` |
+| `screens/` | One `Screen` subclass per file (`main`, `history`, `personal`) |
+| `database.py` | `DatabaseManager` + `PersonalDatabaseManager` (MySQL) |
+| `facial_recognition.py` | InsightFace model loading, camera management, face detection |
+
+### Database Setup (`database_setup/`)
+- MySQL schema definitions and a CSV-based seeder for test data.
+- Tables: `medications`, `in_inventory`, `people`, `prescriptions`, `assigned_prescriptions`, `history`.
 
 ### Scripts (`scripts/`)
-Installation and deployment scripts:
-- Systemd service configuration for auto-start on boot
-- Installation and uninstallation scripts
-- Startup wrapper for proper environment configuration
+- Systemd service configuration for Raspberry Pi auto-start on boot.
+- Installation, uninstallation, and startup wrapper scripts.
 
 ### Documentation (`docs/`)
-Comprehensive guides:
-- Auto-start configuration and troubleshooting
-- Raspberry Pi 4 deployment instructions
-- CI/CD testing documentation
-
-### Assets (`assets/`)
-Static files:
-- Reference images for facial recognition
-- Application logos and resources
+- Auto-start configuration and troubleshooting guides.
+- Raspberry Pi 4 deployment instructions.
 
 ## Usage
 
@@ -102,15 +96,14 @@ Static files:
 python3 src/medical_inventory.py
 ```
 
-### Running Tests
+### Setting Up the Database
 ```bash
-# From repository root
-pytest tests/
+# Create tables using mysql_database_construction.txt, then seed:
+python3 database_setup/seeder.py
 ```
 
-### Installing Auto-Start
+### Installing Auto-Start (Raspberry Pi)
 ```bash
-# From repository root
 sudo ./scripts/install_autostart.sh
 ```
 
@@ -118,8 +111,9 @@ sudo ./scripts/install_autostart.sh
 
 When adding new features:
 1. Source code goes in `src/`
-2. Tests go in `tests/`
-3. Documentation goes in `docs/`
-4. Scripts go in `scripts/`
+2. New screens go in `src/screens/` (add to `__init__.py`)
+3. Shared widgets go in `src/widgets.py`
+4. Documentation goes in `docs/`
+5. Scripts go in `scripts/`
 
 This structure keeps the repository organized and maintainable.

@@ -298,81 +298,74 @@ KV = """
                         size: self.size
                         radius: [dp(8)]
 
-                # Search
-                Label:
-                    text: 'Search'
-                    font_size: dp(16)
-                    size_hint_y: None
-                    height: dp(30)
-                    halign: 'left'
-                    text_size: self.width, None
+                # --- Pinned top: Search & Filters ---
                 BoxLayout:
+                    orientation: 'vertical'
                     size_hint_y: None
-                    height: dp(42)
+                    height: self.minimum_height
                     spacing: dp(6)
-                    TextInput:
-                        id: search_input
-                        hint_text: 'Search all fields...'
-                        font_size: dp(15)
-                        multiline: False
-                        size_hint_x: 0.8
-                        on_text: root.apply_filters()
-                    Button:
-                        text: chr(0x2328)
-                        font_size: dp(18)
-                        size_hint_x: 0.2
-                        background_normal: ''
-                        background_color: 0.24, 0.51, 0.78, 1
-                        on_release: root.show_search_keyboard()
 
-                # Filter
-                Label:
-                    text: 'Filters'
-                    font_size: dp(16)
-                    size_hint_y: None
-                    height: dp(30)
-                    halign: 'left'
-                    text_size: self.width, None
-                Spinner:
-                    id: filter_spinner
-                    text: 'All'
-                    values: ['All', 'Expiring Soon', 'Expired']
-                    size_hint_y: None
-                    height: dp(42)
-                    font_size: dp(15)
-                    on_text: root.apply_filters()
-                BoxLayout:
-                    size_hint_y: None
-                    height: dp(36)
-                    spacing: dp(6)
-                    CheckBox:
-                        id: low_stock_cb
-                        size_hint_x: None
-                        width: dp(36)
-                        active: False
-                        on_active: root.apply_filters()
+                    # Search
                     Label:
-                        text: 'Show low stock only'
-                        font_size: dp(14)
+                        text: 'Search'
+                        font_size: dp(16)
+                        size_hint_y: None
+                        height: dp(30)
                         halign: 'left'
                         text_size: self.width, None
-
-                # Column visibility
-                Label:
-                    text: 'Show Columns'
-                    font_size: dp(16)
-                    size_hint_y: None
-                    height: dp(30)
-                    halign: 'left'
-                    text_size: self.width, None
-                ScrollView:
-                    size_hint_y: 1
-                    GridLayout:
-                        id: col_checks
-                        cols: 1
+                    BoxLayout:
                         size_hint_y: None
-                        height: self.minimum_height
-                        spacing: dp(4)
+                        height: dp(42)
+                        spacing: dp(6)
+                        TextInput:
+                            id: search_input
+                            hint_text: 'Search all fields...'
+                            font_size: dp(15)
+                            multiline: False
+                            size_hint_x: 0.8
+                            on_text: root.apply_filters()
+                        Button:
+                            text: chr(0x2328)
+                            font_size: dp(18)
+                            size_hint_x: 0.2
+                            background_normal: ''
+                            background_color: 0.24, 0.51, 0.78, 1
+                            on_release: root.show_search_keyboard()
+
+                    # Filters
+                    Label:
+                        text: 'Filters'
+                        font_size: dp(16)
+                        size_hint_y: None
+                        height: dp(30)
+                        halign: 'left'
+                        text_size: self.width, None
+                    Spinner:
+                        id: filter_spinner
+                        text: 'All'
+                        values: ['All', 'Expiring Soon', 'Expired']
+                        size_hint_y: None
+                        height: dp(42)
+                        font_size: dp(15)
+                        on_text: root.apply_filters()
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(36)
+                        spacing: dp(6)
+                        CheckBox:
+                            id: low_stock_cb
+                            size_hint_x: None
+                            width: dp(36)
+                            active: False
+                            on_active: root.apply_filters()
+                        Label:
+                            text: 'Show low stock only'
+                            font_size: dp(14)
+                            halign: 'left'
+                            text_size: self.width, None
+
+                # Spacer to push buttons down
+                Widget:
 
                 # Action buttons
                 BoxLayout:
@@ -409,11 +402,15 @@ KV = """
                     RoundedRectangle:
                         pos: self.pos
                         size: self.size
-                        radius: [dp(8)]
-
+                        radius: [dp(10)]
+                BoxLayout:
+                    id: column_filters
+                    orientation: 'horizontal'
+                    size_hint_y: None
+                    height: dp(40)
+                    spacing: dp(4)
                 HeaderRow:
                     id: header_row
-
                 ScrollView:
                     id: table_scroll
                     GridLayout:
@@ -422,6 +419,7 @@ KV = """
                         size_hint_y: None
                         height: self.minimum_height
                         spacing: dp(1)
+                        padding: dp(2)
 
 # --- History Screen ---
 <HistoryScreen>:

@@ -345,14 +345,20 @@ def _run_detection_with_preloaded_camera():
 
     thread = threading.Thread(target=recognition_worker, daemon=True)
     thread.start()
-    
 
-
+    MAX_DETECT_SECONDS = 15  # Timeout to prevent infinite hang
+    start_time = time.time()
     frame_count = 0
     last_results = []
 
     try:
         while True:
+            # Timeout guard
+            if time.time() - start_time > MAX_DETECT_SECONDS:
+                print("Face detection timed out")
+                stop_event.set()
+                break
+
             ret, frame = cap.read()
             if not ret:
                 print(f"Failed to grab frame from webcam: {FaceRecognitionError.FRAME_CAPTURE_FAILED}")
@@ -360,7 +366,7 @@ def _run_detection_with_preloaded_camera():
 
             frame_count += 1
 
-            if frame_count % 1 == 0 and frame_queue.empty():
+            if frame_queue.empty():
                 frame_queue.put(frame.copy())
 
             if not result_queue.empty():
@@ -471,13 +477,20 @@ def _run_detection():
 
     thread = threading.Thread(target=recognition_worker, daemon=True)
     thread.start()
-    
 
+    MAX_DETECT_SECONDS = 15  # Timeout to prevent infinite hang
+    start_time = time.time()
     frame_count = 0
     last_results = []
 
     try:
         while True:
+            # Timeout guard
+            if time.time() - start_time > MAX_DETECT_SECONDS:
+                print("Face detection timed out")
+                stop_event.set()
+                break
+
             ret, frame = cap.read()
             if not ret:
                 print(f"Failed to grab frame from webcam: {FaceRecognitionError.FRAME_CAPTURE_FAILED}")
@@ -486,7 +499,7 @@ def _run_detection():
 
             frame_count += 1
 
-            if frame_count % 1 == 0 and frame_queue.empty():
+            if frame_queue.empty():
                 frame_queue.put(frame.copy())
 
             if not result_queue.empty():
