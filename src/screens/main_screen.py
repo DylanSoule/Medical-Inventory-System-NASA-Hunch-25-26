@@ -29,15 +29,7 @@ from widgets import (
 
 
 class MainScreen(Screen):
-    """Primary screen — inventory data-table with sidebar controls.
-
-    Responsibilities
-    ----------------
-    * Display the inventory table with search / filter / column-toggle.
-    * Gate destructive or personal actions behind facial recognition.
-    * Restock, use-item, delete, and history workflows.
-    * Preload the facial-recognition model + camera on startup.
-    """
+    """Primary screen — inventory data-table with sidebar controls."""
 
     # ================================================================== #
     # region           INITIALIZATION                                     #
@@ -47,20 +39,27 @@ class MainScreen(Screen):
         """Set up DB handle, empty row cache, FR flags, and schedule UI init."""
         super().__init__(**kwargs)
         self.db = DatabaseManager()
-        self._all_rows = []          # raw rows from the DB
-        self.fr_ready = False        # True once FR model is loaded
-        self.camera_ready = False    # True once a camera frame is captured
+        self._all_rows = []
+        self.fr_ready = False
+        self.camera_ready = False
         self.visible_columns = {col_id: True for col_id, _, _ in COLUMNS}
+        self._filter_trigger = None
+        self._last_row_hash = None
+        self._row_cache = {}
+        self._current_keys = []           # ordered keys of currently shown rows
         Clock.schedule_once(self._init_ui, 0)
 
     def _init_ui(self, dt):
         """Called once after the KV tree is built — wire up everything."""
+        if not self.ids:
+            Clock.schedule_once(self._init_ui, 0.1)
+            return
         self._build_column_checkboxes()
         self._build_header()
         self._start_preloading()
         self._start_camera_monitor()
         self.load_data()
-        Clock.schedule_interval(lambda dt: self.load_data(), REFRESH_INTERVAL)
+        Clock.schedule_interval(self._bg_load_data, REFRESH_INTERVAL)
 
     # endregion
 
@@ -69,24 +68,33 @@ class MainScreen(Screen):
     # ================================================================== #
 
     def _build_column_checkboxes(self):
-        """Populate the sidebar with a checkbox for every COLUMNS entry."""
+        """Populate the column_filters bar with checkbox+label pairs."""
         column_filters = self.ids.column_filters
         column_filters.clear_widgets()
 
         for col_id, label, _ in COLUMNS:
-            lbl = Label(text=label, font_size=dp(15), bold=True, halign='left', valign='middle', padding=(dp(4), 0))
-            lbl.bind(size=lbl.setter('text_size'))
-            cb = CheckBox(active=True, size_hint_x=None, width=dp(32))
+            pair = BoxLayout(orientation='horizontal', size_hint_x=1, spacing=dp(4))
+
+            cb = CheckBox(active=True, size_hint_x=None, width=dp(28))
             cb.bind(active=lambda inst, val, cid=col_id: self._toggle_column(cid, val))
-            column_filters.add_widget(lbl)
-            column_filters.add_widget(cb)
-            # ADD ACTION BAR INSTEAD OF CHECK BOXES
+
+            lbl = Label(
+                text=label, font_size=dp(13), bold=True,
+                halign='left', valign='middle',
+                size_hint_x=0.75, padding=(dp(2), 0),
+            )
+            lbl.bind(size=lbl.setter('text_size'))
+
+            pair.add_widget(cb)
+            pair.add_widget(lbl)
+            column_filters.add_widget(pair)
+            column_filters.add_widget(MainScreen._column_separator())
+
     def _toggle_column(self, col_id, visible):
-        """Show or hide a column, then rebuild the header and re-filter."""
+        """Show or hide a column — just toggles size/opacity, no widget tree changes."""
         self.visible_columns[col_id] = visible
-        
         self._build_header()
-        self.apply_filters()
+        self._update_row_displays()
 
     def _build_header(self):
         """Rebuild the header row labels based on current column visibility."""
@@ -97,7 +105,10 @@ class MainScreen(Screen):
         for i, (col_id, label) in enumerate(visible):
             if i > 0:
                 header.add_widget(self._column_separator())
-            lbl = Label(text=label, font_size=dp(15), bold=True, halign='left', valign='middle', padding=(dp(4), 0))
+            lbl = Label(
+                text=label, font_size=dp(15), bold=True,
+                halign='left', valign='middle', padding=(dp(4), 0),
+            )
             lbl.bind(size=lbl.setter('text_size'))
             header.add_widget(lbl)
 
@@ -106,7 +117,7 @@ class MainScreen(Screen):
         """Return a thin vertical line widget to visually separate columns."""
         sep = Widget(size_hint_x=None, width=dp(1))
         with sep.canvas:
-            Color(1, 1, 1, 0.15)  # faint white line (adjust alpha for intensity)
+            Color(1, 1, 1, 0.15)
             sep._rect = Rectangle(pos=sep.pos, size=sep.size)
         sep.bind(pos=lambda w, p: setattr(w._rect, 'pos', p),
                  size=lambda w, s: setattr(w._rect, 'size', s))
@@ -119,34 +130,148 @@ class MainScreen(Screen):
     # ================================================================== #
 
     def load_data(self):
-        """Pull fresh inventory rows from the database and refresh the table."""
+        """Synchronous initial load (called once at startup and after mutations)."""
         try:
             self._all_rows = list(self.db.pull_data("drugs_in_inventory"))
         except Exception as e:
             print(f"Error loading data: {e}")
             self._all_rows = []
-        self.apply_filters()
+        self._last_row_hash = hash(tuple(tuple(r) for r in self._all_rows))
+        self._row_cache.clear()
+        self._current_keys = []
+        self._sync_cache()
+        self._apply_filters_now()
+
+    def _bg_load_data(self, dt):
+        """Pull data from DB in a background thread to avoid blocking the UI."""
+        def worker():
+            try:
+                rows = list(self.db.pull_data("drugs_in_inventory"))
+            except Exception as e:
+                print(f"Error loading data: {e}")
+                rows = []
+
+            row_hash = hash(tuple(tuple(r) for r in rows))
+            if row_hash == self._last_row_hash:
+                return
+            self._last_row_hash = row_hash
+
+            def update(dt):
+                self._all_rows = rows
+                self._row_cache.clear()
+                self._current_keys = []
+                self._sync_cache()
+                self._apply_filters_now()
+
+            Clock.schedule_once(update, 0)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _sync_cache(self):
+        """Create DataRow widgets with ALL column labels pre-attached."""
+        for row in self._all_rows:
+            try:
+                drug, barcode, est_amount = row[0], row[1], row[2]
+                exp_date_raw, type_, dose_size, item_loc = row[3], row[4], row[5], row[6]
+            except (IndexError, ValueError):
+                continue
+
+            full = (type_, drug, barcode, est_amount, exp_date_raw, dose_size, item_loc)
+            key = (barcode, drug)
+
+            if key not in self._row_cache:
+                dr = DataRow(())
+                dr.row_data = list(full)
+                dr._full = full
+                dr._col_labels = {}
+                dr._col_seps = {}
+
+                for i, (cid, _, _) in enumerate(COLUMNS):
+                    lbl = Label(
+                        text=str(full[i]),
+                        font_size=dp(14),
+                        halign='left',
+                        valign='middle',
+                        padding=(dp(4), 0),
+                    )
+                    lbl.bind(size=lbl.setter('text_size'))
+                    dr._col_labels[cid] = lbl
+                    dr._col_seps[cid] = self._column_separator()
+
+                    dr.add_widget(dr._col_seps[cid])
+                    dr.add_widget(lbl)
+
+                # Remove the first separator (no separator before first column)
+                first_cid = COLUMNS[0][0]
+                dr.remove_widget(dr._col_seps[first_cid])
+
+                self._row_cache[key] = dr
+
+        self._update_row_displays()
+
+    def _update_row_displays(self):
+        """Show/hide individual labels and separators using size + opacity.
+        No add_widget / remove_widget / clear_widgets calls."""
+        for dr in self._row_cache.values():
+            first_visible = True
+            for cid, _, _ in COLUMNS:
+                lbl = dr._col_labels[cid]
+                sep = dr._col_seps[cid]
+                visible = self.visible_columns.get(cid, True)
+
+                if visible:
+                    lbl.size_hint_x = 1
+                    lbl.opacity = 1
+                    if first_visible:
+                        sep.size_hint_x = None
+                        sep.width = 0
+                        sep.opacity = 0
+                        first_visible = False
+                    else:
+                        sep.size_hint_x = None
+                        sep.width = dp(1)
+                        sep.opacity = 1
+                else:
+                    lbl.size_hint_x = None
+                    lbl.width = 0
+                    lbl.opacity = 0
+                    sep.size_hint_x = None
+                    sep.width = 0
+                    sep.opacity = 0
+
+    def _schedule_filter(self, *args):
+        """Debounce filter requests — wait 0.1s of inactivity before rebuilding."""
+        if self._filter_trigger:
+            self._filter_trigger.cancel()
+        self._filter_trigger = Clock.schedule_once(
+            lambda dt: self._apply_filters_now(), 0.1
+        )
 
     def apply_filters(self, *args):
-        """Re-render the table body honouring search text, spinner filter,
-        low-stock checkbox, and visible-column selections."""
+        """Public entry point for KV bindings — debounced."""
+        self._schedule_filter()
+
+    def _apply_filters_now(self):
+        """Rebuild the visible row list. Only touches the widget tree when
+        the set or order of visible rows has actually changed."""
         body = self.ids.table_body
-        body.clear_widgets()
 
         query = self.ids.search_input.text.strip().lower()
         mode = self.ids.filter_spinner.text
         low_only = self.ids.low_stock_cb.active
         now = datetime.date.today()
 
-        visible_ids = [cid for cid, _, _ in COLUMNS if self.visible_columns.get(cid, True)]
+        to_show_keys = []
 
-        filtered = []
         for row in self._all_rows:
-            # SQL returns: (name, barcode, est_amt, exp_date, type, dosage, location)
             try:
                 drug, barcode, est_amount = row[0], row[1], row[2]
                 exp_date_raw, type_, dose_size, item_loc = row[3], row[4], row[5], row[6]
             except (IndexError, ValueError):
+                continue
+
+            key = (barcode, drug)
+            if key not in self._row_cache:
                 continue
 
             # --- search filter ---
@@ -164,30 +289,32 @@ class MainScreen(Screen):
                     continue
 
             # --- expiration filter ---
-            exp_date = self._parse_date(exp_date_raw)
-            if mode == "Expired" and (not exp_date or exp_date >= now):
-                continue
-            if mode == "Expiring Soon":
-                if not exp_date:
-                    continue
-                delta = (exp_date - now).days
-                if delta < 0 or delta > 30:
-                    continue
+            if mode != 'All':
+                exp_date = self._parse_date(exp_date_raw)
+                if mode == "Expired":
+                    if not exp_date or exp_date >= now:
+                        continue
+                elif mode == "Expiring Soon":
+                    if not exp_date:
+                        continue
+                    delta = (exp_date - now).days
+                    if delta < 0 or delta > 30:
+                        continue
 
-            # Reorder to match COLUMNS: type_, drug, barcode, est_amt, exp_date, dose_size, location
-            full = (type_, drug, barcode, est_amount, exp_date_raw, dose_size, item_loc)
-            display = tuple(
-                full[i] for i, (cid, _, _) in enumerate(COLUMNS)
-                if cid in visible_ids
-            )
-            filtered.append((full, display))
+            to_show_keys.append(key)
 
-        filtered.sort(key=lambda x: str(x[0][0]).lower())
+        # Sort by type (first column) alphabetically
+        to_show_keys.sort(key=lambda k: str(self._row_cache[k]._full[0]).lower())
 
-        for full, display in filtered:
-            dr = DataRow(display)
-            dr.row_data = list(full)
-            body.add_widget(dr)
+        # --- Skip rebuild if nothing changed ---
+        if to_show_keys == self._current_keys:
+            return
+
+        # --- Swap entire body at once ---
+        body.clear_widgets()
+        for key in to_show_keys:
+            body.add_widget(self._row_cache[key])
+        self._current_keys = to_show_keys
 
     @staticmethod
     def _parse_date(d):

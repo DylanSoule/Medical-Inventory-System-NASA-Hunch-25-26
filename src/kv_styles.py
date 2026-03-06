@@ -482,7 +482,9 @@ KV = """
                     orientation: 'horizontal'
                     size_hint_y: None
                     height: dp(40)
-                    spacing: dp(4)
+                    spacing: dp(4) 
+                    
+                    
 
                 # -- Table header --
                 HeaderRow:
