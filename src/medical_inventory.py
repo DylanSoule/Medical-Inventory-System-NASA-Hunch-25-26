@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import facial_recognition as fr
 from database import DatabaseManager
 from facial_recognition import FaceRecognitionError
+from voicerec import start_voice_listener
 
 # ============================================================================
 # CONSTANTS
@@ -81,6 +82,9 @@ class BarcodeViewer(ctk.CTk):
         # Start background tasks
         self._start_preloading()
         self._start_camera_recovery_monitor()
+        
+        # Start voice recognition (listens for "log scan" etc.)
+        start_voice_listener(self)
         
         # Setup UI
         self._setup_window()
@@ -228,7 +232,33 @@ class BarcodeViewer(ctk.CTk):
         frame = ctk.CTkFrame(parent, fg_color="transparent")
         frame.grid(row=row, column=0, sticky="ew", padx=25, pady=(25, 10))
         
-        ctk.CTkLabel(frame, text="Search", anchor="w", font=("Arial", 22)).pack(fill="x", pady=(0, 10))
+        # Top row: "Search" label + mic status indicator
+        top_row = ctk.CTkFrame(frame, fg_color="transparent")
+        top_row.pack(fill="x", pady=(0, 10))
+        
+        ctk.CTkLabel(top_row, text="Search", anchor="w", font=("Arial", 22)).pack(side="left")
+        
+        # Mic status indicator (dot + label)
+        mic_frame = ctk.CTkFrame(top_row, fg_color="transparent")
+        mic_frame.pack(side="right")
+        
+        self.mic_dot = ctk.CTkFrame(
+            mic_frame,
+            width=12,
+            height=12,
+            corner_radius=6,
+            fg_color="#94a3b8",  # grey = not connected yet
+        )
+        self.mic_dot.pack_propagate(False)
+        self.mic_dot.pack(side="left", padx=(0, 6))
+        
+        self.mic_label = ctk.CTkLabel(
+            mic_frame,
+            text="Off",
+            font=("Arial", 14),
+            text_color="#94a3b8",
+        )
+        self.mic_label.pack(side="left")
         
         # Entry with button frame
         entry_frame = ctk.CTkFrame(frame, fg_color="transparent")
@@ -254,6 +284,19 @@ class BarcodeViewer(ctk.CTk):
             height=50,
             font=("Arial", 24)
         ).pack(side="left")
+
+    def set_mic_status(self, status):
+        """Update the mic status indicator. Called from voicerec.py.
+        status: 'listening', 'error', or 'off'
+        """
+        colors = {
+            "listening": ("#22c55e", "Listening"),  
+            "error":     ("#ef4444", "Error"),     
+            "off":       ("#94a3b8", "Off"),    
+        }
+        color, label = colors.get(status, colors["off"])
+        self.mic_dot.configure(fg_color=color)
+        self.mic_label.configure(text=label, text_color=color)
 
     def _show_search_keyboard(self):
         """Show virtual keyboard for search"""
