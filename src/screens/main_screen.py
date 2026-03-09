@@ -17,6 +17,8 @@ from kivy.uix.screenmanager import Screen
 from kivy.metrics import dp
 from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle
+from kivy.uix.button import Button
+from kivy.uix.dropdown import DropDown
 
 import facial_recognition as fr
 from database import DatabaseManager
@@ -111,6 +113,23 @@ class MainScreen(Screen):
             )
             lbl.bind(size=lbl.setter('text_size'))
             header.add_widget(lbl)
+
+    def table_view_filters(self):
+        
+        table_view = self.ids.table_view_button
+        filters = self.ids.table_view_dropdown
+        table_view.clear_widgets()
+        filters.clear_widgets()
+        emergency = Button(text='Emergency Med', size_hint_y=None, height=dp(30), width=50)
+        #bind
+        show_all = Button(text='Show All', size_hint_y=None, height=dp(30), width=50)
+        show_all.bind(on_release=lambda btn: self.show_all())
+
+        table_view.add_widget(emergency)
+        table_view.add_widget(show_all)
+
+        type_dropdown = DropDown(text='Med Type', size_hint_y=None, height=dp(30), width=100)
+        
 
     @staticmethod
     def _column_separator():
