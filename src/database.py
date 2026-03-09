@@ -460,7 +460,23 @@ class DatabaseManager:
     def give_history_data(self): #for later, just transitioning to not change frontend right now
         pass
 
+    def pull_types(self):
+        conn = mysql.connector.connect(
+            host="localhost",
+            user='root',
+            password='1234',
+            database='inventory_system'
+        )
+        c = conn.cursor()
 
+        c.execute("SELECT type FROM medications GROUP BY type;")
+        types_raw = c.fetchall()
+        conn.close()
+        types = []
+        for entry in types_raw:
+            types.append(entry[0])
+        return types
+    
 
     def pull_data(self, table):
         """
@@ -821,10 +837,11 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    read = PersonalDatabaseManager('brody')
+    # read = PersonalDatabaseManager('brody')
     read1 = DatabaseManager()
 
-    print(read1.log_access_to_inventory('Ibuprofen',-2,'dylan'))
+    # print(read1.log_access_to_inventory('Ibuprofen',-2,'dylan'))
+    print(read1.pull_types())
 
    
     # print(read.pull_data('history'))
