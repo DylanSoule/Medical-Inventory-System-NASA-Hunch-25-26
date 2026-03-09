@@ -48,7 +48,8 @@ class MainScreen(Screen):
         self._filter_trigger = None
         self._last_row_hash = None
         self._row_cache = {}
-        self._current_keys = []           # ordered keys of currently shown rows
+        self._current_keys = []
+        self._type_filter = None          # None = show all, str = filter by type
         Clock.schedule_once(self._init_ui, 0)
 
     def _init_ui(self, dt):
@@ -58,6 +59,7 @@ class MainScreen(Screen):
             return
         self._build_column_checkboxes()
         self._build_header()
+        self.table_view_filters()
         self._start_preloading()
         self._start_camera_monitor()
         self.load_data()
@@ -115,21 +117,67 @@ class MainScreen(Screen):
             header.add_widget(lbl)
 
     def table_view_filters(self):
-        
-        table_view = self.ids.table_view_button
+        """Build the medication type filter buttons and dropdown in the sidebar."""
+        table_view = self.ids.table_view_buttons
         filters = self.ids.table_view_dropdown
         table_view.clear_widgets()
         filters.clear_widgets()
-        emergency = Button(text='Emergency Med', size_hint_y=None, height=dp(30), width=50)
-        #bind
-        show_all = Button(text='Show All', size_hint_y=None, height=dp(30), width=50)
+
+        # Quick-access buttons
+        emergency = Button(
+            text='Emergency', font_size=dp(13),
+            size_hint_y=None, height=dp(36),
+            background_normal='', background_color=(0.7, 0.13, 0.13, 1),
+        )
+        emergency.bind(on_release=lambda btn: self.filter_by_type('Emergency'))
+
+        show_all = Button(
+            text='Show All', font_size=dp(13),
+            size_hint_y=None, height=dp(36),
+            background_normal='', background_color=(0.13, 0.77, 0.37, 1),
+        )
         show_all.bind(on_release=lambda btn: self.show_all())
 
         table_view.add_widget(emergency)
         table_view.add_widget(show_all)
 
-        type_dropdown = DropDown(text='Med Type', size_hint_y=None, height=dp(30), width=100)
-        
+        # Dropdown for all medication types
+        dropdown = DropDown()
+        try:
+            med_types = self.db.pull_types()
+        except Exception:
+            med_types = []
+
+        for med_type in med_types:
+            btn = Button(
+                text=str(med_type), size_hint_y=None, height=dp(36),
+                font_size=dp(13), background_normal='',
+                background_color=(0.24, 0.51, 0.78, 1),
+            )
+            btn.bind(on_release=lambda b: dropdown.select(b.text))
+            dropdown.add_widget(btn)
+
+        type_btn = Button(
+            text='Select Type...', font_size=dp(13),
+            size_hint_y=None, height=dp(36),
+            background_normal='', background_color=(0.24, 0.51, 0.78, 1),
+        )
+        type_btn.bind(on_release=dropdown.open)
+        dropdown.bind(on_select=lambda inst, val: self.filter_by_type(val))
+
+        filters.add_widget(type_btn)
+
+    def filter_by_type(self, med_type):
+        """Filter the table to only show rows matching the given medication type."""
+        self._type_filter = med_type
+        self._current_keys = []           # force table rebuild
+        self._apply_filters_now()
+
+    def show_all(self):
+        """Clear the medication type filter and show all rows."""
+        self._type_filter = None
+        self._current_keys = []
+        self._apply_filters_now()
 
     @staticmethod
     def _column_separator():
@@ -292,6 +340,11 @@ class MainScreen(Screen):
             key = (barcode, drug)
             if key not in self._row_cache:
                 continue
+
+            # --- medication type filter ---
+            if self._type_filter is not None:
+                if str(type_).lower() != self._type_filter.lower():
+                    continue
 
             # --- search filter ---
             if query:

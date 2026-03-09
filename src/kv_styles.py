@@ -433,28 +433,27 @@ KV = """
                             font_size: dp(14)
                             halign: 'left'
                             text_size: self.width, None
-                #Spacer
-                Widget:
                 
                 #sidebar med type filter
-                Label:
-                    size_hint_y: None
-                    height: dp(10)
-                    text: 'Medication Types'
-                GridLayout:
-                    id: table_view_buttons
-                    cols: 2
-                    size_hint_y: None
-                    height: dp(90)
-                    GridLayout:
-                        id: table_view_dropdown
-                        cols: 1
+                    Label:
                         size_hint_y: None
-                        height: self.minimum_height
+                        height: dp(10)
+                        text: 'Medication Types'
+                    BoxLayout:
+                        id: table_view_buttons
+                        orientation: 'horizontal'
+                        size_hint_y: None
+                        height: dp(90)
+                        spacing: dp(4)
+                    BoxLayout:
+                        id: table_view_dropdown
+                        orientation: 'vertical'
+                        size_hint_y: None
+                        height: dp(90)
                 
                 #Spacer
                 Widget:
-                
+
                 # -- Action buttons --
                 BoxLayout:
                     orientation: 'vertical'
