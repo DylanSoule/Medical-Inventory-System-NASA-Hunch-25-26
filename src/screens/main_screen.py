@@ -314,6 +314,43 @@ class MainScreen(Screen):
     # endregion
 
     # ================================================================== #
+    # region           MIC STATUS INDICATOR                               #
+    # ================================================================== #
+
+    def set_mic_status(self, status):
+        """Update the mic indicator dot and label.
+
+        Parameters
+        ----------
+        status : str
+            One of ``'listening'``, ``'error'``, or ``'off'``.
+        """
+        colors = {
+            "listening": (0.13, 0.77, 0.37, 1),   # green
+            "error":     (0.94, 0.27, 0.27, 1),    # red
+            "off":       (0.58, 0.64, 0.72, 1),    # grey
+        }
+        labels = {
+            "listening": "\U0001F3A4 Listening",
+            "error":     "\U0001F3A4 Error",
+            "off":       "\U0001F3A4 Off",
+        }
+        color = colors.get(status, colors["off"])
+        label = labels.get(status, labels["off"])
+
+        dot = self.ids.mic_dot
+        dot.canvas.clear()
+        from kivy.graphics import Color as GColor, Ellipse
+        with dot.canvas:
+            GColor(*color)
+            Ellipse(pos=dot.pos, size=dot.size)
+
+        self.ids.mic_label.text = label
+        self.ids.mic_label.color = color
+
+    # endregion
+
+    # ================================================================== #
     # region           LOG ITEM USE (entry point → choice → flow)         #
     # ================================================================== #
 

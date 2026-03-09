@@ -374,13 +374,38 @@ KV = """
                     spacing: dp(6)
 
                     # -- Search bar --
-                    Label:
-                        text: 'Search'
-                        font_size: dp(16)
+                    BoxLayout:
                         size_hint_y: None
                         height: dp(30)
-                        halign: 'left'
-                        text_size: self.width, None
+                        spacing: dp(6)
+                        Label:
+                            text: 'Search'
+                            font_size: dp(16)
+                            halign: 'left'
+                            text_size: self.width, None
+                        # Mic status indicator
+                        BoxLayout:
+                            size_hint_x: None
+                            width: dp(100)
+                            spacing: dp(4)
+                            Widget:
+                                id: mic_dot
+                                size_hint: None, None
+                                size: dp(12), dp(12)
+                                pos_hint: {'center_y': 0.5}
+                                canvas:
+                                    Color:
+                                        rgba: 0.58, 0.64, 0.72, 1
+                                    Ellipse:
+                                        pos: self.pos
+                                        size: self.size
+                            Label:
+                                id: mic_label
+                                text: chr(0x1F3A4) + ' Off'
+                                font_size: dp(12)
+                                color: 0.58, 0.64, 0.72, 1
+                                halign: 'left'
+                                text_size: self.width, None
                     BoxLayout:
                         size_hint_y: None
                         height: dp(42)

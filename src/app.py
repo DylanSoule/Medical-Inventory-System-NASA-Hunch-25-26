@@ -20,6 +20,7 @@ from kv_styles import KV                         # noqa: E402
 # Widgets must be importable so the KV rules can find them
 import widgets                                    # noqa: E402, F401
 from screens import MainScreen, HistoryScreen, PersonalScreen  # noqa: E402
+from voicerec import start_voice_listener                      # noqa: E402
 
 Builder.load_string(KV)
 
@@ -54,9 +55,14 @@ class MedicalInventoryApp(App):
             Window.size = (1280, 800)
 
         sm = ScreenManager()
-        sm.add_widget(MainScreen(name='main'))
+        main_screen = MainScreen(name='main')
+        sm.add_widget(main_screen)
         sm.add_widget(HistoryScreen(name='history'))
         sm.add_widget(PersonalScreen(name='personal'))
+
+        # Start voice recognition (listens for "helios log scan", etc.)
+        start_voice_listener(main_screen)
+
         return sm
 
 # endregion
