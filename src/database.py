@@ -1,12 +1,13 @@
+"""
+Medical Inventory System - Database Access Layer
+
+Provides DatabaseManager (inventory-wide) and PersonalDatabaseManager
+(per-user prescriptions / history).  All MySQL access flows through here.
+"""
+
 import mysql.connector
 from datetime import datetime, timedelta
 import numpy as np
-import matplotlib
-
-
-"""
-Python file to access databases for project, functions can access different databases, such as the inventory database and the personal databases for all people
-"""
 
 
 time_format = "%Y-%m-%d %H:%M:%S"
@@ -17,7 +18,18 @@ class DatabaseManager:
         self.user = 'root'
         self.password = '1234'
         self.database = 'inventory_system'
-        # self.create_inventory()
+
+    # ------------------------------------------------------------------ #
+    #  Helper – single place that builds a connection                      #
+    # ------------------------------------------------------------------ #
+    def _get_connection(self):
+        """Return a new MySQL connection using instance credentials."""
+        return mysql.connector.connect(
+            host="localhost",
+            user=self.user,
+            password=self.password,
+            database=self.database,
+        )
 
     """
     def create_inventory(self):
@@ -73,13 +85,14 @@ class DatabaseManager:
         conn.close()
     """
 
-    def add_to_inventory(self, barcode, user,location):
+    def add_to_inventory(self, barcode, user, location):
         """
         Adds a drug to the inventory if it exists in the drugs database and logs the change.
 
         Parameters:
             barcode (str): The barcode of the drug to add.
             user (str): The user performing the addition.
+            location (str): The storage location for the item.
 
         Returns:
             LookupError: If no drug is found with the given barcode.
@@ -90,12 +103,7 @@ class DatabaseManager:
         Note:
             This method does not raise exceptions; instead, it returns exception types or instances on error.
         """
-        conn = mysql.connector.connect(
-            host="localhost",
-            user=self.user,
-            password=self.password,
-            database=self.database
-        )
+        conn = self._get_connection()
         c = conn.cursor()
 
         c.execute("SELECT barcode, amount_in_unit FROM medications WHERE barcode = %s", (barcode,))
@@ -110,8 +118,8 @@ class DatabaseManager:
             c.execute('''
                 INSERT INTO in_inventory (barcode, estimated_amount_remaining, location)
                 VALUES (%s, %s, %s)
-            ''', (drug[0], drug[1],location,))
-        except (mysql.IntegrityError):
+            ''', (drug[0], drug[1], location,))
+        except mysql.connector.IntegrityError:
             conn.close()
             return IndexError
         except Exception as e:
@@ -119,10 +127,11 @@ class DatabaseManager:
             return e
 
         c.execute("SELECT MAX(id) FROM in_inventory;")
-        iid = c.fetchone[0]
-        c.execute("SELECT id FROM people WHERE name = %s",(user,))
-        pid = c.fetchone[0]
-        c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use) VALUES (%s,%s,%s,%s,%s)",(barcode, iid, pid, 'New Entry', datetime.now().strftime(time_format),)) 
+        iid = c.fetchone()[0]
+        c.execute("SELECT id FROM people WHERE name = %s", (user,))
+        pid = c.fetchone()[0]
+        c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use) VALUES (%s,%s,%s,%s,%s)",
+                  (barcode, iid, pid, 'New Entry', datetime.now().strftime(time_format),)) 
 
         conn.commit()
         conn.close()
@@ -145,15 +154,11 @@ class DatabaseManager:
         Effects:
             Inserts a new drug into the drugs table in the database.
         """
-        conn = mysql.connector.connect(
-            host="localhost",
-            user=self.user,
-            password=self.password,
-            database=self.database
-        )
+        conn = self._get_connection()
         c = conn.cursor()
         
-        c.execute("INSERT INTO medications (barcode, name, amount_in_unit, type, dosage,expiration_date) VALUES (%s,%s,%s,%s,%s)", (barcode, name, amount,Type,item_type + ' ' + dose_size,expiration_date))
+        c.execute("INSERT INTO medications (barcode, name, amount_in_unit, type, dosage, expiration_date) VALUES (%s,%s,%s,%s,%s,%s)",
+                  (barcode, name, amount, Type, item_type + ' ' + dose_size, expiration_date))
 
         conn.commit()
         conn.close()
@@ -173,12 +178,7 @@ class DatabaseManager:
         Side effects:
             Updates the estimated amount of the drug in the inventory and logs the change in the drug_changes table.
         """
-        conn = mysql.connector.connect(
-            host="localhost",
-            user='root',
-            password='1234',
-            database='inventory_system'
-        )
+        conn = self._get_connection()
         c = conn.cursor()
         c.execute("SELECT id FROM people WHERE name = %s", (user.lower(),))
         uid = c.fetchone()[0]
@@ -189,10 +189,12 @@ class DatabaseManager:
         c.execute("SELECT id, estimated_amount_remaining FROM in_inventory WHERE barcode = %s", (barcode,))
         drug_info = c.fetchone()
         try:
-            c.execute("UPDATE in_inventory SET estimated_amount_remaining = %s WHERE barcode = %s", (drug_info[1] + change, barcode))
-            c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use, amnt_change) VALUES (%s,%s,%s,%s,%s,%s)", (barcode, drug_info[0], uid, 'Access', datetime.now().strftime(time_format),change))
+            c.execute("UPDATE in_inventory SET estimated_amount_remaining = %s WHERE barcode = %s",
+                      (drug_info[1] + change, barcode))
+            c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use, amnt_change) VALUES (%s,%s,%s,%s,%s,%s)",
+                      (barcode, drug_info[0], uid, 'Access', datetime.now().strftime(time_format), change))
         except Exception as e:
-            print("Error:",e)
+            print("Error:", e)
         
         conn.commit()
         conn.close()
@@ -205,12 +207,7 @@ class DatabaseManager:
         :param self: class path to inventory
         :param barcode: barcode being checked
         """
-        conn = mysql.connector.connect(
-            host="localhost",
-            user='root',
-            password='1234',
-            database='inventory_system'
-        )
+        conn = self._get_connection()
         c = conn.cursor()
 
         c.execute("SELECT medications.name AS name FROM medications JOIN in_inventory ON medications.barcode=in_inventory.barcode WHERE in_inventory.barcode=%s", (barcode,))
@@ -225,43 +222,34 @@ class DatabaseManager:
 
     def delete_entry(self, barcode, reason):
         """
-        Deletes an entry from the inventory and logs the deletion in the drug_changes history.
+        Deletes an entry from the inventory and logs the deletion in the history.
 
         Parameters:
             barcode (str): The barcode of the drug to delete from inventory.
             reason (str): The reason for deleting the entry.
 
         Side effects:
-            Removes the entry from the drugs_in_inventory table and adds a record to the drug_changes table.
+            Removes the entry from the in_inventory table and adds a record to the history table.
         """
-        conn = mysql.connector.connect(
-            host="localhost",
-            user='root',
-            password='1234',
-            database='inventory_system'
-        )
+        conn = self._get_connection()
         c = conn.cursor()
 
         c.execute("SELECT id FROM in_inventory WHERE barcode = %s", (barcode,))
         iid = c.fetchone()[0]
 
-        c.execute("SELECT id FROM people WHERE name=%s",('admin',))
-        pid= c.fetchone()[0]
+        c.execute("SELECT id FROM people WHERE name=%s", ('admin',))
+        pid = c.fetchone()[0]
 
-        c.execute("DELETE FROM drugs_in_inventory WHERE barcode = %s", (barcode,))
+        c.execute("DELETE FROM in_inventory WHERE barcode = %s", (barcode,))
 
-        c.execute("INSERT INTO drug_changes (barcode, inventory_id, person_id, type_of_use, time_of_use, reason) VALUES (%s,%s,%s,%s,%s,%s)",(barcode, iid, pid, 'Delete Entry', datetime.now().strftime(time_format), reason,))
+        c.execute("INSERT INTO history (barcode, inventory_id, person_id, type_of_use, time_of_use, reason) VALUES (%s,%s,%s,%s,%s,%s)",
+                  (barcode, iid, pid, 'Delete Entry', datetime.now().strftime(time_format), reason,))
 
         conn.commit()
         conn.close()
     
     def pattern_line_graph(self, date,user,barcode=None):
-        conn = mysql.connector.connect(
-            host="localhost",
-            user='root',
-            password='1234',
-            database='inventory_system'
-        )
+        conn = self._get_connection()
         c = conn.cursor()
         end_date = date.split()[0]
         start_date = date.split()[2]
@@ -353,17 +341,13 @@ class DatabaseManager:
         return change, periods
 
     def user_names(self):
-        conn = mysql.connector.connect(
-            host="localhost",
-            user='root',
-            password='1234',
-            database='inventory_system'
-        )
+        conn = self._get_connection()
         c = conn.cursor()
         c.execute("SELECT name FROM people;")
         users = []
         for user in c.fetchall():
             users.append(user[0].capitalize())
+        conn.close()
         return users
 
 
@@ -377,19 +361,10 @@ class DatabaseManager:
         ratio_thresh=1.5,
         baseline_window=3
     ):
-        conn = mysql.connector.connect(
-            host="localhost",
-            user='root',
-            password='1234',
-            database='inventory_system'
-        )
+        conn = self._get_connection()
         c = conn.cursor()
         today = datetime.today()
         np.set_printoptions(legacy='1.25')
-        # user_ids = []
-        # for user in users:
-        #     c.execute("SELECT id FROM people WHERE name = %s",(user.lower()))
-        #     user_ids.append(c.fetchone[0])
         results = []
         
         def analyze_series(values, label):
@@ -433,7 +408,8 @@ class DatabaseManager:
                         WHERE time_of_use BETWEEN %s AND %s;
                     """, (back, front,))
 
-                    totals.append(c.fetchone()[0])
+                    val = c.fetchone()[0]
+                    totals.append(val if val is not None else 0)
 
                 results.extend(
                     analyze_series(totals, f"whole_{period}d")
@@ -442,8 +418,8 @@ class DatabaseManager:
         # ---- PER USER ----
         if users:
             for user in users:
-                c.execute("SELECT id FROM people WHERE name=%s",(user,))
-                pid=c.fetchone()[0]
+                c.execute("SELECT id FROM people WHERE name=%s", (user,))
+                pid = c.fetchone()[0]
                 for period in periods:
                     totals = []
                     for i in range(periods_back):
@@ -458,7 +434,8 @@ class DatabaseManager:
                             AND person_id = %s
                         """, (back, front, pid,))
 
-                        totals.append(c.fetchone()[0])
+                        val = c.fetchone()[0]
+                        totals.append(val if val is not None else 0)
 
                     results.extend(
                         analyze_series(totals, f"user:{user}_{period}d")
@@ -483,7 +460,23 @@ class DatabaseManager:
     def give_history_data(self): #for later, just transitioning to not change frontend right now
         pass
 
+    def pull_types(self):
+        conn = mysql.connector.connect(
+            host="localhost",
+            user='root',
+            password='1234',
+            database='inventory_system'
+        )
+        c = conn.cursor()
 
+        c.execute("SELECT type FROM medications GROUP BY type;")
+        types_raw = c.fetchall()
+        conn.close()
+        types = []
+        for entry in types_raw:
+            types.append(entry[0])
+        return types
+    
 
     def pull_data(self, table):
         """
@@ -494,38 +487,30 @@ class DatabaseManager:
 
         Returns:
             list of tuples: Each tuple contains the records from the specified table.
-
-        Security Considerations:
-            The table name is interpolated directly into the SQL query, which can lead to SQL injection
-            if the table name is not properly validated. Ensure that the table name is validated against
-            a whitelist of expected table names before calling this function.
         """
-        conn = mysql.connector.connect(
-            host="localhost",
-            user='root',
-            password='1234',
-            database='inventory_system'
-        )
+        conn = self._get_connection()
         c = conn.cursor()
 
-        if table=="drugs_in_inventory":
-            c.execute("""SELECT medications.name, in_inventory.barcode, in_inventory.estimated_amount_remaining, medications.expiration_date,medications.type,medications.dosage, in_inventory.location 
-                      FROM in_inventory
-                      JOIN medications ON medications.barcode=in_inventory.barcode;""")
-            result=c.fetchall()
-            # for i in range(len(result)):
-            #     result[i]=list(result[i])
-            #     new = str(result[i][5]).split()
-            #     result[i][5]=new[1]+' ' +new[2]
-            #     result[i].append(new[0])
-            #     result[i][6],result[i][7]=result[i][7],result[i][6]
-        elif table =="drug_changes":
-            c.execute("""SELECT history.barcode, medications.name,history.amnt_change,people.name,history.type_of_use,history.time_of_use,history.reason FROM history
-                      JOIN medications ON medications.barcode=history.barcode
-                      JOIN people ON people.id=history.person_id
-                      WHERE history.time_of_use >= %s and history.time_of_use <= %s
-                      ORDER BY history.time_of_use DESC;""",  ((datetime.now() + timedelta(-7)).strftime(time_format),(datetime.now()+timedelta(1)).strftime(time_format),))
-            result=c.fetchall()
+        if table == "drugs_in_inventory":
+            c.execute("""SELECT medications.name, in_inventory.barcode,
+                                in_inventory.estimated_amount_remaining,
+                                medications.expiration_date, medications.type,
+                                medications.dosage, in_inventory.location
+                         FROM in_inventory
+                         JOIN medications ON medications.barcode=in_inventory.barcode;""")
+            result = c.fetchall()
+        elif table == "drug_changes":
+            c.execute("""SELECT history.barcode, medications.name, history.amnt_change,
+                                people.name, history.type_of_use, history.time_of_use,
+                                history.reason
+                         FROM history
+                         JOIN medications ON medications.barcode=history.barcode
+                         JOIN people ON people.id=history.person_id
+                         WHERE history.time_of_use >= %s AND history.time_of_use <= %s
+                         ORDER BY history.time_of_use DESC;""",
+                      ((datetime.now() + timedelta(-7)).strftime(time_format),
+                       (datetime.now() + timedelta(1)).strftime(time_format),))
+            result = c.fetchall()
         else:
             c.execute(f"SELECT * FROM {table}")
             result = c.fetchall()
@@ -535,22 +520,26 @@ class DatabaseManager:
         
 
 class PersonalDatabaseManager:
-    def __init__(self,access_user):
+    def __init__(self, access_user):
         self.user = 'root'
         self.password = '1234'
         self.database = 'inventory_system'
         self.access_user = access_user
-        conn = mysql.connector.connect(
-            host="localhost",
-            user='root',
-            password='1234',
-            database='inventory_system'
-        )
+        conn = self._get_connection()
         c = conn.cursor()
-        c.execute("SELECT id FROM people WHERE name=%s",(access_user,))
-        self.user_id=c.fetchone()[0]
+        c.execute("SELECT id FROM people WHERE name=%s", (access_user,))
+        self.user_id = c.fetchone()[0]
         conn.close()
         #create_personal_database()
+
+    def _get_connection(self):
+        """Return a new MySQL connection using instance credentials."""
+        return mysql.connector.connect(
+            host="localhost",
+            user=self.user,
+            password=self.password,
+            database=self.database,
+        )
 
     """
     def create_personal_database(self):
@@ -573,12 +562,7 @@ class PersonalDatabaseManager:
             when_taken - when they took the medication, used to compare with prescriptions
             dose - how big of a dose they take, used to compare with prescriptions
         ""
-        conn = mysql.connector.connect(
-            host="localhost",
-            user=self.user,
-            password=self.password,
-            database=self.database
-        )
+        conn = self._get_connection()
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS prescription(
@@ -609,17 +593,14 @@ class PersonalDatabaseManager:
     """
         
     def add_prescription_med(self, barcode, dose, frequency=None, leeway=None, time=None, as_needed=True):
-        conn = mysql.connector.connect(
-            host="localhost",
-            user='root',
-            password='1234',
-            database='inventory_system'
-        )
+        """Add a prescription for the current user."""
+        conn = self._get_connection()
         c = conn.cursor()
 
-
-        c.execute("INSERT INTO prescriptions (barcode, dose, time, frequency, time, leeway, as_needed) VALUES (%s,%s,%s,%s,%s,%s,%s)", (barcode, dose, time, frequency, leeway, as_needed))
-        c.execute("INSERT INTO assigned_prescriptions (person_id,prescription_id) VALUES (%s, (SELECT MAX(id) FROM prescriptions));",(self.user_id))
+        c.execute("INSERT INTO prescriptions (barcode, dose, time, frequency, leeway, as_needed) VALUES (%s,%s,%s,%s,%s,%s)",
+                  (barcode, dose, time, frequency, leeway, as_needed))
+        c.execute("INSERT INTO assigned_prescriptions (person_id, prescription_id) VALUES (%s, (SELECT MAX(id) FROM prescriptions));",
+                  (self.user_id,))
 
 
         conn.commit()
@@ -723,12 +704,8 @@ class PersonalDatabaseManager:
     """
 
     def get_personal_data(self, date):
-        conn = mysql.connector.connect(
-            host="localhost",
-            user='root',
-            password='1234',
-            database='inventory_system'
-        )
+        """Retrieve usage history and prescriptions for this user on *date*."""
+        conn = self._get_connection()
         c = conn.cursor()
 
         c.execute("""SELECT 
@@ -841,19 +818,14 @@ class PersonalDatabaseManager:
             if the table name is not properly validated. Ensure that the table name is validated against
             a whitelist of expected table names before calling this function.
         """
-        conn = mysql.connector.connect(
-            host="localhost",
-            user='root',
-            password='1234',
-            database='inventory_system'
-        )
+        conn = self._get_connection()
         c = conn.cursor()
 
-        if table=='prescriptions':
+        if table == 'prescriptions':
             c.execute("""SELECT m.name, p.dose, p.barcode FROM prescriptions p
                   JOIN medications m ON m.barcode=p.barcode
                   JOIN assigned_prescriptions ap ON ap.prescription_id = p.id
-                  WHERE ap.person_id = %s AND p.as_needed = %s;""", (self.user_id,True,))
+                  WHERE ap.person_id = %s AND p.as_needed = %s;""", (self.user_id, True,))
             result = c.fetchall()
         else:
             c.execute(f"SELECT * FROM {table}")
@@ -865,10 +837,11 @@ class PersonalDatabaseManager:
 
 
 if __name__ == "__main__":
-    read = PersonalDatabaseManager('brody')
+    # read = PersonalDatabaseManager('brody')
     read1 = DatabaseManager()
 
-    print(read1.log_access_to_inventory('Ibuprofen',-2,'dylan'))
+    # print(read1.log_access_to_inventory('Ibuprofen',-2,'dylan'))
+    print(read1.pull_types())
 
    
     # print(read.pull_data('history'))
